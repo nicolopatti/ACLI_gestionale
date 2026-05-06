@@ -16,7 +16,7 @@ MVP del gestionale dell'associazione: anagrafica iscritti al doposcuola, iscrizi
 Crea una base `ACLI Gestionale` con queste 8 tabelle. I nomi dei campi sono in italiano (snake_case) e devono corrispondere esattamente.
 
 ### `Users`
-`email` (Email) · `password_hash` (Long text) · `nome` · `ruolo` (Single select: `admin`, `volontario_cassa`) · `attivo` (Checkbox) · `telegram_user_id` · `created_at` (Created time) · `last_login` (Date with time)
+`email` (Email) · `password_hash` (Long text) · `nome` · `ruolo` (Single select: `admin`, `volontario_cassa`) · `attivo` (Checkbox) · `telegram_user_id` · `created_at` (Created time, opzionale — vedi nota sotto) · `last_login` (Date with time)
 
 ### `Genitori`
 `nome_completo` (Formula `{nome}&" "&{cognome}`, Primary) · `nome` · `cognome` · `telefono` (Phone) · `email` (Email) · `codice_fiscale` · `note` · `bambini` (Link → Bambini, multiple)
@@ -31,7 +31,7 @@ Crea una base `ACLI Gestionale` con queste 8 tabelle. I nomi dei campi sono in i
 `codice` (Formula PK) · `iscrizione` (Link → Iscrizioni, single) · `mese_anno` (Single line, formato `YYYY-MM`) · `importo_dovuto` (Currency) · `stato_pagamento` (Single select: `non_pagato`, `parziale`, `pagato`) · `importo_pagato` (Currency) · `data_pagamento` (Date) · `mezzo_pagamento` (Single select: `Cassa`, `BCC`, `Sumup`) · `movimento_collegato` (Link → Movimenti, single, opt) · `note`
 
 ### `Presenze`
-`codice` (Formula PK `{bambino} & " " & {data}`) · `bambino` (Link → Bambini, single) · `iscrizione` (Link → Iscrizioni, single) · `data` (Date) · `presente` (Checkbox) · `note` · `registrato_da` (Link → Users) · `created_at` (Created time)
+`codice` (Formula PK `{bambino} & " " & {data}`) · `bambino` (Link → Bambini, single) · `iscrizione` (Link → Iscrizioni, single) · `data` (Date) · `presente` (Checkbox) · `note` · `registrato_da` (Link → Users) · `created_at` (Created time, opzionale — vedi nota sotto)
 
 ### `Movimenti` (replica del Google Sheet, scritta da n8n)
 `id` (Single line, Primary) · `timestamp` (Date with time) · `data_movimento` (Date) · `tipo` (Single select: `Entrata`, `Uscita`) · `importo` (Currency) · `conto` (Single select: `Cassa`, `BCC`, `Sumup`) · `categoria` (Link → Categorie, single) · `descrizione` · `volontario` · `telegram_user_id` · `stato` (Single select: `valido`, `errato`, `corretto`) · `note` · `id_correzione` · `importo_segnato` (Currency) · `synced_at` (Date with time)
@@ -58,6 +58,10 @@ Hai due alternative, scegli una:
 3. Apri il workflow [`ACLI - Bootstrap Airtable Schema`](https://eurita.app.n8n.cloud/workflow/BphNmCM5qehqdKot) (id `BphNmCM5qehqdKot`), clicca sul nodo **Config (edit me!)** e incolla `baseId` e `pat`. Premi **Execute Workflow**.
 4. Il Code node crea le 8 tabelle in ordine di dipendenza, popola le Categorie iniziali e ritorna gli id delle tabelle. Cancella i valori dal Set node dopo l'esecuzione.
 5. Per il `seed:admin` puoi ridurre lo scope della PAT (lasciando solo `data.records:r/w`) e usarla come `AIRTABLE_API_KEY` in `.env.local`.
+
+> **Nota — campi `Created time`**: i tipi computed di Airtable (`createdTime`, formule, rollup, lookup) non possono essere creati via Meta API. Il bootstrap salta quindi i campi `created_at` (Created time) di `Users` e `Presenze` e tutte le formule (`nome_completo`, `codice`); l'app li gestisce come opzionali. Se li vuoi, aggiungili a mano dall'UI dopo il bootstrap.
+>
+> **Riesecuzione**: se il workflow fallisce a metà, le tabelle gia' create restano in Airtable. Per rieseguire da capo elimina dall'UI le tabelle gia' create (l'errore segnera' `NAME_ALREADY_EXISTS`) oppure usa una nuova base vuota.
 
 **B) Manuale dall'UI Airtable**
 
