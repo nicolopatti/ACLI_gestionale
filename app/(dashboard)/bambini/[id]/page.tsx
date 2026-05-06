@@ -1,0 +1,104 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import { getBambino } from "@/lib/airtable/bambini";
+import { listGenitori } from "@/lib/airtable/genitori";
+import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BambinoForm } from "@/components/bambini/bambino-form";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { deleteBambinoAction } from "@/lib/actions/bambini";
+import { formatEur } from "@/lib/utils";
+
+export default async function BambinoDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const [bambino, genitori, iscrizioniBambino] = await Promise.all([
+    getBambino(id),
+    listGenitori(),
+    listIscrizioni({ bambinoId: id }),
+  ]);
+  if (!bambino) notFound();
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {bambino.cognome} {bambino.nome}
+        </h1>
+        {bambino.attivo ? (
+          <Badge variant="success">Iscritto</Badge>
+        ) : (
+          <Badge variant="outline">Non attivo</Badge>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Dati bambino</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BambinoForm bambino={bambino} genitori={genitori} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Iscrizioni ({iscrizioniBambino.length})</CardTitle>
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/iscrizioni/nuova?bambinoId=${bambino.recordId}`}>
+              <Plus className="h-4 w-4" /> Nuova iscrizione
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {iscrizioniBambino.length === 0 ? (
+            <p className="text-sm text-[var(--muted-foreground)]">Nessuna iscrizione.</p>
+          ) : (
+            <ul className="space-y-1">
+              {iscrizioniBambino.map((i) => (
+                <li key={i.recordId} className="flex items-center justify-between text-sm">
+                  <Link href={`/iscrizioni/${i.recordId}`} className="hover:underline">
+                    A.S. {i.annoScolastico} · {i.giorniSettimana.join(", ")} ·{" "}
+                    {formatEur(i.importoMensileDefault)}/mese
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Eliminazione</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            action={async () => {
+              "use server";
+              await deleteBambinoAction(bambino.recordId);
+            }}
+          >
+            <Button
+              variant="destructive"
+              type="submit"
+              disabled={iscrizioniBambino.length > 0}
+            >
+              Elimina bambino
+            </Button>
+            {iscrizioniBambino.length > 0 && (
+              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                Rimuovi prima le iscrizioni collegate.
+              </p>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
