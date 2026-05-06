@@ -47,6 +47,22 @@ cp .env.example .env.local
 # riempi AIRTABLE_API_KEY (PAT con scope data.records:r/w + schema.bases:r), AIRTABLE_BASE_ID, AUTH_SECRET (openssl rand -base64 32)
 ```
 
+### Provisioning della base Airtable
+
+Hai due alternative, scegli una:
+
+**A) Bootstrap automatico via n8n (consigliato — 2 minuti)**
+
+1. Crea una base vuota su Airtable e copia il `baseId` (`appXXX...`).
+2. Genera una Personal Access Token con scope `schema.bases:write`, `data.records:read`, `data.records:write` su quella base.
+3. Apri il workflow [`ACLI - Bootstrap Airtable Schema`](https://eurita.app.n8n.cloud/workflow/BphNmCM5qehqdKot) (id `BphNmCM5qehqdKot`), clicca sul nodo **Config (edit me!)** e incolla `baseId` e `pat`. Premi **Execute Workflow**.
+4. Il Code node crea le 8 tabelle in ordine di dipendenza, popola le Categorie iniziali e ritorna gli id delle tabelle. Cancella i valori dal Set node dopo l'esecuzione.
+5. Per il `seed:admin` puoi ridurre lo scope della PAT (lasciando solo `data.records:r/w`) e usarla come `AIRTABLE_API_KEY` in `.env.local`.
+
+**B) Manuale dall'UI Airtable**
+
+Crea una base `ACLI Gestionale` e ricrea le 8 tabelle e i campi descritti nella sezione "Schema Airtable" sopra. È più verboso ma utile se vuoi aggiungere subito formule (`nome_completo`, `codice`).
+
 ### Seed iniziale
 
 ```bash
