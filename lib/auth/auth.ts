@@ -19,52 +19,67 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (raw) => {
-        console.error("[login-entry] authorize() chiamata");
+        // Vercel runtime logs sembra mostrare solo il primo console.error
+        // per request: accumuliamo un trace e lo emettiamo una volta sola.
+        const trace: string[] = ["entry"];
+        const emit = (suffix: string) => {
+          console.error(`[login-trace] ${trace.join("|")}|${suffix}`);
+        };
+
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) {
-          console.error("[login] schema invalido", parsed.error.flatten());
+          emit(`schema-invalid:${JSON.stringify(parsed.error.flatten())}`);
           return null;
         }
+        trace.push("schema-ok");
         const { email, password } = parsed.data;
-        const hasAirtableEnv = Boolean(
-          process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_BASE_ID,
-        );
-        if (!hasAirtableEnv) {
-          console.error(
-            "[login] env Airtable mancanti: AIRTABLE_API_KEY o AIRTABLE_BASE_ID non sono settati",
-          );
+
+        const hasKey = Boolean(process.env.AIRTABLE_API_KEY);
+        const hasBase = Boolean(process.env.AIRTABLE_BASE_ID);
+        trace.push(`env:key=${hasKey},base=${hasBase}`);
+        if (!hasKey || !hasBase) {
+          emit("env-missing");
           return null;
         }
+
         let user;
         try {
           user = await getUserByEmail(email);
+          trace.push(user ? "user-found" : "user-null");
         } catch (err) {
-          // Mettiamo il messaggio Airtable nella prima parte della riga
-          // perché i runtime logs di Vercel troncano il "message" del log
-          // a poche decine di caratteri.
           const e = err as { error?: string; statusCode?: number; message?: string; name?: string };
-          const code = e?.error ?? e?.name ?? "ERR";
-          const status = e?.statusCode ?? "?";
-          const msg = e?.message ?? String(err);
-          console.error(`[login-airtable-err] ${code} status=${status} msg=${msg}`);
+          emit(`airtable-throw:code=${e?.error ?? e?.name ?? "ERR"},status=${e?.statusCode ?? "?"},msg=${e?.message ?? String(err)}`);
           return null;
         }
         if (!user) {
-          console.error("[login] utente non trovato", { email });
+          emit(`user-not-found:email=${email}`);
           return null;
         }
+
+        trace.push(`user.attivo=${user.attivo}`);
         if (!user.attivo) {
-          console.error("[login] utente disattivato", { email });
+          emit("user-not-active");
           return null;
         }
-        const ok = await verifyPassword(password, user.passwordHash);
+
+        trace.push(`hash.len=${user.passwordHash?.length ?? 0}`);
+        let ok = false;
+        try {
+          ok = await verifyPassword(password, user.passwordHash);
+        } catch (err) {
+          emit(`bcrypt-throw:${(err as Error)?.message ?? String(err)}`);
+          return null;
+        }
+        trace.push(`bcrypt.ok=${ok}`);
         if (!ok) {
-          console.error("[login] password errata", { email });
+          emit("bad-password");
           return null;
         }
+
         recordLogin(user.recordId).catch((err) => {
-          console.error("[login] recordLogin fallita (non bloccante)", err);
+          console.error("[login-trace] recordLogin failed:", (err as Error)?.message);
         });
+        emit("success");
         return {
           id: user.recordId,
           recordId: user.recordId,
