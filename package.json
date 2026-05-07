@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "seed:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
-    "seed:categorie": "tsx --env-file=.env.local scripts/seed-categorie.ts"
+    "seed:categorie": "tsx --env-file=.env.local scripts/seed-categorie.ts",
+    "reset-password": "tsx --env-file=.env.local scripts/reset-password.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
