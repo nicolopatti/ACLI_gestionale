@@ -19,9 +19,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (raw) => {
+        console.error("[login-entry] authorize() chiamata");
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) {
-          console.warn("[login] schema invalido", parsed.error.flatten());
+          console.error("[login] schema invalido", parsed.error.flatten());
           return null;
         }
         const { email, password } = parsed.data;
@@ -49,20 +50,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
         if (!user) {
-          console.warn("[login] utente non trovato", { email });
+          console.error("[login] utente non trovato", { email });
           return null;
         }
         if (!user.attivo) {
-          console.warn("[login] utente disattivato", { email });
+          console.error("[login] utente disattivato", { email });
           return null;
         }
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) {
-          console.warn("[login] password errata", { email });
+          console.error("[login] password errata", { email });
           return null;
         }
         recordLogin(user.recordId).catch((err) => {
-          console.warn("[login] recordLogin fallita (non bloccante)", err);
+          console.error("[login] recordLogin fallita (non bloccante)", err);
         });
         return {
           id: user.recordId,
