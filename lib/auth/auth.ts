@@ -20,14 +20,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       authorize: async (raw) => {
         const parsed = credentialsSchema.safeParse(raw);
-        if (!parsed.success) return null;
+        if (!parsed.success) {
+          console.warn("[login] schema invalido", parsed.error.flatten());
+          return null;
+        }
         const { email, password } = parsed.data;
-        const user = await getUserByEmail(email);
-        if (!user || !user.attivo) return null;
+        const hasAirtableEnv = Boolean(
+          process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_BASE_ID,
+        );
+        if (!hasAirtableEnv) {
+          console.error(
+            "[login] env Airtable mancanti: AIRTABLE_API_KEY o AIRTABLE_BASE_ID non sono settati",
+          );
+          return null;
+        }
+        let user;
+        try {
+          user = await getUserByEmail(email);
+        } catch (err) {
+          console.error("[login] getUserByEmail ha lanciato", {
+            email,
+            error: err instanceof Error ? { name: err.name, message: err.message } : err,
+          });
+          return null;
+        }
+        if (!user) {
+          console.warn("[login] utente non trovato", { email });
+          return null;
+        }
+        if (!user.attivo) {
+          console.warn("[login] utente disattivato", { email });
+          return null;
+        }
         const ok = await verifyPassword(password, user.passwordHash);
-        if (!ok) return null;
-        // fire-and-forget update last_login (non blocca il login)
-        recordLogin(user.recordId).catch(() => {});
+        if (!ok) {
+          console.warn("[login] password errata", { email });
+          return null;
+        }
+        recordLogin(user.recordId).catch((err) => {
+          console.warn("[login] recordLogin fallita (non bloccante)", err);
+        });
         return {
           id: user.recordId,
           recordId: user.recordId,

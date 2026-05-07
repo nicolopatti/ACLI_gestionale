@@ -20,6 +20,11 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
       if (error.type === "CredentialsSignin") {
         return { error: "Email o password non corretti." };
       }
+      console.error("[loginAction] AuthError", {
+        type: error.type,
+        message: error.message,
+        cause: error.cause,
+      });
       return { error: "Errore di autenticazione." };
     }
     // redirect() lancia un'eccezione che dobbiamo lasciar passare
