@@ -38,10 +38,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           user = await getUserByEmail(email);
         } catch (err) {
-          console.error("[login] getUserByEmail ha lanciato", {
-            email,
-            error: err instanceof Error ? { name: err.name, message: err.message } : err,
-          });
+          // Mettiamo il messaggio Airtable nella prima parte della riga
+          // perché i runtime logs di Vercel troncano il "message" del log
+          // a poche decine di caratteri.
+          const e = err as { error?: string; statusCode?: number; message?: string; name?: string };
+          const code = e?.error ?? e?.name ?? "ERR";
+          const status = e?.statusCode ?? "?";
+          const msg = e?.message ?? String(err);
+          console.error(`[login-airtable-err] ${code} status=${status} msg=${msg}`);
           return null;
         }
         if (!user) {
