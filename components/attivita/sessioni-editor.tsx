@@ -7,6 +7,7 @@ import {
   createSessioneAction,
   deleteSessioneAction,
 } from "@/lib/actions/sessioni";
+import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,73 +23,27 @@ interface Props {
   sessioni: Sessione[];
 }
 
-function isoWeek(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
-}
-
-function deriveChiaveEtichetta(tipo: TipoUnita, dataInizio: string): { chiave: string; etichetta: string } {
-  if (!dataInizio) return { chiave: "", etichetta: "" };
-  const d = new Date(dataInizio);
-  if (Number.isNaN(d.getTime())) return { chiave: "", etichetta: "" };
-  const giorni = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
-  const mesi = [
-    "gen", "feb", "mar", "apr", "mag", "giu",
-    "lug", "ago", "set", "ott", "nov", "dic",
-  ];
-  if (tipo === "mese") {
-    const chiave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const long = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
-    return { chiave, etichetta: `${long[d.getMonth()]} ${d.getFullYear()}` };
-  }
-  if (tipo === "giornata") {
-    const chiave = dataInizio;
-    const etichetta = `${giorni[d.getDay()]} ${d.getDate()} ${mesi[d.getMonth()]}`;
-    return { chiave, etichetta };
-  }
-  // settimana
-  const chiave = isoWeek(d);
-  const etichetta = `Settimana ${chiave}`;
-  return { chiave, etichetta };
-}
-
 export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props) {
   const [tipoUnita, setTipoUnita] = useState<TipoUnita>(defaultTipoUnita);
   const [dataInizio, setDataInizio] = useState("");
   const [dataFine, setDataFine] = useState("");
-  const [chiave, setChiave] = useState("");
-  const [etichetta, setEtichetta] = useState("");
   const [importo, setImporto] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const onDataInizioChange = (v: string) => {
-    setDataInizio(v);
-    const derived = deriveChiaveEtichetta(tipoUnita, v);
-    if (!chiave) setChiave(derived.chiave);
-    if (!etichetta) setEtichetta(derived.etichetta);
-  };
-
-  const onTipoChange = (t: TipoUnita) => {
-    setTipoUnita(t);
-    if (dataInizio) {
-      const derived = deriveChiaveEtichetta(t, dataInizio);
-      setChiave(derived.chiave);
-      setEtichetta(derived.etichetta);
-    }
-  };
+  const previewEtichetta = dataInizio
+    ? deriveChiaveEtichetta(tipoUnita, dataInizio)?.etichetta
+    : null;
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!dataInizio) {
+      setError("Inserisci la data di inizio.");
+      return;
+    }
     const fd = new FormData();
     fd.set("attivitaId", attivitaId);
     fd.set("tipoUnita", tipoUnita);
-    fd.set("chiave", chiave);
-    fd.set("etichetta", etichetta);
     fd.set("dataInizio", dataInizio);
     fd.set("dataFine", dataFine);
     if (importo) fd.set("importo", importo);
@@ -101,8 +56,6 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
       }
       setDataInizio("");
       setDataFine("");
-      setChiave("");
-      setEtichetta("");
       setImporto("");
     });
   };
@@ -127,7 +80,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
               <div className="flex flex-col">
                 <span className="font-medium">{s.etichetta}</span>
                 <span className="text-xs text-[var(--muted-foreground)]">
-                  {s.tipoUnita} · {s.chiave}
+                  {s.tipoUnita}
                   {s.dataInizio ? ` · ${formatDate(s.dataInizio)}` : ""}
                   {s.dataFine && s.dataFine !== s.dataInizio ? `–${formatDate(s.dataFine)}` : ""}
                   {s.importo !== undefined ? ` · ${formatEur(s.importo)}` : ""}
@@ -157,7 +110,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
           <select
             className={SELECT_CLASS}
             value={tipoUnita}
-            onChange={(e) => onTipoChange(e.target.value as TipoUnita)}
+            onChange={(e) => setTipoUnita(e.target.value as TipoUnita)}
           >
             {TIPI_UNITA.map((t) => (
               <option key={t} value={t}>
@@ -166,24 +119,25 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
             ))}
           </select>
         </div>
-        <div className="md:col-span-2 space-y-1">
+        <div className="md:col-span-3 space-y-1">
           <Label className="text-xs">Data inizio</Label>
-          <Input type="date" value={dataInizio} onChange={(e) => onDataInizioChange(e.target.value)} />
+          <Input
+            type="date"
+            value={dataInizio}
+            onChange={(e) => setDataInizio(e.target.value)}
+            required
+          />
         </div>
-        <div className="md:col-span-2 space-y-1">
+        <div className="md:col-span-3 space-y-1">
           <Label className="text-xs">Data fine</Label>
-          <Input type="date" value={dataFine} onChange={(e) => setDataFine(e.target.value)} />
+          <Input
+            type="date"
+            value={dataFine}
+            onChange={(e) => setDataFine(e.target.value)}
+          />
         </div>
         <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs">Chiave</Label>
-          <Input value={chiave} onChange={(e) => setChiave(e.target.value)} />
-        </div>
-        <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs">Etichetta</Label>
-          <Input value={etichetta} onChange={(e) => setEtichetta(e.target.value)} />
-        </div>
-        <div className="md:col-span-1 space-y-1">
-          <Label className="text-xs">€</Label>
+          <Label className="text-xs">Importo override (€)</Label>
           <Input
             type="number"
             step="0.01"
@@ -193,11 +147,17 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
             placeholder="default"
           />
         </div>
-        <div className="md:col-span-1 flex items-end">
-          <Button type="submit" disabled={isPending}>
+        <div className="md:col-span-2 flex items-end">
+          <Button type="submit" disabled={isPending} className="w-full">
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Aggiungi
           </Button>
         </div>
+        {previewEtichetta && (
+          <p className="md:col-span-12 text-xs text-[var(--muted-foreground)]">
+            Verrà creata: <strong>{previewEtichetta}</strong>
+          </p>
+        )}
         {error && (
           <p className="md:col-span-12 text-sm text-[var(--destructive)]">{error}</p>
         )}

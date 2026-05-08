@@ -35,42 +35,55 @@ export default async function BambiniPage() {
                 <TableHead>Genitore</TableHead>
                 <TableHead>Telefono</TableHead>
                 <TableHead>Classe</TableHead>
+                <TableHead>Iscrizioni</TableHead>
                 <TableHead>Stato</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bambini.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-[var(--muted-foreground)] py-8">
+                  <TableCell colSpan={6} className="text-center text-[var(--muted-foreground)] py-8">
                     Nessun bambino registrato.
                   </TableCell>
                 </TableRow>
               ) : (
-                bambini.map((b) => (
-                  <TableRow key={b.recordId}>
-                    <TableCell>
-                      <Link href={`/bambini/${b.recordId}`} className="font-medium hover:underline">
-                        {b.cognome} {b.nome}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {b.cognomeGenitore || b.nomeGenitore
-                        ? `${b.cognomeGenitore} ${b.nomeGenitore}`.trim()
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{b.telefonoGenitore ?? "—"}</TableCell>
-                    <TableCell>
-                      {b.classe ?? "—"} {b.scuola ? `· ${b.scuola}` : ""}
-                    </TableCell>
-                    <TableCell>
-                      {b.attivo ? (
-                        <Badge variant="success">Iscritto</Badge>
-                      ) : (
-                        <Badge variant="outline">Non attivo</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                bambini.map((b) => {
+                  const numIscrizioni = b.iscrizioniIds.length;
+                  return (
+                    <TableRow key={b.recordId}>
+                      <TableCell>
+                        <Link href={`/bambini/${b.recordId}`} className="font-medium hover:underline">
+                          {b.cognome} {b.nome}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {b.cognomeGenitore || b.nomeGenitore
+                          ? `${b.cognomeGenitore} ${b.nomeGenitore}`.trim()
+                          : "—"}
+                      </TableCell>
+                      <TableCell>{b.telefonoGenitore ?? "—"}</TableCell>
+                      <TableCell>
+                        {b.classe ?? "—"} {b.scuola ? `· ${b.scuola}` : ""}
+                      </TableCell>
+                      <TableCell>
+                        {numIscrizioni > 0 ? (
+                          <Badge variant="success">
+                            {numIscrizioni} iscritt{numIscrizioni === 1 ? "a" : "e"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Solo anagrafica</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {b.attivo ? (
+                          <Badge variant="outline">Attivo</Badge>
+                        ) : (
+                          <Badge variant="outline">Archiviato</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

@@ -34,11 +34,14 @@ export default async function BambinoDetailPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           {bambino.cognome} {bambino.nome}
         </h1>
-        {bambino.attivo ? (
-          <Badge variant="success">Iscritto</Badge>
+        {iscrizioniBambino.length > 0 ? (
+          <Badge variant="success">
+            {iscrizioniBambino.length} iscrizion{iscrizioniBambino.length === 1 ? "e" : "i"}
+          </Badge>
         ) : (
-          <Badge variant="outline">Non attivo</Badge>
+          <Badge variant="outline">Solo anagrafica</Badge>
         )}
+        {!bambino.attivo && <Badge variant="outline">Archiviato</Badge>}
       </div>
 
       <Card>

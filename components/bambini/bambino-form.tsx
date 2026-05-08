@@ -134,7 +134,7 @@ export function BambinoForm({ bambino, bambini, contatti }: Props) {
               value="true"
             />
             <Label htmlFor="attivo" className="cursor-pointer">
-              Iscritto attualmente
+              Anagrafica attiva (deseleziona per archiviare)
             </Label>
           </div>
         </div>

@@ -15,6 +15,7 @@ import {
   updateAttivita,
 } from "@/lib/airtable/attivita";
 import { createSessioniBatch } from "@/lib/airtable/sessioni";
+import { primoEUltimoGiornoDelMese } from "@/lib/sessioni-utils";
 
 async function requireAdmin() {
   const session = await auth();
@@ -38,14 +39,6 @@ function parseAttivitaForm(formData: FormData) {
       formData.get("autoGeneraSessioniMensili") === "on" ||
       formData.get("autoGeneraSessioniMensili") === "true",
   };
-}
-
-function primoEUltimoGiornoDelMese(meseAnno: string): { dataInizio: string; dataFine: string } {
-  const [y, m] = meseAnno.split("-").map((s) => parseInt(s, 10));
-  const inizio = `${y}-${String(m).padStart(2, "0")}-01`;
-  const ultimoGiorno = new Date(y, m, 0).getDate();
-  const fine = `${y}-${String(m).padStart(2, "0")}-${String(ultimoGiorno).padStart(2, "0")}`;
-  return { dataInizio: inizio, dataFine: fine };
 }
 
 export async function createAttivitaAction(_prev: unknown, formData: FormData) {
