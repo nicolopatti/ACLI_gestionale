@@ -1,31 +1,44 @@
-import { base, TABLE_NAMES } from "./client";
+import type Airtable from "airtable";
+import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { Iscrizione } from "./types";
-import type { GiornoSettimana } from "@/lib/config";
+import type { FasciaOraria, GiornoSettimana } from "@/lib/config";
+
+type Fields = Partial<Airtable.FieldSet>;
 
 function mapIscrizione(record: { id: string; fields: Record<string, unknown> }): Iscrizione {
   const f = record.fields;
   const bambinoLink = (f.bambino as string[] | undefined) ?? [];
+  const attivitaLink = (f.attivita as string[] | undefined) ?? [];
   return {
     recordId: record.id,
     codice: (f.codice as string) ?? "",
     bambinoId: bambinoLink[0] ?? "",
+    attivitaId: attivitaLink[0] ?? "",
     annoScolastico: (f.anno_scolastico as string) ?? "",
     dataIscrizione: (f.data_iscrizione as string) ?? undefined,
     giorniSettimana: ((f.giorni_settimana as GiornoSettimana[]) ?? []) as GiornoSettimana[],
-    importoMensileDefault: Number((f.importo_mensile_default as number) ?? 0),
+    fasceOrarie: ((f.fasce_orarie as FasciaOraria[]) ?? []) as FasciaOraria[],
+    sessioniSelteIds: ((f.sessioni_scelte as string[]) ?? []) as string[],
     note: (f.note as string) ?? undefined,
-    mesiIds: ((f.mesi as string[]) ?? []) as string[],
+    rateIds: ((f.MesiIscrizione as string[]) ?? []) as string[],
   };
 }
 
-export async function listIscrizioni(opts?: { bambinoId?: string }): Promise<Iscrizione[]> {
+export async function listIscrizioni(opts?: {
+  bambinoId?: string;
+  attivitaId?: string;
+}): Promise<Iscrizione[]> {
   if (!base) return [];
+  const conds: string[] = [];
+  if (opts?.bambinoId) conds.push(`FIND('${opts.bambinoId}', ARRAYJOIN({bambino}))`);
+  if (opts?.attivitaId) conds.push(`FIND('${opts.attivitaId}', ARRAYJOIN({attivita}))`);
+  const filterByFormula =
+    conds.length === 0 ? undefined : conds.length === 1 ? conds[0] : `AND(${conds.join(", ")})`;
+
   const records = await base(TABLE_NAMES.iscrizioni)
     .select({
-      sort: [{ field: "anno_scolastico", direction: "desc" }],
-      ...(opts?.bambinoId
-        ? { filterByFormula: `FIND('${opts.bambinoId}', ARRAYJOIN({bambino}))` }
-        : {}),
+      sort: [{ field: "data_iscrizione", direction: "desc" }],
+      ...(filterByFormula ? { filterByFormula } : {}),
     })
     .all();
   return records.map((r) => mapIscrizione({ id: r.id, fields: r.fields }));
@@ -41,43 +54,70 @@ export async function getIscrizione(recordId: string): Promise<Iscrizione | null
   }
 }
 
-export async function createIscrizione(input: {
+/**
+ * Iscrizioni che hanno almeno una rata con `chiave_periodo` uguale al mese corrente.
+ * Lookup-based: prima cerca le rate del mese, poi raccoglie gli iscrizioneId.
+ */
+export async function listIscrizioniPerChiavePeriodo(chiave: string): Promise<Iscrizione[]> {
+  if (!base) return [];
+  const rateRecords = await base(TABLE_NAMES.mesi)
+    .select({
+      filterByFormula: `{chiave_periodo} = '${escapeFormulaString(chiave)}'`,
+      fields: ["iscrizione"],
+    })
+    .all();
+  const iscrizioneIds = new Set<string>();
+  for (const r of rateRecords) {
+    const link = (r.fields.iscrizione as string[] | undefined) ?? [];
+    if (link[0]) iscrizioneIds.add(link[0]);
+  }
+  if (iscrizioneIds.size === 0) return [];
+  const ids = Array.from(iscrizioneIds);
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
+  const records = await base(TABLE_NAMES.iscrizioni).select({ filterByFormula }).all();
+  return records.map((r) => mapIscrizione({ id: r.id, fields: r.fields }));
+}
+
+export type IscrizioneInput = {
   bambinoId: string;
+  attivitaId: string;
   annoScolastico: string;
   dataIscrizione?: string;
   giorniSettimana: GiornoSettimana[];
-  importoMensileDefault: number;
+  fasceOrarie: FasciaOraria[];
+  sessioniSelteIds: string[];
   note?: string;
-}): Promise<Iscrizione> {
+};
+
+function iscrizioneFields(input: IscrizioneInput): Fields {
+  return {
+    bambino: [input.bambinoId],
+    attivita: [input.attivitaId],
+    anno_scolastico: input.annoScolastico,
+    giorni_settimana: input.giorniSettimana,
+    fasce_orarie: input.fasceOrarie,
+    sessioni_scelte: input.sessioniSelteIds,
+    ...(input.dataIscrizione ? { data_iscrizione: input.dataIscrizione } : {}),
+    ...(input.note ? { note: input.note } : {}),
+  };
+}
+
+export async function createIscrizione(input: IscrizioneInput): Promise<Iscrizione> {
   if (!base) throw new Error("Airtable client non configurato");
   const created = await base(TABLE_NAMES.iscrizioni).create([
-    {
-      fields: {
-        bambino: [input.bambinoId],
-        anno_scolastico: input.annoScolastico,
-        giorni_settimana: input.giorniSettimana,
-        importo_mensile_default: input.importoMensileDefault,
-        ...(input.dataIscrizione ? { data_iscrizione: input.dataIscrizione } : {}),
-        ...(input.note ? { note: input.note } : {}),
-      },
-    },
+    { fields: iscrizioneFields(input) },
   ]);
   return mapIscrizione({ id: created[0].id, fields: created[0].fields });
 }
 
 export async function updateIscrizione(
   recordId: string,
-  fields: Partial<{
-    bambino: string[];
-    anno_scolastico: string;
-    data_iscrizione: string;
-    giorni_settimana: GiornoSettimana[];
-    importo_mensile_default: number;
-    note: string;
-  }>,
+  input: IscrizioneInput,
 ): Promise<Iscrizione> {
   if (!base) throw new Error("Airtable client non configurato");
-  const updated = await base(TABLE_NAMES.iscrizioni).update([{ id: recordId, fields }]);
+  const updated = await base(TABLE_NAMES.iscrizioni).update([
+    { id: recordId, fields: iscrizioneFields(input) },
+  ]);
   return mapIscrizione({ id: updated[0].id, fields: updated[0].fields });
 }
 

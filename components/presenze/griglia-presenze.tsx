@@ -6,6 +6,7 @@ import { salvaPresenzeAction } from "@/lib/actions/presenze";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -15,51 +16,66 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Bambino, Iscrizione, Presenza } from "@/lib/airtable/types";
-import type { GiornoSettimana } from "@/lib/config";
+import type { Attivita, Bambino, Iscrizione, Presenza } from "@/lib/airtable/types";
 
-const GIORNO_DA_DATE: Record<number, GiornoSettimana | null> = {
-  0: null, // domenica
-  1: "lun",
-  2: "mar",
-  3: "mer",
-  4: "gio",
-  5: "ven",
-  6: null, // sabato
-};
-
-interface BambinoConIscrizione {
+interface CandidatoPresenza {
   bambino: Bambino;
-  iscrizione?: Iscrizione;
+  iscrizione: Iscrizione;
+  sessioneId?: string;
+  sessioneEtichetta?: string;
 }
 
 interface Props {
   data: string;
-  bambiniIscritti: BambinoConIscrizione[];
+  attivitaId: string;
+  attivita: Attivita[];
+  candidati: CandidatoPresenza[];
   presenzeEsistenti: Presenza[];
 }
 
-export function GrigliaPresenze({ data, bambiniIscritti, presenzeEsistenti }: Props) {
-  const router = typeof window !== "undefined" ? null : null;
+export function GrigliaPresenze({
+  data,
+  attivitaId,
+  attivita,
+  candidati,
+  presenzeEsistenti,
+}: Props) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [date, setDate] = useState(data);
+  const [attivitaSel, setAttivitaSel] = useState(attivitaId);
 
-  const giorno = GIORNO_DA_DATE[new Date(date).getDay()];
-
-  const candidati = bambiniIscritti.filter((bi) => {
-    if (!giorno) return false;
-    return bi.iscrizione?.giorniSettimana.includes(giorno) ?? false;
-  });
-
-  const presenzeMap = new Map<string, boolean>(
-    presenzeEsistenti.map((p) => [p.bambinoId, p.presente] as const),
+  const presenzeMap = new Map<string, Presenza>(
+    presenzeEsistenti.map((p) => [p.bambinoId, p] as const),
   );
+
+  const reload = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("data", date);
+    if (attivitaSel) url.searchParams.set("attivitaId", attivitaSel);
+    window.location.href = url.toString();
+  };
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="flex items-end gap-3 p-4">
+        <CardContent className="flex flex-wrap items-end gap-3 p-4">
+          <div className="space-y-1">
+            <Label htmlFor="attivita-presenze">Attività</Label>
+            <select
+              id="attivita-presenze"
+              value={attivitaSel}
+              onChange={(e) => setAttivitaSel(e.target.value)}
+              className="flex h-9 rounded-md border border-[var(--border)] bg-transparent px-3 text-sm shadow-sm"
+            >
+              <option value="">— Tutte —</option>
+              {attivita.map((a) => (
+                <option key={a.recordId} value={a.recordId}>
+                  {a.nome} ({a.tipo})
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="space-y-1">
             <Label htmlFor="data-presenze">Data</Label>
             <Input
@@ -69,21 +85,9 @@ export function GrigliaPresenze({ data, bambiniIscritti, presenzeEsistenti }: Pr
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const url = new URL(window.location.href);
-              url.searchParams.set("data", date);
-              window.location.href = url.toString();
-            }}
-          >
-            Aggiorna giorno
+          <Button variant="outline" onClick={reload}>
+            Aggiorna
           </Button>
-          {!giorno && (
-            <p className="text-sm text-[var(--muted-foreground)] ml-auto">
-              Sabato o domenica: nessuna lezione.
-            </p>
-          )}
         </CardContent>
       </Card>
 
@@ -97,48 +101,74 @@ export function GrigliaPresenze({ data, bambiniIscritti, presenzeEsistenti }: Pr
         }
       >
         <input type="hidden" name="data" value={date} />
+        <input type="hidden" name="attivitaId" value={attivitaSel} />
         <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12"></TableHead>
                   <TableHead>Bambino</TableHead>
-                  <TableHead>Anno</TableHead>
+                  <TableHead>Sessione</TableHead>
+                  <TableHead>Fasce</TableHead>
+                  <TableHead className="w-32">Ingresso</TableHead>
+                  <TableHead className="w-32">Uscita</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {candidati.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="py-6 text-center text-[var(--muted-foreground)]">
-                      Nessun bambino iscritto previsto per questo giorno.
+                    <TableCell colSpan={5} className="py-6 text-center text-[var(--muted-foreground)]">
+                      Nessun bambino iscritto previsto per questa data.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  candidati.map(({ bambino, iscrizione }) => (
-                    <TableRow key={bambino.recordId}>
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          name="presenti"
-                          value={bambino.recordId}
-                          defaultChecked={presenzeMap.get(bambino.recordId) ?? false}
-                          className="h-4 w-4"
-                        />
-                        <input
-                          type="hidden"
-                          name="candidati"
-                          value={`${bambino.recordId}|${iscrizione?.recordId ?? ""}`}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {bambino.cognome} {bambino.nome}
-                      </TableCell>
-                      <TableCell className="text-[var(--muted-foreground)]">
-                        {iscrizione?.annoScolastico ?? "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  candidati.map(({ bambino, iscrizione, sessioneId, sessioneEtichetta }) => {
+                    const existing = presenzeMap.get(bambino.recordId);
+                    return (
+                      <TableRow key={bambino.recordId}>
+                        <TableCell className="font-medium">
+                          {bambino.cognome} {bambino.nome}
+                        </TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">
+                          {sessioneEtichetta ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          {iscrizione.fasceOrarie.length > 0 ? (
+                            <div className="flex gap-1">
+                              {iscrizione.fasceOrarie.map((f) => (
+                                <Badge key={f} variant="outline" className="text-xs">
+                                  {f}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            type="time"
+                            name={`oraIngresso_${bambino.recordId}`}
+                            defaultValue={existing?.oraIngresso ?? ""}
+                            className="h-9 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm"
+                          />
+                          <input
+                            type="hidden"
+                            name="candidati"
+                            value={`${bambino.recordId}|${sessioneId ?? ""}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            type="time"
+                            name={`oraUscita_${bambino.recordId}`}
+                            defaultValue={existing?.oraUscita ?? ""}
+                            className="h-9 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -150,6 +180,9 @@ export function GrigliaPresenze({ data, bambiniIscritti, presenzeEsistenti }: Pr
             Salva presenze
           </Button>
           {message && <p className="text-sm">{message}</p>}
+          <p className="text-xs text-[var(--muted-foreground)] ml-auto">
+            Lascia vuoti entrambi gli orari per registrare un&apos;assenza.
+          </p>
         </div>
       </form>
     </div>

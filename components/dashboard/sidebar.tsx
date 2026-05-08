@@ -6,9 +6,9 @@ import {
   Banknote,
   Baby,
   CalendarCheck,
+  CalendarRange,
   GraduationCap,
   LayoutDashboard,
-  Users,
   UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, ruoli: ["admin", "volontario_cassa"] },
   { href: "/bambini", label: "Bambini", icon: Baby, ruoli: ["admin"] },
-  { href: "/genitori", label: "Genitori", icon: Users, ruoli: ["admin"] },
+  { href: "/attivita", label: "Attività", icon: CalendarRange, ruoli: ["admin"] },
   { href: "/iscrizioni", label: "Iscrizioni", icon: GraduationCap, ruoli: ["admin"] },
   { href: "/presenze", label: "Presenze", icon: CalendarCheck, ruoli: ["admin"] },
   { href: "/cassa", label: "Cassa", icon: Banknote, ruoli: ["admin", "volontario_cassa"] },

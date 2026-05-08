@@ -1,15 +1,19 @@
 import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { MeseIscrizione } from "./types";
-import type { MezzoPagamento, StatoPagamento } from "@/lib/config";
+import type { MezzoPagamento, StatoPagamento, TipoUnita } from "@/lib/config";
 
 function mapMese(record: { id: string; fields: Record<string, unknown> }): MeseIscrizione {
   const f = record.fields;
   const iscrLink = (f.iscrizione as string[] | undefined) ?? [];
+  const sessLink = (f.sessione as string[] | undefined) ?? [];
   const movLink = (f.movimento_collegato as string[] | undefined) ?? [];
   return {
     recordId: record.id,
     codice: (f.codice as string) ?? "",
     iscrizioneId: iscrLink[0] ?? "",
+    sessioneId: sessLink[0],
+    tipoUnita: (f.tipo_unita as TipoUnita) ?? undefined,
+    chiavePeriodo: (f.chiave_periodo as string) ?? undefined,
     meseAnno: (f.mese_anno as string) ?? "",
     importoDovuto: Number((f.importo_dovuto as number) ?? 0),
     statoPagamento: ((f.stato_pagamento as StatoPagamento) ?? "non_pagato"),
@@ -26,17 +30,17 @@ export async function listMesiByIscrizione(iscrizioneId: string): Promise<MeseIs
   const records = await base(TABLE_NAMES.mesi)
     .select({
       filterByFormula: `FIND('${iscrizioneId}', ARRAYJOIN({iscrizione}))`,
-      sort: [{ field: "mese_anno", direction: "asc" }],
+      sort: [{ field: "chiave_periodo", direction: "asc" }],
     })
     .all();
   return records.map((r) => mapMese({ id: r.id, fields: r.fields }));
 }
 
-export async function listMesiByMese(meseAnno: string): Promise<MeseIscrizione[]> {
+export async function listMesiByChiavePeriodo(chiave: string): Promise<MeseIscrizione[]> {
   if (!base) return [];
   const records = await base(TABLE_NAMES.mesi)
     .select({
-      filterByFormula: `{mese_anno} = '${escapeFormulaString(meseAnno)}'`,
+      filterByFormula: `{chiave_periodo} = '${escapeFormulaString(chiave)}'`,
     })
     .all();
   return records.map((r) => mapMese({ id: r.id, fields: r.fields }));
@@ -55,11 +59,15 @@ export async function getMese(recordId: string): Promise<MeseIscrizione | null> 
 export async function createMesi(
   input: Array<{
     iscrizioneId: string;
-    meseAnno: string;
+    sessioneId: string;
+    tipoUnita: TipoUnita;
+    chiavePeriodo: string;
     importoDovuto: number;
+    meseAnno?: string;
   }>,
 ): Promise<MeseIscrizione[]> {
   if (!base) throw new Error("Airtable client non configurato");
+  if (input.length === 0) return [];
   const created: MeseIscrizione[] = [];
   // Airtable consente max 10 record per chiamata create
   for (let i = 0; i < input.length; i += 10) {
@@ -68,9 +76,12 @@ export async function createMesi(
       batch.map((m) => ({
         fields: {
           iscrizione: [m.iscrizioneId],
-          mese_anno: m.meseAnno,
+          sessione: [m.sessioneId],
+          tipo_unita: m.tipoUnita,
+          chiave_periodo: m.chiavePeriodo,
           importo_dovuto: m.importoDovuto,
           stato_pagamento: "non_pagato",
+          ...(m.meseAnno ? { mese_anno: m.meseAnno } : {}),
         },
       })),
     );
@@ -96,13 +107,46 @@ export async function updateMese(
   return mapMese({ id: updated[0].id, fields: updated[0].fields });
 }
 
-export async function countMesiNonPagati(meseAnno: string): Promise<number> {
+export async function countMesiNonPagati(chiavePeriodo: string): Promise<number> {
   if (!base) return 0;
   const records = await base(TABLE_NAMES.mesi)
     .select({
-      filterByFormula: `AND({mese_anno} = '${escapeFormulaString(meseAnno)}', {stato_pagamento} != 'pagato')`,
-      fields: ["mese_anno"],
+      filterByFormula: `AND({chiave_periodo} = '${escapeFormulaString(chiavePeriodo)}', {stato_pagamento} != 'pagato')`,
+      fields: ["chiave_periodo"],
     })
     .all();
   return records.length;
+}
+
+export async function deleteRateBySessioneEIscrizione(
+  iscrizioneId: string,
+  sessioneId: string,
+): Promise<number> {
+  if (!base) return 0;
+  const records = await base(TABLE_NAMES.mesi)
+    .select({
+      filterByFormula: `AND(FIND('${iscrizioneId}', ARRAYJOIN({iscrizione})), FIND('${sessioneId}', ARRAYJOIN({sessione})))`,
+      fields: ["codice"],
+    })
+    .all();
+  const ids = records.map((r) => r.id);
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.mesi).destroy(ids.slice(i, i + 10));
+  }
+  return ids.length;
+}
+
+export async function hasRataPagataForSessione(
+  iscrizioneId: string,
+  sessioneId: string,
+): Promise<boolean> {
+  if (!base) return false;
+  const records = await base(TABLE_NAMES.mesi)
+    .select({
+      filterByFormula: `AND(FIND('${iscrizioneId}', ARRAYJOIN({iscrizione})), FIND('${sessioneId}', ARRAYJOIN({sessione})), OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale'))`,
+      fields: ["stato_pagamento"],
+      maxRecords: 1,
+    })
+    .all();
+  return records.length > 0;
 }

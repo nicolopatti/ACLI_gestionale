@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { upsertPresenze } from "@/lib/airtable/presenze";
+import { presenzeBatchSchema } from "@/lib/validations/presenza";
 
 async function requireAdmin() {
   const session = await auth();
@@ -13,21 +14,41 @@ async function requireAdmin() {
 export async function salvaPresenzeAction(formData: FormData) {
   const session = await requireAdmin();
   const data = String(formData.get("data") ?? "");
-  if (!data) return { error: "Data mancante" };
-  const presentiSet = new Set(formData.getAll("presenti").map(String));
+  const attivitaId = String(formData.get("attivitaId") ?? "");
 
-  // Tutte le coppie bambinoId|iscrizioneId arrivano nascoste come "candidati[]"
+  // Tutte le coppie bambinoId|sessioneId arrivano nascoste come "candidati[]"
   const candidati = formData.getAll("candidati").map(String);
-  const input = candidati.map((c) => {
-    const [bambinoId, iscrizioneId] = c.split("|");
+  const righe = candidati.map((c) => {
+    const [bambinoId, sessioneId] = c.split("|");
     return {
       bambinoId,
-      iscrizioneId: iscrizioneId || undefined,
-      data,
-      presente: presentiSet.has(bambinoId),
-      registratoDaId: session.user?.recordId,
+      sessioneId: sessioneId || "",
+      oraIngresso: String(formData.get(`oraIngresso_${bambinoId}`) ?? "").trim(),
+      oraUscita: String(formData.get(`oraUscita_${bambinoId}`) ?? "").trim(),
     };
   });
+
+  const parsed = presenzeBatchSchema.safeParse({
+    data,
+    attivitaId,
+    righe: righe.map(({ bambinoId, oraIngresso, oraUscita }) => ({
+      bambinoId,
+      oraIngresso: oraIngresso || "",
+      oraUscita: oraUscita || "",
+    })),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+  }
+
+  const input = righe.map((r) => ({
+    bambinoId: r.bambinoId,
+    sessioneId: r.sessioneId || undefined,
+    data,
+    oraIngresso: r.oraIngresso || undefined,
+    oraUscita: r.oraUscita || undefined,
+    registratoDaId: session.user?.recordId,
+  }));
   await upsertPresenze(input);
   revalidatePath("/presenze");
   return { ok: true };

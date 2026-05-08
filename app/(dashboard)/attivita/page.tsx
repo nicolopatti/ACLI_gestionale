@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { listBambini } from "@/lib/airtable/bambini";
+import { listAttivita } from "@/lib/airtable/attivita";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,17 +12,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatDate, formatEur } from "@/lib/utils";
 
-export default async function BambiniPage() {
-  const bambini = await listBambini();
+export default async function AttivitaPage() {
+  const attivita = await listAttivita();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Bambini</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Attività</h1>
         <Button asChild>
-          <Link href="/bambini/nuovo">
-            <Plus className="h-4 w-4" /> Nuovo
+          <Link href="/attivita/nuova">
+            <Plus className="h-4 w-4" /> Nuova
           </Link>
         </Button>
       </div>
@@ -32,41 +33,41 @@ export default async function BambiniPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Genitore</TableHead>
-                <TableHead>Telefono</TableHead>
-                <TableHead>Classe</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Periodo</TableHead>
+                <TableHead>Importo</TableHead>
                 <TableHead>Stato</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bambini.length === 0 ? (
+              {attivita.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-[var(--muted-foreground)] py-8">
-                    Nessun bambino registrato.
+                    Nessuna attività configurata.
                   </TableCell>
                 </TableRow>
               ) : (
-                bambini.map((b) => (
-                  <TableRow key={b.recordId}>
+                attivita.map((a) => (
+                  <TableRow key={a.recordId}>
                     <TableCell>
-                      <Link href={`/bambini/${b.recordId}`} className="font-medium hover:underline">
-                        {b.cognome} {b.nome}
+                      <Link href={`/attivita/${a.recordId}`} className="font-medium hover:underline">
+                        {a.nome}
                       </Link>
                     </TableCell>
                     <TableCell>
-                      {b.cognomeGenitore || b.nomeGenitore
-                        ? `${b.cognomeGenitore} ${b.nomeGenitore}`.trim()
-                        : "—"}
+                      <Badge variant="outline">{a.tipo}</Badge>
                     </TableCell>
-                    <TableCell>{b.telefonoGenitore ?? "—"}</TableCell>
-                    <TableCell>
-                      {b.classe ?? "—"} {b.scuola ? `· ${b.scuola}` : ""}
+                    <TableCell className="text-sm text-[var(--muted-foreground)]">
+                      {a.tipo === "doposcuola"
+                        ? `A.S. ${a.annoScolastico ?? "—"}`
+                        : `${formatDate(a.dataInizio)} → ${formatDate(a.dataFine)}`}
                     </TableCell>
+                    <TableCell>{formatEur(a.importoDefault)}</TableCell>
                     <TableCell>
-                      {b.attivo ? (
-                        <Badge variant="success">Iscritto</Badge>
+                      {a.attivo ? (
+                        <Badge variant="success">Attiva</Badge>
                       ) : (
-                        <Badge variant="outline">Non attivo</Badge>
+                        <Badge variant="outline">Archiviata</Badge>
                       )}
                     </TableCell>
                   </TableRow>

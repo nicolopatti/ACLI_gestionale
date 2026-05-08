@@ -1,19 +1,17 @@
 import { z } from "zod";
-import { GIORNI_SETTIMANA } from "@/lib/config";
+import { FASCE_ORARIE, GIORNI_SETTIMANA } from "@/lib/config";
 
 const giornoEnum = z.enum(GIORNI_SETTIMANA);
+const fasciaEnum = z.enum(FASCE_ORARIE);
 
 export const iscrizioneSchema = z.object({
   bambinoId: z.string().trim().min(1, "Bambino obbligatorio"),
-  annoScolastico: z
-    .string()
-    .regex(/^\d{4}-\d{4}$/, "Formato anno: YYYY-YYYY"),
-  dataIscrizione: z.string().trim().optional(),
-  giorniSettimana: z
-    .array(giornoEnum)
-    .min(1, "Seleziona almeno un giorno"),
-  importoMensileDefault: z.coerce.number().nonnegative("Importo non negativo"),
-  note: z.string().trim().optional(),
+  attivitaId: z.string().trim().min(1, "Attività obbligatoria"),
+  dataIscrizione: z.string().trim().optional().or(z.literal("")),
+  sessioniSelteIds: z.array(z.string().min(1)).min(1, "Seleziona almeno una sessione"),
+  giorniSettimana: z.array(giornoEnum).default([]),
+  fasceOrarie: z.array(fasciaEnum).default([]),
+  note: z.string().trim().optional().or(z.literal("")),
 });
 
 export type IscrizioneInput = z.infer<typeof iscrizioneSchema>;

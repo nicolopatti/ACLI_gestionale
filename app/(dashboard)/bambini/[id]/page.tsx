@@ -1,15 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { getBambino } from "@/lib/airtable/bambini";
-import { listGenitori } from "@/lib/airtable/genitori";
+import { getBambino, listBambini } from "@/lib/airtable/bambini";
 import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { listContattiByBambino } from "@/lib/airtable/contatti-aggiuntivi";
+import { listAttivita } from "@/lib/airtable/attivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BambinoForm } from "@/components/bambini/bambino-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { deleteBambinoAction } from "@/lib/actions/bambini";
-import { formatEur } from "@/lib/utils";
 
 export default async function BambinoDetailPage({
   params,
@@ -17,12 +17,16 @@ export default async function BambinoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [bambino, genitori, iscrizioniBambino] = await Promise.all([
+  const [bambino, bambini, iscrizioniBambino, contatti, attivita] = await Promise.all([
     getBambino(id),
-    listGenitori(),
+    listBambini(),
     listIscrizioni({ bambinoId: id }),
+    listContattiByBambino(id),
+    listAttivita(),
   ]);
   if (!bambino) notFound();
+
+  const attivitaById = new Map(attivita.map((a) => [a.recordId, a] as const));
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -39,10 +43,10 @@ export default async function BambinoDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Dati bambino</CardTitle>
+          <CardTitle>Anagrafica</CardTitle>
         </CardHeader>
         <CardContent>
-          <BambinoForm bambino={bambino} genitori={genitori} />
+          <BambinoForm bambino={bambino} bambini={bambini} contatti={contatti} />
         </CardContent>
       </Card>
 
@@ -60,14 +64,19 @@ export default async function BambinoDetailPage({
             <p className="text-sm text-[var(--muted-foreground)]">Nessuna iscrizione.</p>
           ) : (
             <ul className="space-y-1">
-              {iscrizioniBambino.map((i) => (
-                <li key={i.recordId} className="flex items-center justify-between text-sm">
-                  <Link href={`/iscrizioni/${i.recordId}`} className="hover:underline">
-                    A.S. {i.annoScolastico} · {i.giorniSettimana.join(", ")} ·{" "}
-                    {formatEur(i.importoMensileDefault)}/mese
-                  </Link>
-                </li>
-              ))}
+              {iscrizioniBambino.map((i) => {
+                const a = attivitaById.get(i.attivitaId);
+                return (
+                  <li key={i.recordId} className="flex items-center justify-between text-sm">
+                    <Link href={`/iscrizioni/${i.recordId}`} className="hover:underline">
+                      {a?.nome ?? "Attività"} · {i.sessioniSelteIds.length} sessioni
+                      {i.giorniSettimana.length > 0
+                        ? ` · ${i.giorniSettimana.join(", ")}`
+                        : ""}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>

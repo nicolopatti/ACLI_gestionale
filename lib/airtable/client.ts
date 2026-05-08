@@ -21,11 +21,13 @@ export function escapeFormulaString(value: string): string {
 
 export const TABLE_NAMES = {
   users: "Users",
-  genitori: "Genitori",
   bambini: "Bambini",
   iscrizioni: "Iscrizioni",
   mesi: "MesiIscrizione",
   presenze: "Presenze",
   movimenti: "Movimenti",
   categorie: "Categorie",
+  attivita: "Attivita",
+  sessioni: "Sessioni",
+  contattiAggiuntivi: "ContattiAggiuntivi",
 } as const;

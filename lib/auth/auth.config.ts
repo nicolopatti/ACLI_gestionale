@@ -26,7 +26,7 @@ export const authConfig = {
       const ruolo = auth?.user?.ruolo;
       const adminOnly = [
         "/bambini",
-        "/genitori",
+        "/attivita",
         "/iscrizioni",
         "/presenze",
         "/utenti",

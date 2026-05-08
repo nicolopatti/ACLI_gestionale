@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listBambini } from "@/lib/airtable/bambini";
 import { listPresenzeByBambino } from "@/lib/airtable/presenze";
+import { presenzaAssente } from "@/lib/airtable/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -66,6 +67,8 @@ export default async function StoricoPresenzePage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
+                  <TableHead>Ingresso</TableHead>
+                  <TableHead>Uscita</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Note</TableHead>
                 </TableRow>
@@ -73,7 +76,7 @@ export default async function StoricoPresenzePage({
               <TableBody>
                 {presenze.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-6 text-[var(--muted-foreground)]">
+                    <TableCell colSpan={5} className="text-center py-6 text-[var(--muted-foreground)]">
                       Nessuna presenza registrata.
                     </TableCell>
                   </TableRow>
@@ -81,11 +84,13 @@ export default async function StoricoPresenzePage({
                   presenze.map((p) => (
                     <TableRow key={p.recordId}>
                       <TableCell>{formatDate(p.data)}</TableCell>
+                      <TableCell>{p.oraIngresso ?? "—"}</TableCell>
+                      <TableCell>{p.oraUscita ?? "—"}</TableCell>
                       <TableCell>
-                        {p.presente ? (
-                          <Badge variant="success">Presente</Badge>
-                        ) : (
+                        {presenzaAssente(p) ? (
                           <Badge variant="outline">Assente</Badge>
+                        ) : (
+                          <Badge variant="success">Presente</Badge>
                         )}
                       </TableCell>
                       <TableCell>{p.note ?? "—"}</TableCell>

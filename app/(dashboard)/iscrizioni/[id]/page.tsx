@@ -3,12 +3,19 @@ import Link from "next/link";
 import { getIscrizione } from "@/lib/airtable/iscrizioni";
 import { listMesiByIscrizione } from "@/lib/airtable/mesi";
 import { listBambini } from "@/lib/airtable/bambini";
+import { listAttivita, getAttivita } from "@/lib/airtable/attivita";
+import {
+  listSessioni,
+  listSessioniByAttivita,
+} from "@/lib/airtable/sessioni";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
 import { MesiTable } from "@/components/iscrizioni/mesi-table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { deleteIscrizioneAction } from "@/lib/actions/iscrizioni";
 import { formatEur } from "@/lib/utils";
+import type { Sessione } from "@/lib/airtable/types";
 
 export default async function IscrizioneDetailPage({
   params,
@@ -16,12 +23,34 @@ export default async function IscrizioneDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [iscrizione, bambini, mesi] = await Promise.all([
+  const [iscrizione, bambini, mesi, attivita] = await Promise.all([
     getIscrizione(id),
     listBambini(),
     listMesiByIscrizione(id),
+    listAttivita({ attivo: true }),
   ]);
   if (!iscrizione) notFound();
+
+  const attivitaCorrente = await getAttivita(iscrizione.attivitaId);
+  const attivitaPerForm =
+    attivitaCorrente && !attivita.some((a) => a.recordId === attivitaCorrente.recordId)
+      ? [...attivita, attivitaCorrente]
+      : attivita;
+
+  const sessioniLists = await Promise.all(
+    attivitaPerForm.map((a) => listSessioniByAttivita(a.recordId)),
+  );
+  const sessioniByAttivita: Record<string, Sessione[]> = {};
+  attivitaPerForm.forEach((a, i) => {
+    sessioniByAttivita[a.recordId] = sessioniLists[i];
+  });
+
+  // Cache delle sessioni linkate alle rate per la tabella
+  const sessioniRate = await listSessioni({
+    recordIds: Array.from(new Set(mesi.map((m) => m.sessioneId).filter(Boolean) as string[])),
+  });
+  const sessioniById = new Map(sessioniRate.map((s) => [s.recordId, s] as const));
+
   const bambino = bambini.find((b) => b.recordId === iscrizione.bambinoId);
   const totaleDovuto = mesi.reduce((acc, m) => acc + m.importoDovuto, 0);
   const totalePagato = mesi.reduce((acc, m) => acc + (m.importoPagato ?? 0), 0);
@@ -30,15 +59,19 @@ export default async function IscrizioneDetailPage({
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Iscrizione A.S. {iscrizione.annoScolastico}
+          Iscrizione {attivitaCorrente?.nome ?? ""}
         </h1>
-        {bambino && (
-          <p className="text-sm text-[var(--muted-foreground)]">
+        <div className="text-sm text-[var(--muted-foreground)] flex items-center gap-2">
+          {bambino && (
             <Link href={`/bambini/${bambino.recordId}`} className="hover:underline">
               {bambino.cognome} {bambino.nome}
             </Link>
-          </p>
-        )}
+          )}
+          {attivitaCorrente && (
+            <Badge variant="outline">{attivitaCorrente.tipo}</Badge>
+          )}
+          <span>· A.S. {iscrizione.annoScolastico}</span>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -68,10 +101,10 @@ export default async function IscrizioneDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Mesi</CardTitle>
+          <CardTitle>Rate ({mesi.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <MesiTable mesi={mesi} />
+          <MesiTable mesi={mesi} sessioniById={sessioniById} />
         </CardContent>
       </Card>
 
@@ -80,7 +113,12 @@ export default async function IscrizioneDetailPage({
           <CardTitle>Modifica iscrizione</CardTitle>
         </CardHeader>
         <CardContent>
-          <IscrizioneForm iscrizione={iscrizione} bambini={bambini} />
+          <IscrizioneForm
+            iscrizione={iscrizione}
+            bambini={bambini}
+            attivita={attivitaPerForm}
+            sessioniByAttivita={sessioniByAttivita}
+          />
         </CardContent>
       </Card>
 
@@ -99,7 +137,7 @@ export default async function IscrizioneDetailPage({
               Elimina iscrizione
             </Button>
             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-              I record dei mesi vanno rimossi separatamente da Airtable.
+              I record delle rate vanno rimossi separatamente da Airtable.
             </p>
           </form>
         </CardContent>
