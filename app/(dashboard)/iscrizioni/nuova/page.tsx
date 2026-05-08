@@ -2,9 +2,10 @@ import Link from "next/link";
 import { listBambini } from "@/lib/airtable/bambini";
 import { listAttivita } from "@/lib/airtable/attivita";
 import { listSessioniByAttivita } from "@/lib/airtable/sessioni";
+import { listModalitaByAttivita } from "@/lib/airtable/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
-import type { Sessione } from "@/lib/airtable/types";
+import type { ModalitaIscrizione, Sessione } from "@/lib/airtable/types";
 
 export default async function NuovaIscrizionePage({
   searchParams,
@@ -20,9 +21,14 @@ export default async function NuovaIscrizionePage({
   const sessioniLists = await Promise.all(
     attivita.map((a) => listSessioniByAttivita(a.recordId)),
   );
+  const modalitaLists = await Promise.all(
+    attivita.map((a) => listModalitaByAttivita(a.recordId)),
+  );
   const sessioniByAttivita: Record<string, Sessione[]> = {};
+  const modalitaByAttivita: Record<string, ModalitaIscrizione[]> = {};
   attivita.forEach((a, i) => {
     sessioniByAttivita[a.recordId] = sessioniLists[i];
+    modalitaByAttivita[a.recordId] = modalitaLists[i];
   });
 
   return (
@@ -58,6 +64,7 @@ export default async function NuovaIscrizionePage({
               bambini={bambini}
               attivita={attivita}
               sessioniByAttivita={sessioniByAttivita}
+              modalitaByAttivita={modalitaByAttivita}
               defaultBambinoId={sp.bambinoId}
             />
           </CardContent>

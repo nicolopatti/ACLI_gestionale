@@ -8,6 +8,7 @@ import {
   listSessioni,
   listSessioniByAttivita,
 } from "@/lib/airtable/sessioni";
+import { listModalitaByAttivita } from "@/lib/airtable/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
 import { MesiTable } from "@/components/iscrizioni/mesi-table";
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { deleteIscrizioneAction } from "@/lib/actions/iscrizioni";
 import { formatEur } from "@/lib/utils";
-import type { Sessione } from "@/lib/airtable/types";
+import type { ModalitaIscrizione, Sessione } from "@/lib/airtable/types";
 
 export default async function IscrizioneDetailPage({
   params,
@@ -40,9 +41,14 @@ export default async function IscrizioneDetailPage({
   const sessioniLists = await Promise.all(
     attivitaPerForm.map((a) => listSessioniByAttivita(a.recordId)),
   );
+  const modalitaLists = await Promise.all(
+    attivitaPerForm.map((a) => listModalitaByAttivita(a.recordId)),
+  );
   const sessioniByAttivita: Record<string, Sessione[]> = {};
+  const modalitaByAttivita: Record<string, ModalitaIscrizione[]> = {};
   attivitaPerForm.forEach((a, i) => {
     sessioniByAttivita[a.recordId] = sessioniLists[i];
+    modalitaByAttivita[a.recordId] = modalitaLists[i];
   });
 
   // Cache delle sessioni linkate alle rate per la tabella
@@ -52,6 +58,9 @@ export default async function IscrizioneDetailPage({
   const sessioniById = new Map(sessioniRate.map((s) => [s.recordId, s] as const));
 
   const bambino = bambini.find((b) => b.recordId === iscrizione.bambinoId);
+  const modalitaCorrente = modalitaByAttivita[iscrizione.attivitaId]?.find(
+    (m) => m.recordId === iscrizione.modalitaId,
+  );
   const totaleDovuto = mesi.reduce((acc, m) => acc + m.importoDovuto, 0);
   const totalePagato = mesi.reduce((acc, m) => acc + (m.importoPagato ?? 0), 0);
 
@@ -70,7 +79,11 @@ export default async function IscrizioneDetailPage({
           {attivitaCorrente && (
             <Badge variant="outline">{attivitaCorrente.tipo}</Badge>
           )}
-          <span>· A.S. {iscrizione.annoScolastico}</span>
+          {modalitaCorrente && (
+            <span>
+              · {modalitaCorrente.nome} ({formatEur(modalitaCorrente.importo)}/sessione)
+            </span>
+          )}
         </div>
       </div>
 
@@ -118,6 +131,7 @@ export default async function IscrizioneDetailPage({
             bambini={bambini}
             attivita={attivitaPerForm}
             sessioniByAttivita={sessioniByAttivita}
+            modalitaByAttivita={modalitaByAttivita}
           />
         </CardContent>
       </Card>

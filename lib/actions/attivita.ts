@@ -4,11 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { attivitaSchema } from "@/lib/validations/attivita";
-import {
-  annoScolasticoDaData,
-  etichettaMese,
-  generaMesiAnnoScolastico,
-} from "@/lib/config";
+import { etichettaMese, generaMesiAnnoScolastico, annoScolasticoCorrente } from "@/lib/config";
 import {
   createAttivita,
   deleteAttivita,
@@ -26,10 +22,8 @@ function parseAttivitaForm(formData: FormData) {
   return {
     nome: formData.get("nome"),
     tipo: formData.get("tipo"),
-    annoScolastico: formData.get("annoScolastico"),
     dataInizio: formData.get("dataInizio"),
     dataFine: formData.get("dataFine"),
-    importoDefault: formData.get("importoDefault"),
     attivo:
       formData.get("attivo") === "on" ||
       formData.get("attivo") === "true" ||
@@ -48,25 +42,17 @@ export async function createAttivitaAction(_prev: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  const annoScolastico =
-    d.tipo === "doposcuola"
-      ? d.annoScolastico
-      : d.dataInizio
-        ? annoScolasticoDaData(d.dataInizio)
-        : annoScolasticoDaData(new Date());
-
   const created = await createAttivita({
     nome: d.nome,
     tipo: d.tipo,
-    annoScolastico: annoScolastico || undefined,
     dataInizio: d.dataInizio || undefined,
     dataFine: d.dataFine || undefined,
-    importoDefault: d.importoDefault,
     attivo: d.attivo,
     note: d.note || undefined,
   });
 
-  if (d.tipo === "doposcuola" && d.autoGeneraSessioniMensili && annoScolastico) {
+  if (d.tipo === "doposcuola" && d.autoGeneraSessioniMensili) {
+    const annoScolastico = annoScolasticoCorrente();
     const mesi = generaMesiAnnoScolastico(annoScolastico);
     await createSessioniBatch(
       mesi.map((meseAnno) => {
@@ -98,19 +84,11 @@ export async function updateAttivitaAction(
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  const annoScolastico =
-    d.tipo === "doposcuola"
-      ? d.annoScolastico
-      : d.dataInizio
-        ? annoScolasticoDaData(d.dataInizio)
-        : "";
   await updateAttivita(recordId, {
     nome: d.nome,
     tipo: d.tipo,
-    anno_scolastico: annoScolastico || "",
     data_inizio: d.dataInizio || "",
     data_fine: d.dataFine || "",
-    importo_default: d.importoDefault,
     attivo: d.attivo,
     note: d.note || "",
   });

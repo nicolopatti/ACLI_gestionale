@@ -7,24 +7,14 @@ export const attivitaSchema = z
   .object({
     nome: z.string().trim().min(1, "Nome attività obbligatorio"),
     tipo: z.enum(TIPI_ATTIVITA),
-    annoScolastico: optionalString,
     dataInizio: optionalString,
     dataFine: optionalString,
-    importoDefault: z.coerce.number().nonnegative("Importo non negativo"),
     attivo: z.coerce.boolean().default(true),
     note: optionalString,
     autoGeneraSessioniMensili: z.coerce.boolean().default(false),
   })
   .superRefine((val, ctx) => {
-    if (val.tipo === "doposcuola") {
-      if (!val.annoScolastico || !/^\d{4}-\d{4}$/.test(val.annoScolastico)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["annoScolastico"],
-          message: "Anno scolastico (YYYY-YYYY) obbligatorio per doposcuola",
-        });
-      }
-    } else {
+    if (val.tipo !== "doposcuola") {
       if (!val.dataInizio) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

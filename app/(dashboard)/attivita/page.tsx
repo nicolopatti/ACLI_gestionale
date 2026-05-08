@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatDate, formatEur } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 export default async function AttivitaPage() {
   const attivita = await listAttivita();
@@ -35,14 +35,15 @@ export default async function AttivitaPage() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Periodo</TableHead>
-                <TableHead>Importo</TableHead>
+                <TableHead>Sessioni</TableHead>
+                <TableHead>Modalità</TableHead>
                 <TableHead>Stato</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {attivita.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-[var(--muted-foreground)] py-8">
+                  <TableCell colSpan={6} className="text-center text-[var(--muted-foreground)] py-8">
                     Nessuna attività configurata.
                   </TableCell>
                 </TableRow>
@@ -58,11 +59,12 @@ export default async function AttivitaPage() {
                       <Badge variant="outline">{a.tipo}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-[var(--muted-foreground)]">
-                      {a.tipo === "doposcuola"
-                        ? `A.S. ${a.annoScolastico ?? "—"}`
-                        : `${formatDate(a.dataInizio)} → ${formatDate(a.dataFine)}`}
+                      {a.dataInizio || a.dataFine
+                        ? `${formatDate(a.dataInizio)} → ${formatDate(a.dataFine)}`
+                        : "—"}
                     </TableCell>
-                    <TableCell>{formatEur(a.importoDefault)}</TableCell>
+                    <TableCell>{a.sessioniIds.length}</TableCell>
+                    <TableCell>{a.modalitaIds.length}</TableCell>
                     <TableCell>
                       {a.attivo ? (
                         <Badge variant="success">Attiva</Badge>

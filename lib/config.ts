@@ -31,6 +31,9 @@ export const TIPO_ATTIVITA_TO_UNITA: Record<TipoAttivita, TipoUnita> = {
 export const FASCE_ORARIE = ["14-16", "14-18"] as const;
 export type FasciaOraria = (typeof FASCE_ORARIE)[number];
 
+export const FASCE_DISPONIBILITA = ["14-16", "14-18", "16-18"] as const;
+export type FasciaDisponibilita = (typeof FASCE_DISPONIBILITA)[number];
+
 export const CONTATTO_RUOLI = ["nonno", "nonna", "zio", "zia", "altro"] as const;
 export type RuoloContatto = (typeof CONTATTO_RUOLI)[number];
 

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { iscrizioneSchema } from "@/lib/validations/iscrizione";
-import { annoScolasticoDaData } from "@/lib/config";
 import {
   createIscrizione,
   deleteIscrizione,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/airtable/mesi";
 import { getAttivita } from "@/lib/airtable/attivita";
 import { listSessioni } from "@/lib/airtable/sessioni";
+import { getModalita } from "@/lib/airtable/modalita-iscrizione";
 import type { FasciaOraria, GiornoSettimana } from "@/lib/config";
 
 async function requireAdmin() {
@@ -29,6 +29,7 @@ function parseIscrizioneForm(formData: FormData) {
   return {
     bambinoId: formData.get("bambinoId"),
     attivitaId: formData.get("attivitaId"),
+    modalitaId: formData.get("modalitaId"),
     dataIscrizione: formData.get("dataIscrizione"),
     sessioniSelteIds: formData.getAll("sessioniSelteIds").map(String),
     giorniSettimana: formData.getAll("giorniSettimana") as GiornoSettimana[],
@@ -46,8 +47,14 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
   }
   const d = parsed.data;
 
-  const attivita = await getAttivita(d.attivitaId);
+  const [attivita, modalita] = await Promise.all([
+    getAttivita(d.attivitaId),
+    getModalita(d.modalitaId),
+  ]);
   if (!attivita) return { error: "Attività non trovata" };
+  if (!modalita || modalita.attivitaId !== d.attivitaId) {
+    return { error: "Modalità di iscrizione non valida per questa attività" };
+  }
 
   if (attivita.tipo === "doposcuola") {
     if (d.giorniSettimana.length === 0) {
@@ -63,16 +70,10 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
     return { error: "Una o più sessioni non sono valide" };
   }
 
-  const annoScolastico =
-    attivita.annoScolastico ||
-    (attivita.dataInizio
-      ? annoScolasticoDaData(attivita.dataInizio)
-      : annoScolasticoDaData(new Date()));
-
   const iscr = await createIscrizione({
     bambinoId: d.bambinoId,
     attivitaId: d.attivitaId,
-    annoScolastico,
+    modalitaId: d.modalitaId,
     dataIscrizione: d.dataIscrizione || undefined,
     giorniSettimana: attivita.tipo === "doposcuola" ? d.giorniSettimana : [],
     fasceOrarie: attivita.tipo === "doposcuola" ? d.fasceOrarie : [],
@@ -80,14 +81,15 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
     note: d.note || undefined,
   });
 
-  // Materializza una rata per ogni sessione scelta (snapshot importo).
+  // Materializza una rata per ogni sessione scelta. Snapshot dell'importo:
+  // override sessione → fallback alla modalità.
   await createMesi(
     sessioni.map((s) => ({
       iscrizioneId: iscr.recordId,
       sessioneId: s.recordId,
       tipoUnita: s.tipoUnita,
       chiavePeriodo: s.chiave,
-      importoDovuto: s.importo ?? attivita.importoDefault,
+      importoDovuto: s.importo ?? modalita.importo,
       meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
     })),
   );
@@ -113,8 +115,14 @@ export async function updateIscrizioneAction(
   const existing = await getIscrizione(recordId);
   if (!existing) return { error: "Iscrizione non trovata" };
 
-  const attivita = await getAttivita(d.attivitaId);
+  const [attivita, modalita] = await Promise.all([
+    getAttivita(d.attivitaId),
+    getModalita(d.modalitaId),
+  ]);
   if (!attivita) return { error: "Attività non trovata" };
+  if (!modalita || modalita.attivitaId !== d.attivitaId) {
+    return { error: "Modalità di iscrizione non valida per questa attività" };
+  }
 
   if (attivita.tipo === "doposcuola") {
     if (d.giorniSettimana.length === 0) {
@@ -141,16 +149,10 @@ export async function updateIscrizioneAction(
     }
   }
 
-  const annoScolastico =
-    attivita.annoScolastico ||
-    (attivita.dataInizio
-      ? annoScolasticoDaData(attivita.dataInizio)
-      : annoScolasticoDaData(new Date()));
-
   await updateIscrizione(recordId, {
     bambinoId: d.bambinoId,
     attivitaId: d.attivitaId,
-    annoScolastico,
+    modalitaId: d.modalitaId,
     dataIscrizione: d.dataIscrizione || undefined,
     giorniSettimana: attivita.tipo === "doposcuola" ? d.giorniSettimana : [],
     fasceOrarie: attivita.tipo === "doposcuola" ? d.fasceOrarie : [],
@@ -158,7 +160,7 @@ export async function updateIscrizioneAction(
     note: d.note || undefined,
   });
 
-  // Cancella le rate per le sessioni rimosse (sono state già verificate non pagate).
+  // Cancella le rate per le sessioni rimosse (verificate non pagate).
   for (const sessioneId of removed) {
     await deleteRateBySessioneEIscrizione(recordId, sessioneId);
   }
@@ -172,7 +174,7 @@ export async function updateIscrizioneAction(
         sessioneId: s.recordId,
         tipoUnita: s.tipoUnita,
         chiavePeriodo: s.chiave,
-        importoDovuto: s.importo ?? attivita.importoDefault,
+        importoDovuto: s.importo ?? modalita.importo,
         meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
       })),
     );

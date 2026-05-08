@@ -30,4 +30,7 @@ export const TABLE_NAMES = {
   attivita: "Attivita",
   sessioni: "Sessioni",
   contattiAggiuntivi: "ContattiAggiuntivi",
+  modalitaIscrizione: "ModalitaIscrizione",
+  educatori: "Educatori",
+  disponibilita: "Disponibilita",
 } as const;

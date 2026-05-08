@@ -8,14 +8,13 @@ function mapAttivita(record: { id: string; fields: Record<string, unknown> }): A
     recordId: record.id,
     nome: (f.nome as string) ?? "",
     tipo: (f.tipo as TipoAttivita) ?? "doposcuola",
-    annoScolastico: (f.anno_scolastico as string) ?? undefined,
     dataInizio: (f.data_inizio as string) ?? undefined,
     dataFine: (f.data_fine as string) ?? undefined,
-    importoDefault: Number((f.importo_default as number) ?? 0),
     attivo: Boolean(f.attivo),
     note: (f.note as string) ?? undefined,
     sessioniIds: ((f.Sessioni as string[]) ?? []) as string[],
     iscrizioniIds: ((f.Iscrizioni as string[]) ?? []) as string[],
+    modalitaIds: ((f.ModalitaIscrizione as string[]) ?? []) as string[],
   };
 }
 
@@ -52,10 +51,8 @@ export async function getAttivita(recordId: string): Promise<Attivita | null> {
 export async function createAttivita(input: {
   nome: string;
   tipo: TipoAttivita;
-  annoScolastico?: string;
   dataInizio?: string;
   dataFine?: string;
-  importoDefault: number;
   attivo?: boolean;
   note?: string;
 }): Promise<Attivita> {
@@ -65,9 +62,7 @@ export async function createAttivita(input: {
       fields: {
         nome: input.nome,
         tipo: input.tipo,
-        importo_default: input.importoDefault,
         attivo: input.attivo ?? true,
-        ...(input.annoScolastico ? { anno_scolastico: input.annoScolastico } : {}),
         ...(input.dataInizio ? { data_inizio: input.dataInizio } : {}),
         ...(input.dataFine ? { data_fine: input.dataFine } : {}),
         ...(input.note ? { note: input.note } : {}),
@@ -82,10 +77,8 @@ export async function updateAttivita(
   fields: Partial<{
     nome: string;
     tipo: TipoAttivita;
-    anno_scolastico: string;
     data_inizio: string;
     data_fine: string;
-    importo_default: number;
     attivo: boolean;
     note: string;
   }>,

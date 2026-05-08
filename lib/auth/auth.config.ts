@@ -28,6 +28,7 @@ export const authConfig = {
         "/bambini",
         "/attivita",
         "/iscrizioni",
+        "/educatori",
         "/presenze",
         "/utenti",
       ];

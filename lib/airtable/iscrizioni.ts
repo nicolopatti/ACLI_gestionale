@@ -9,12 +9,13 @@ function mapIscrizione(record: { id: string; fields: Record<string, unknown> }):
   const f = record.fields;
   const bambinoLink = (f.bambino as string[] | undefined) ?? [];
   const attivitaLink = (f.attivita as string[] | undefined) ?? [];
+  const modalitaLink = (f.modalita_iscrizione as string[] | undefined) ?? [];
   return {
     recordId: record.id,
     codice: (f.codice as string) ?? "",
     bambinoId: bambinoLink[0] ?? "",
     attivitaId: attivitaLink[0] ?? "",
-    annoScolastico: (f.anno_scolastico as string) ?? "",
+    modalitaId: modalitaLink[0] ?? "",
     dataIscrizione: (f.data_iscrizione as string) ?? undefined,
     giorniSettimana: ((f.giorni_settimana as GiornoSettimana[]) ?? []) as GiornoSettimana[],
     fasceOrarie: ((f.fasce_orarie as FasciaOraria[]) ?? []) as FasciaOraria[],
@@ -55,8 +56,9 @@ export async function getIscrizione(recordId: string): Promise<Iscrizione | null
 }
 
 /**
- * Iscrizioni che hanno almeno una rata con `chiave_periodo` uguale al mese corrente.
- * Lookup-based: prima cerca le rate del mese, poi raccoglie gli iscrizioneId.
+ * Iscrizioni che hanno almeno una rata con `chiave_periodo` uguale al mese
+ * specificato. Lookup-based: prima cerca le rate del mese, poi raccoglie
+ * gli iscrizioneId.
  */
 export async function listIscrizioniPerChiavePeriodo(chiave: string): Promise<Iscrizione[]> {
   if (!base) return [];
@@ -81,7 +83,7 @@ export async function listIscrizioniPerChiavePeriodo(chiave: string): Promise<Is
 export type IscrizioneInput = {
   bambinoId: string;
   attivitaId: string;
-  annoScolastico: string;
+  modalitaId: string;
   dataIscrizione?: string;
   giorniSettimana: GiornoSettimana[];
   fasceOrarie: FasciaOraria[];
@@ -93,7 +95,7 @@ function iscrizioneFields(input: IscrizioneInput): Fields {
   return {
     bambino: [input.bambinoId],
     attivita: [input.attivitaId],
-    anno_scolastico: input.annoScolastico,
+    modalita_iscrizione: [input.modalitaId],
     giorni_settimana: input.giorniSettimana,
     fasce_orarie: input.fasceOrarie,
     sessioni_scelte: input.sessioniSelteIds,

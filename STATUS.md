@@ -14,15 +14,32 @@
 
 ## Modello dati corrente
 
-- **Attività → Sessione → Iscrizione → Rate**.
-- `Attivita` (`tipo`: doposcuola | laboratorio | locomotiva, `importo_default`, `attivo`, `anno_scolastico`).
-- `Sessioni` (`tipo_unita`: mese | giornata | settimana, `chiave`, `etichetta`, `importo` opzionale come override).
-- `Iscrizioni` con `attivita`, `sessioni_scelte` (multi), `fasce_orarie` (`14-16` / `14-18`, multi, solo doposcuola), `giorni_settimana` (solo doposcuola).
-- `MesiIscrizione` (significato evoluto: "Rata") con `sessione`, `tipo_unita`, `chiave_periodo`. `mese_anno` popolato solo per rate di tipo `mese` (legacy/cache).
-- `Bambini` con campi genitore inline (`nome_genitore`, `cognome_genitore`, `telefono_genitore`, `email_genitore`, `cf_genitore`) + link self `fratello_di`.
-- `ContattiAggiuntivi` (nuova tabella, link a Bambini, ruolo nonno/nonna/zio/zia/altro).
-- `Presenze`: `ora_ingresso`, `ora_uscita` (entrambi vuoti = assente), link opzionale `sessione`.
-- La tabella `Genitori` è stata svuotata e non è più usata dal codice (resta come scheletro su Airtable, in attesa di rimozione manuale).
+- **Attività → Modalità di iscrizione + Sessione → Iscrizione → Rate**.
+- `Attivita` (`tipo`: doposcuola | laboratorio | locomotiva, `attivo`). I campi
+  `importo_default` e `anno_scolastico` sono orfani su Airtable (non più usati
+  dal codice).
+- `ModalitaIscrizione` (link a Attivita): `nome`, `importo` (per sessione),
+  `descrizione`, `attivo`. Una stessa attività può avere più modalità a prezzi
+  diversi (es. "Mensile 14-16 (3 giorni)" vs "Mensile 14-18 (5 giorni)").
+- `Sessioni` (`tipo_unita`: mese | giornata | settimana, `chiave`, `etichetta`,
+  `importo` opzionale come override sulla modalità). Chiave ed etichetta sono
+  derivate server-side da `tipo_unita` + `data_inizio`.
+- `Iscrizioni` con `attivita`, `modalita_iscrizione`, `sessioni_scelte` (multi),
+  `fasce_orarie` (`14-16` / `14-18`, multi, solo doposcuola), `giorni_settimana`
+  (solo doposcuola). Il campo `anno_scolastico` è orfano.
+- `MesiIscrizione` (significato evoluto: "Rata") con `sessione`, `tipo_unita`,
+  `chiave_periodo`. `mese_anno` popolato solo per rate di tipo `mese` (legacy/cache).
+  L'importo è snapshot di `sessione.importo ?? modalita.importo`.
+- `Bambini` con campi genitore inline (`nome_genitore`, `cognome_genitore`,
+  `telefono_genitore`, `email_genitore`, `cf_genitore`) + link self `fratello_di`.
+- `ContattiAggiuntivi` (link a Bambini, ruolo nonno/nonna/zio/zia/altro).
+- `Presenze`: `ora_ingresso`, `ora_uscita` (entrambi vuoti = assente), link
+  opzionale `sessione`.
+- `Educatori` (anagrafica: `nome`, `cognome`, `email`, `telefono`, `attivo`).
+- `Disponibilita` (link a Educatori): `data`, `fascia_oraria` (14-16 / 14-18 /
+  16-18). Calendario mensile di disponibilità per ogni educatore.
+- La tabella `Genitori` è stata svuotata e non è più usata dal codice (resta
+  come scheletro su Airtable, in attesa di rimozione manuale).
 
 ## Aperti (debiti / TODO)
 

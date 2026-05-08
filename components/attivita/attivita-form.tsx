@@ -6,7 +6,7 @@ import {
   createAttivitaAction,
   updateAttivitaAction,
 } from "@/lib/actions/attivita";
-import { TIPI_ATTIVITA, type TipoAttivita, annoScolasticoCorrente } from "@/lib/config";
+import { TIPI_ATTIVITA, type TipoAttivita } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,18 +56,6 @@ export function AttivitaForm({ attivita }: Props) {
             ))}
           </select>
         </div>
-        {isDoposcuola && (
-          <div className="space-y-2">
-            <Label htmlFor="annoScolastico">Anno scolastico</Label>
-            <Input
-              id="annoScolastico"
-              name="annoScolastico"
-              placeholder="es. 2025-2026"
-              required
-              defaultValue={attivita?.annoScolastico ?? annoScolasticoCorrente()}
-            />
-          </div>
-        )}
         <div className="space-y-2">
           <Label htmlFor="dataInizio">Data inizio</Label>
           <Input
@@ -86,18 +74,6 @@ export function AttivitaForm({ attivita }: Props) {
             type="date"
             required={!isDoposcuola}
             defaultValue={attivita?.dataFine ?? ""}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="importoDefault">Importo default (€)</Label>
-          <Input
-            id="importoDefault"
-            name="importoDefault"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            defaultValue={attivita?.importoDefault ?? 50}
           />
         </div>
         <div className="flex items-center gap-2 pt-6">
@@ -129,6 +105,11 @@ export function AttivitaForm({ attivita }: Props) {
         <Label htmlFor="note">Note</Label>
         <Textarea id="note" name="note" rows={3} defaultValue={attivita?.note ?? ""} />
       </div>
+      {!attivita && (
+        <p className="text-xs text-[var(--muted-foreground)]">
+          Dopo aver creato l&apos;attività potrai aggiungere una o più <strong>modalità di iscrizione</strong> con il relativo prezzo.
+        </p>
+      )}
       {state?.error ? (
         <p className="text-sm text-[var(--destructive)]">{state.error}</p>
       ) : null}

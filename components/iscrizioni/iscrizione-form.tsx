@@ -22,6 +22,7 @@ import type {
   Attivita,
   Bambino,
   Iscrizione,
+  ModalitaIscrizione,
   Sessione,
 } from "@/lib/airtable/types";
 
@@ -41,6 +42,7 @@ interface Props {
   bambini: Bambino[];
   attivita: Attivita[];
   sessioniByAttivita: Record<string, Sessione[]>;
+  modalitaByAttivita: Record<string, ModalitaIscrizione[]>;
   defaultBambinoId?: string;
 }
 
@@ -49,6 +51,7 @@ export function IscrizioneForm({
   bambini,
   attivita,
   sessioniByAttivita,
+  modalitaByAttivita,
   defaultBambinoId,
 }: Props) {
   const action = iscrizione
@@ -63,6 +66,7 @@ export function IscrizioneForm({
     iscrizione?.bambinoId ?? defaultBambinoId ?? "",
   );
   const [attivitaId, setAttivitaId] = useState(iscrizione?.attivitaId ?? "");
+  const [modalitaId, setModalitaId] = useState(iscrizione?.modalitaId ?? "");
   const [sessioniSelte, setSessioniSelte] = useState<Set<string>>(
     new Set(iscrizione?.sessioniSelteIds ?? []),
   );
@@ -78,18 +82,26 @@ export function IscrizioneForm({
     () => (attivitaId ? (sessioniByAttivita[attivitaId] ?? []) : []),
     [attivitaId, sessioniByAttivita],
   );
+  const modalitaDisponibili = useMemo(
+    () =>
+      (attivitaId ? (modalitaByAttivita[attivitaId] ?? []) : []).filter(
+        (m) => m.attivo || m.recordId === iscrizione?.modalitaId,
+      ),
+    [attivitaId, modalitaByAttivita, iscrizione?.modalitaId],
+  );
+  const modalitaSelezionata = modalitaDisponibili.find((m) => m.recordId === modalitaId);
   const isDoposcuola = attivitaSelezionata?.tipo === "doposcuola";
 
   const totale = useMemo(() => {
-    if (!attivitaSelezionata) return 0;
+    if (!modalitaSelezionata) return 0;
     let sum = 0;
     for (const id of sessioniSelte) {
       const s = sessioniDisponibili.find((x) => x.recordId === id);
       if (!s) continue;
-      sum += s.importo ?? attivitaSelezionata.importoDefault;
+      sum += s.importo ?? modalitaSelezionata.importo;
     }
     return sum;
-  }, [sessioniSelte, sessioniDisponibili, attivitaSelezionata]);
+  }, [sessioniSelte, sessioniDisponibili, modalitaSelezionata]);
 
   const toggleSet = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
@@ -129,6 +141,7 @@ export function IscrizioneForm({
             onChange={(e) => {
               setAttivitaId(e.target.value);
               setSessioniSelte(new Set());
+              setModalitaId("");
             }}
             className={SELECT_CLASS}
           >
@@ -139,6 +152,36 @@ export function IscrizioneForm({
               </option>
             ))}
           </select>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="modalitaId">Modalità di iscrizione</Label>
+          <select
+            id="modalitaId"
+            name="modalitaId"
+            required
+            value={modalitaId}
+            onChange={(e) => setModalitaId(e.target.value)}
+            disabled={!attivitaSelezionata}
+            className={SELECT_CLASS}
+          >
+            <option value="">
+              {attivitaSelezionata
+                ? modalitaDisponibili.length === 0
+                  ? "— Nessuna modalità configurata —"
+                  : "— Seleziona —"
+                : "— Seleziona prima un'attività —"}
+            </option>
+            {modalitaDisponibili.map((m) => (
+              <option key={m.recordId} value={m.recordId}>
+                {m.nome} · {formatEur(m.importo)} per sessione
+              </option>
+            ))}
+          </select>
+          {modalitaSelezionata?.descrizione && (
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {modalitaSelezionata.descrizione}
+            </p>
+          )}
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="dataIscrizione">Data iscrizione</Label>
@@ -167,7 +210,7 @@ export function IscrizioneForm({
             <div className="grid gap-2 md:grid-cols-2">
               {sessioniDisponibili.map((s) => {
                 const checked = sessioniSelte.has(s.recordId);
-                const importo = s.importo ?? attivitaSelezionata.importoDefault;
+                const importo = s.importo ?? modalitaSelezionata?.importo ?? 0;
                 return (
                   <label
                     key={s.recordId}
@@ -186,9 +229,6 @@ export function IscrizioneForm({
                       />
                       <span>
                         <span className="font-medium">{s.etichetta}</span>
-                        <span className="ml-2 text-xs text-[var(--muted-foreground)]">
-                          {s.chiave}
-                        </span>
                       </span>
                     </span>
                     <span className="text-xs text-[var(--muted-foreground)]">
@@ -257,7 +297,7 @@ export function IscrizioneForm({
         <Textarea id="note" name="note" rows={3} defaultValue={iscrizione?.note ?? ""} />
       </div>
 
-      {attivitaSelezionata && sessioniSelte.size > 0 && (
+      {modalitaSelezionata && sessioniSelte.size > 0 && (
         <p className="text-sm text-[var(--muted-foreground)]">
           Verranno create <strong>{sessioniSelte.size}</strong> rate per un totale di{" "}
           <strong>{formatEur(totale)}</strong>.

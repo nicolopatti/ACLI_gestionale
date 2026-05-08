@@ -1,5 +1,6 @@
 import type {
   FasciaOraria,
+  FasciaDisponibilita,
   GiornoSettimana,
   MezzoPagamento,
   RuoloContatto,
@@ -60,14 +61,13 @@ export interface Attivita {
   recordId: string;
   nome: string;
   tipo: TipoAttivita;
-  annoScolastico?: string;
   dataInizio?: string;
   dataFine?: string;
-  importoDefault: number;
   attivo: boolean;
   note?: string;
   sessioniIds: string[];
   iscrizioniIds: string[];
+  modalitaIds: string[];
 }
 
 export interface Sessione {
@@ -81,12 +81,21 @@ export interface Sessione {
   importo?: number;
 }
 
+export interface ModalitaIscrizione {
+  recordId: string;
+  attivitaId: string;
+  nome: string;
+  importo: number;
+  descrizione?: string;
+  attivo: boolean;
+}
+
 export interface Iscrizione {
   recordId: string;
   codice: string;
   bambinoId: string;
   attivitaId: string;
-  annoScolastico: string;
+  modalitaId: string;
   dataIscrizione?: string;
   giorniSettimana: GiornoSettimana[];
   fasceOrarie: FasciaOraria[];
@@ -127,6 +136,25 @@ export interface Presenza {
 
 export function presenzaAssente(p: Presenza): boolean {
   return !p.oraIngresso && !p.oraUscita;
+}
+
+export interface Educatore {
+  recordId: string;
+  nomeCompleto: string;
+  nome: string;
+  cognome: string;
+  email?: string;
+  telefono?: string;
+  note?: string;
+  attivo: boolean;
+}
+
+export interface Disponibilita {
+  recordId: string;
+  educatoreId: string;
+  data: string;
+  fasciaOraria: FasciaDisponibilita;
+  note?: string;
 }
 
 export interface Movimento {

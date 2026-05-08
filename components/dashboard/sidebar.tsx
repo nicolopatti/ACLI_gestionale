@@ -8,6 +8,7 @@ import {
   CalendarCheck,
   CalendarRange,
   GraduationCap,
+  HeartHandshake,
   LayoutDashboard,
   UserCog,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/bambini", label: "Bambini", icon: Baby, ruoli: ["admin"] },
   { href: "/attivita", label: "Attività", icon: CalendarRange, ruoli: ["admin"] },
   { href: "/iscrizioni", label: "Iscrizioni", icon: GraduationCap, ruoli: ["admin"] },
+  { href: "/educatori", label: "Educatori", icon: HeartHandshake, ruoli: ["admin"] },
   { href: "/presenze", label: "Presenze", icon: CalendarCheck, ruoli: ["admin"] },
   { href: "/cassa", label: "Cassa", icon: Banknote, ruoli: ["admin", "volontario_cassa"] },
   { href: "/utenti", label: "Utenti", icon: UserCog, ruoli: ["admin"] },
