@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { TIPI_UNITA, type TipoUnita } from "@/lib/config";
@@ -24,11 +25,12 @@ interface Props {
 }
 
 export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props) {
+  const router = useRouter();
   const [tipoUnita, setTipoUnita] = useState<TipoUnita>(defaultTipoUnita);
   const [dataInizio, setDataInizio] = useState("");
   const [dataFine, setDataFine] = useState("");
-  const [importo, setImporto] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const previewEtichetta = dataInizio
@@ -46,23 +48,28 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
     fd.set("tipoUnita", tipoUnita);
     fd.set("dataInizio", dataInizio);
     fd.set("dataFine", dataFine);
-    if (importo) fd.set("importo", importo);
     startTransition(async () => {
       setError(null);
+      setSuccess(null);
       const res = await createSessioneAction(undefined, fd);
       if (res?.error) {
         setError(res.error);
         return;
       }
+      const aggiunta = previewEtichetta ?? "Sessione";
       setDataInizio("");
       setDataFine("");
-      setImporto("");
+      setSuccess(`${aggiunta} aggiunta.`);
+      router.refresh();
     });
   };
 
   const onDelete = (id: string) => {
     startTransition(async () => {
+      setError(null);
+      setSuccess(null);
       await deleteSessioneAction(id, attivitaId);
+      router.refresh();
     });
   };
 
@@ -83,7 +90,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
                   {s.tipoUnita}
                   {s.dataInizio ? ` · ${formatDate(s.dataInizio)}` : ""}
                   {s.dataFine && s.dataFine !== s.dataInizio ? `–${formatDate(s.dataFine)}` : ""}
-                  {s.importo !== undefined ? ` · ${formatEur(s.importo)}` : ""}
+                  {s.importo !== undefined ? ` · ${formatEur(s.importo)} (override)` : ""}
                 </span>
               </div>
               <Button
@@ -105,7 +112,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
         onSubmit={submit}
         className="grid gap-3 rounded-md border border-[var(--border)] p-3 md:grid-cols-12"
       >
-        <div className="md:col-span-2 space-y-1">
+        <div className="md:col-span-3 space-y-1">
           <Label className="text-xs">Tipo</Label>
           <select
             className={SELECT_CLASS}
@@ -136,18 +143,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
             onChange={(e) => setDataFine(e.target.value)}
           />
         </div>
-        <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs">Importo override (€)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={importo}
-            onChange={(e) => setImporto(e.target.value)}
-            placeholder="default"
-          />
-        </div>
-        <div className="md:col-span-2 flex items-end">
+        <div className="md:col-span-3 flex items-end">
           <Button type="submit" disabled={isPending} className="w-full">
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Aggiungi
@@ -160,6 +156,9 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
         )}
         {error && (
           <p className="md:col-span-12 text-sm text-[var(--destructive)]">{error}</p>
+        )}
+        {success && (
+          <p className="md:col-span-12 text-sm text-emerald-700">{success}</p>
         )}
       </form>
     </div>

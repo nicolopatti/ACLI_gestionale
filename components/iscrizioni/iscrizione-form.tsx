@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import {
   createIscrizioneAction,
   updateIscrizioneAction,
@@ -154,20 +155,20 @@ export function IscrizioneForm({
           </select>
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="modalitaId">Modalità di iscrizione</Label>
+          <Label htmlFor="modalitaId">Tariffa applicata</Label>
           <select
             id="modalitaId"
             name="modalitaId"
             required
             value={modalitaId}
             onChange={(e) => setModalitaId(e.target.value)}
-            disabled={!attivitaSelezionata}
+            disabled={!attivitaSelezionata || modalitaDisponibili.length === 0}
             className={SELECT_CLASS}
           >
             <option value="">
               {attivitaSelezionata
                 ? modalitaDisponibili.length === 0
-                  ? "— Nessuna modalità configurata —"
+                  ? "— Nessuna tariffa configurata —"
                   : "— Seleziona —"
                 : "— Seleziona prima un'attività —"}
             </option>
@@ -177,9 +178,21 @@ export function IscrizioneForm({
               </option>
             ))}
           </select>
-          {modalitaSelezionata?.descrizione && (
+          {attivitaSelezionata && modalitaDisponibili.length === 0 ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Questa attività non ha ancora tariffe configurate. Vai al{" "}
+              <Link
+                href={`/attivita/${attivitaSelezionata.recordId}`}
+                className="inline-flex items-center gap-1 font-medium underline"
+              >
+                dettaglio dell&apos;attività <ExternalLink className="h-3 w-3" />
+              </Link>{" "}
+              e aggiungi almeno una <strong>modalità di iscrizione</strong> (= nome + prezzo per sessione).
+            </div>
+          ) : (
             <p className="text-xs text-[var(--muted-foreground)]">
-              {modalitaSelezionata.descrizione}
+              La tariffa determina il prezzo per ogni sessione (es. <em>Mensile 14-16 = 50€/mese</em>).
+              {modalitaSelezionata?.descrizione ? ` ${modalitaSelezionata.descrizione}` : ""}
             </p>
           )}
         </div>

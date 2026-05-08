@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import {
@@ -19,10 +20,12 @@ interface Props {
 }
 
 export function ModalitaEditor({ attivitaId, modalita }: Props) {
+  const router = useRouter();
   const [nome, setNome] = useState("");
   const [importo, setImporto] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -38,20 +41,27 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
     if (descrizione) fd.set("descrizione", descrizione);
     startTransition(async () => {
       setError(null);
+      setSuccess(null);
       const res = await createModalitaAction(undefined, fd);
       if (res?.error) {
         setError(res.error);
         return;
       }
+      const aggiunto = nome.trim();
       setNome("");
       setImporto("");
       setDescrizione("");
+      setSuccess(`Modalità "${aggiunto}" aggiunta.`);
+      router.refresh();
     });
   };
 
   const onDelete = (id: string) => {
     startTransition(async () => {
+      setError(null);
+      setSuccess(null);
       await deleteModalitaAction(id, attivitaId);
+      router.refresh();
     });
   };
 
@@ -140,11 +150,13 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
         {error && (
           <p className="md:col-span-12 text-sm text-[var(--destructive)]">{error}</p>
         )}
+        {success && (
+          <p className="md:col-span-12 text-sm text-emerald-700">{success}</p>
+        )}
       </form>
 
       <p className="text-xs text-[var(--muted-foreground)]">
         L&apos;importo è <strong>per sessione</strong> (es. 50€/mese per il doposcuola, 15€/giornata per i laboratori).
-        Eventuali sessioni con importo specifico hanno la precedenza sulla modalità.
       </p>
     </div>
   );

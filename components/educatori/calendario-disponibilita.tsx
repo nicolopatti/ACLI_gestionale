@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { salvaDisponibilitaAction } from "@/lib/actions/disponibilita";
@@ -58,6 +59,7 @@ export function CalendarioDisponibilita({
   meseAnno,
   disponibilita,
 }: Props) {
+  const router = useRouter();
   const [meseSel, setMeseSel] = useState(meseAnno);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -102,7 +104,10 @@ export function CalendarioDisponibilita({
       setMessage(null);
       const res = await salvaDisponibilitaAction(fd);
       if (res?.error) setMessage(`Errore: ${res.error}`);
-      else setMessage("Disponibilità salvate.");
+      else {
+        setMessage("Disponibilità salvate.");
+        router.refresh();
+      }
     });
   };
 
