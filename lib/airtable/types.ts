@@ -1,4 +1,14 @@
-import type { GiornoSettimana, MezzoPagamento, Ruolo, StatoPagamento } from "@/lib/config";
+import type {
+  FasciaOraria,
+  FasciaDisponibilita,
+  GiornoSettimana,
+  MezzoPagamento,
+  RuoloContatto,
+  Ruolo,
+  StatoPagamento,
+  TipoAttivita,
+  TipoUnita,
+} from "@/lib/config";
 
 /**
  * Modelli di dominio. `recordId` è sempre il record id interno di Airtable
@@ -17,18 +27,6 @@ export interface User {
   lastLogin?: string;
 }
 
-export interface Genitore {
-  recordId: string;
-  nomeCompleto: string;
-  nome: string;
-  cognome: string;
-  telefono?: string;
-  email?: string;
-  codiceFiscale?: string;
-  note?: string;
-  bambiniIds: string[];
-}
-
 export interface Bambino {
   recordId: string;
   nomeCompleto: string;
@@ -37,29 +35,83 @@ export interface Bambino {
   dataNascita?: string;
   scuola?: string;
   classe?: string;
-  genitoreId?: string;
+  nomeGenitore: string;
+  cognomeGenitore: string;
+  telefonoGenitore?: string;
+  emailGenitore?: string;
+  cfGenitore?: string;
+  fratelloDiId?: string;
   note?: string;
   attivo: boolean;
   iscrizioniIds: string[];
+  contattiAggiuntiviIds: string[];
+}
+
+export interface ContattoAggiuntivo {
+  recordId: string;
+  bambinoId: string;
+  ruolo: RuoloContatto;
+  nome: string;
+  cognome: string;
+  telefono?: string;
+  note?: string;
+}
+
+export interface Attivita {
+  recordId: string;
+  nome: string;
+  tipo: TipoAttivita;
+  dataInizio?: string;
+  dataFine?: string;
+  attivo: boolean;
+  note?: string;
+  sessioniIds: string[];
+  iscrizioniIds: string[];
+  modalitaIds: string[];
+}
+
+export interface Sessione {
+  recordId: string;
+  attivitaId: string;
+  tipoUnita: TipoUnita;
+  chiave: string;
+  etichetta: string;
+  dataInizio?: string;
+  dataFine?: string;
+  importo?: number;
+}
+
+export interface ModalitaIscrizione {
+  recordId: string;
+  attivitaId: string;
+  nome: string;
+  importo: number;
+  descrizione?: string;
+  attivo: boolean;
 }
 
 export interface Iscrizione {
   recordId: string;
   codice: string;
   bambinoId: string;
-  annoScolastico: string;
+  attivitaId: string;
+  modalitaId: string;
   dataIscrizione?: string;
   giorniSettimana: GiornoSettimana[];
-  importoMensileDefault: number;
+  fasceOrarie: FasciaOraria[];
+  sessioniSelteIds: string[];
   note?: string;
-  mesiIds: string[];
+  rateIds: string[];
 }
 
 export interface MeseIscrizione {
   recordId: string;
   codice: string;
   iscrizioneId: string;
-  meseAnno: string; // YYYY-MM
+  sessioneId?: string;
+  tipoUnita?: TipoUnita;
+  chiavePeriodo?: string;
+  meseAnno: string;
   importoDovuto: number;
   statoPagamento: StatoPagamento;
   importoPagato?: number;
@@ -73,12 +125,36 @@ export interface Presenza {
   recordId: string;
   codice: string;
   bambinoId: string;
-  iscrizioneId?: string;
+  sessioneId?: string;
   data: string;
-  presente: boolean;
+  oraIngresso?: string;
+  oraUscita?: string;
   note?: string;
   registratoDaId?: string;
   createdAt?: string;
+}
+
+export function presenzaAssente(p: Presenza): boolean {
+  return !p.oraIngresso && !p.oraUscita;
+}
+
+export interface Educatore {
+  recordId: string;
+  nomeCompleto: string;
+  nome: string;
+  cognome: string;
+  email?: string;
+  telefono?: string;
+  note?: string;
+  attivo: boolean;
+}
+
+export interface Disponibilita {
+  recordId: string;
+  educatoreId: string;
+  data: string;
+  fasciaOraria: FasciaDisponibilita;
+  note?: string;
 }
 
 export interface Movimento {

@@ -19,6 +19,11 @@ import { MEZZI_PAGAMENTO } from "@/lib/config";
 import { meseAnnoLabel } from "@/lib/utils";
 import type { MeseIscrizione } from "@/lib/airtable/types";
 
+function periodoLabel(m: MeseIscrizione): string {
+  if (m.tipoUnita === "mese" && m.meseAnno) return meseAnnoLabel(m.meseAnno);
+  return m.chiavePeriodo ?? m.meseAnno ?? "—";
+}
+
 export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<
@@ -27,7 +32,6 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
   >(segnaPagatoAction, undefined);
 
   if (state?.ok && open) {
-    // chiude al successo
     setTimeout(() => setOpen(false), 200);
   }
 
@@ -40,7 +44,7 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Pagamento {meseAnnoLabel(mese.meseAnno)}</DialogTitle>
+          <DialogTitle>Pagamento {periodoLabel(mese)}</DialogTitle>
           <DialogDescription>
             Importo dovuto: <strong>{mese.importoDovuto.toFixed(2)} €</strong>
           </DialogDescription>

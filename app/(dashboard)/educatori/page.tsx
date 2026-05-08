@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { listGenitori } from "@/lib/airtable/genitori";
+import { listEducatori } from "@/lib/airtable/educatori";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -12,14 +13,15 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default async function GenitoriPage() {
-  const genitori = await listGenitori();
+export default async function EducatoriPage() {
+  const educatori = await listEducatori();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Genitori</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Educatori</h1>
         <Button asChild>
-          <Link href="/genitori/nuovo">
+          <Link href="/educatori/nuovo">
             <Plus className="h-4 w-4" /> Nuovo
           </Link>
         </Button>
@@ -30,29 +32,35 @@ export default async function GenitoriPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Telefono</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead className="text-right">Bambini</TableHead>
+                <TableHead>Telefono</TableHead>
+                <TableHead>Stato</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {genitori.length === 0 ? (
+              {educatori.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-[var(--muted-foreground)] py-8">
-                    Nessun genitore registrato.
+                    Nessun educatore registrato.
                   </TableCell>
                 </TableRow>
               ) : (
-                genitori.map((g) => (
-                  <TableRow key={g.recordId}>
+                educatori.map((e) => (
+                  <TableRow key={e.recordId}>
                     <TableCell>
-                      <Link href={`/genitori/${g.recordId}`} className="font-medium hover:underline">
-                        {g.cognome} {g.nome}
+                      <Link href={`/educatori/${e.recordId}`} className="font-medium hover:underline">
+                        {e.cognome} {e.nome}
                       </Link>
                     </TableCell>
-                    <TableCell>{g.telefono ?? "—"}</TableCell>
-                    <TableCell>{g.email ?? "—"}</TableCell>
-                    <TableCell className="text-right">{g.bambiniIds.length}</TableCell>
+                    <TableCell>{e.email ?? "—"}</TableCell>
+                    <TableCell>{e.telefono ?? "—"}</TableCell>
+                    <TableCell>
+                      {e.attivo ? (
+                        <Badge variant="success">Attivo</Badge>
+                      ) : (
+                        <Badge variant="outline">Archiviato</Badge>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}

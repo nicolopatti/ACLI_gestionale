@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { listBambini } from "@/lib/airtable/bambini";
-import { listGenitori } from "@/lib/airtable/genitori";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +14,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 
 export default async function BambiniPage() {
-  const [bambini, genitori] = await Promise.all([listBambini(), listGenitori()]);
-  const genitoreById = new Map(genitori.map((g) => [g.recordId, g] as const));
+  const bambini = await listBambini();
 
   return (
     <div className="space-y-6">
@@ -35,20 +33,22 @@ export default async function BambiniPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Genitore</TableHead>
+                <TableHead>Telefono</TableHead>
                 <TableHead>Classe</TableHead>
+                <TableHead>Iscrizioni</TableHead>
                 <TableHead>Stato</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bambini.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-[var(--muted-foreground)] py-8">
+                  <TableCell colSpan={6} className="text-center text-[var(--muted-foreground)] py-8">
                     Nessun bambino registrato.
                   </TableCell>
                 </TableRow>
               ) : (
                 bambini.map((b) => {
-                  const g = b.genitoreId ? genitoreById.get(b.genitoreId) : undefined;
+                  const numIscrizioni = b.iscrizioniIds.length;
                   return (
                     <TableRow key={b.recordId}>
                       <TableCell>
@@ -56,15 +56,29 @@ export default async function BambiniPage() {
                           {b.cognome} {b.nome}
                         </Link>
                       </TableCell>
-                      <TableCell>{g ? `${g.cognome} ${g.nome}` : "—"}</TableCell>
+                      <TableCell>
+                        {b.cognomeGenitore || b.nomeGenitore
+                          ? `${b.cognomeGenitore} ${b.nomeGenitore}`.trim()
+                          : "—"}
+                      </TableCell>
+                      <TableCell>{b.telefonoGenitore ?? "—"}</TableCell>
                       <TableCell>
                         {b.classe ?? "—"} {b.scuola ? `· ${b.scuola}` : ""}
                       </TableCell>
                       <TableCell>
-                        {b.attivo ? (
-                          <Badge variant="success">Iscritto</Badge>
+                        {numIscrizioni > 0 ? (
+                          <Badge variant="success">
+                            {numIscrizioni} iscritt{numIscrizioni === 1 ? "a" : "e"}
+                          </Badge>
                         ) : (
-                          <Badge variant="outline">Non attivo</Badge>
+                          <Badge variant="outline">Solo anagrafica</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {b.attivo ? (
+                          <Badge variant="outline">Attivo</Badge>
+                        ) : (
+                          <Badge variant="outline">Archiviato</Badge>
                         )}
                       </TableCell>
                     </TableRow>
