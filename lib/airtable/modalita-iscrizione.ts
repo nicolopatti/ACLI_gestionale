@@ -18,9 +18,15 @@ export async function listModalitaByAttivita(
   attivitaId: string,
 ): Promise<ModalitaIscrizione[]> {
   if (!base) return [];
+  // Reverse lookup: leggiamo Attivita.ModalitaIscrizione per ottenere i recordIds.
+  const attivitaRec = await base(TABLE_NAMES.attivita).find(attivitaId).catch(() => null);
+  if (!attivitaRec) return [];
+  const ids = ((attivitaRec.fields.ModalitaIscrizione as string[] | undefined) ?? []);
+  if (ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.modalitaIscrizione)
     .select({
-      filterByFormula: `FIND('${attivitaId}', ARRAYJOIN({attivita}))`,
+      filterByFormula,
       sort: [{ field: "importo", direction: "asc" }],
     })
     .all();

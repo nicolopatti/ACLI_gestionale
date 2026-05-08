@@ -35,9 +35,15 @@ export async function listPresenzeByData(data: string): Promise<Presenza[]> {
 
 export async function listPresenzeByBambino(bambinoId: string): Promise<Presenza[]> {
   if (!base) return [];
+  // Reverse lookup: leggiamo Bambini.Presenze per gli ids.
+  const rec = await base(TABLE_NAMES.bambini).find(bambinoId).catch(() => null);
+  if (!rec) return [];
+  const ids = ((rec.fields.Presenze as string[] | undefined) ?? []);
+  if (ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.presenze)
     .select({
-      filterByFormula: `FIND('${bambinoId}', ARRAYJOIN({bambino}))`,
+      filterByFormula,
       sort: [{ field: "data", direction: "desc" }],
     })
     .all();

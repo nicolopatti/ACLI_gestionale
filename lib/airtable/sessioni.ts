@@ -17,11 +17,24 @@ function mapSessione(record: { id: string; fields: Record<string, unknown> }): S
   };
 }
 
+/**
+ * Sessioni di un'attività. Reverse lookup: prima leggiamo `Attivita.Sessioni`
+ * per ottenere i recordIds linkati, poi filtriamo `Sessioni` per `RECORD_ID()`.
+ *
+ * Non si può filtrare direttamente con `FIND(recordId, ARRAYJOIN({attivita}))`
+ * perché Airtable serializza un linked record field come stringa di display
+ * names (primary field dei record collegati), non come stringa di recordId.
+ */
 export async function listSessioniByAttivita(attivitaId: string): Promise<Sessione[]> {
   if (!base) return [];
+  const attivitaRec = await base(TABLE_NAMES.attivita).find(attivitaId).catch(() => null);
+  if (!attivitaRec) return [];
+  const ids = ((attivitaRec.fields.Sessioni as string[] | undefined) ?? []);
+  if (ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.sessioni)
     .select({
-      filterByFormula: `FIND('${attivitaId}', ARRAYJOIN({attivita}))`,
+      filterByFormula,
       sort: [{ field: "chiave", direction: "asc" }],
     })
     .all();

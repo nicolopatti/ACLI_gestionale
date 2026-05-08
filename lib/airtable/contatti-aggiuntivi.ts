@@ -21,9 +21,15 @@ function mapContatto(record: { id: string; fields: Record<string, unknown> }): C
 
 export async function listContattiByBambino(bambinoId: string): Promise<ContattoAggiuntivo[]> {
   if (!base) return [];
+  // Reverse lookup: leggiamo Bambini.ContattiAggiuntivi per gli ids.
+  const rec = await base(TABLE_NAMES.bambini).find(bambinoId).catch(() => null);
+  if (!rec) return [];
+  const ids = ((rec.fields.ContattiAggiuntivi as string[] | undefined) ?? []);
+  if (ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.contattiAggiuntivi)
     .select({
-      filterByFormula: `FIND('${bambinoId}', ARRAYJOIN({bambino}))`,
+      filterByFormula,
       sort: [{ field: "ruolo", direction: "asc" }],
     })
     .all();

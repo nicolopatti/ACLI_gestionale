@@ -30,16 +30,38 @@ export async function listIscrizioni(opts?: {
   attivitaId?: string;
 }): Promise<Iscrizione[]> {
   if (!base) return [];
-  const conds: string[] = [];
-  if (opts?.bambinoId) conds.push(`FIND('${opts.bambinoId}', ARRAYJOIN({bambino}))`);
-  if (opts?.attivitaId) conds.push(`FIND('${opts.attivitaId}', ARRAYJOIN({attivita}))`);
-  const filterByFormula =
-    conds.length === 0 ? undefined : conds.length === 1 ? conds[0] : `AND(${conds.join(", ")})`;
 
+  // Quando filtriamo per bambinoId o attivitaId, usiamo il reverse lookup:
+  // leggiamo l'array di iscrizioni dal record proprietario e filtriamo per
+  // RECORD_ID(). Necessario perché `FIND(id, ARRAYJOIN({linkField}))` non
+  // funziona: Airtable serializza il link field come stringa di display
+  // names (primary field) non di recordId.
+  if (opts?.bambinoId) {
+    const rec = await base(TABLE_NAMES.bambini).find(opts.bambinoId).catch(() => null);
+    if (!rec) return [];
+    const ids = ((rec.fields.Iscrizioni as string[] | undefined) ?? []);
+    return listIscrizioniByIds(ids);
+  }
+  if (opts?.attivitaId) {
+    const rec = await base(TABLE_NAMES.attivita).find(opts.attivitaId).catch(() => null);
+    if (!rec) return [];
+    const ids = ((rec.fields.Iscrizioni as string[] | undefined) ?? []);
+    return listIscrizioniByIds(ids);
+  }
+
+  const records = await base(TABLE_NAMES.iscrizioni)
+    .select({ sort: [{ field: "data_iscrizione", direction: "desc" }] })
+    .all();
+  return records.map((r) => mapIscrizione({ id: r.id, fields: r.fields }));
+}
+
+async function listIscrizioniByIds(ids: string[]): Promise<Iscrizione[]> {
+  if (!base || ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.iscrizioni)
     .select({
       sort: [{ field: "data_iscrizione", direction: "desc" }],
-      ...(filterByFormula ? { filterByFormula } : {}),
+      filterByFormula,
     })
     .all();
   return records.map((r) => mapIscrizione({ id: r.id, fields: r.fields }));

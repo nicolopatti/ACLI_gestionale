@@ -20,36 +20,22 @@ function mapDisponibilita(record: {
   };
 }
 
-export async function listDisponibilitaByEducatoreEMese(
-  educatoreId: string,
-  meseAnno: string,
-): Promise<Disponibilita[]> {
-  if (!base) return [];
-  const inizio = `${meseAnno}-01`;
-  const [y, m] = meseAnno.split("-").map((s) => parseInt(s, 10));
-  const ultimoGiorno = new Date(y, m, 0).getDate();
-  const fine = `${meseAnno}-${String(ultimoGiorno).padStart(2, "0")}`;
-  const records = await base(TABLE_NAMES.disponibilita)
-    .select({
-      filterByFormula: `AND(FIND('${educatoreId}', ARRAYJOIN({educatore})), IS_AFTER({data}, '${escapeFormulaString(inizio)}'), IS_BEFORE({data}, '${escapeFormulaString(fine)}'))`,
-      sort: [{ field: "data", direction: "asc" }],
-    })
-    .all();
-  return records.map((r) => mapDisponibilita({ id: r.id, fields: r.fields }));
-}
-
 /**
- * Versione "inclusiva" via filterByFormula: prendiamo tutte le disponibilità
- * dell'educatore e filtriamo per mese in JS (più semplice e robusto rispetto
- * a IS_AFTER/IS_BEFORE che non sono inclusivi).
+ * Tutte le disponibilità di un educatore. Reverse lookup: leggiamo
+ * Educatori.Disponibilita per gli ids.
  */
 export async function listDisponibilitaByEducatore(
   educatoreId: string,
 ): Promise<Disponibilita[]> {
   if (!base) return [];
+  const rec = await base(TABLE_NAMES.educatori).find(educatoreId).catch(() => null);
+  if (!rec) return [];
+  const ids = ((rec.fields.Disponibilita as string[] | undefined) ?? []);
+  if (ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.disponibilita)
     .select({
-      filterByFormula: `FIND('${educatoreId}', ARRAYJOIN({educatore}))`,
+      filterByFormula,
       sort: [{ field: "data", direction: "asc" }],
     })
     .all();

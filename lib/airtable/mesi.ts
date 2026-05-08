@@ -27,9 +27,15 @@ function mapMese(record: { id: string; fields: Record<string, unknown> }): MeseI
 
 export async function listMesiByIscrizione(iscrizioneId: string): Promise<MeseIscrizione[]> {
   if (!base) return [];
+  // Reverse lookup: leggiamo Iscrizioni.MesiIscrizione per gli ids.
+  const rec = await base(TABLE_NAMES.iscrizioni).find(iscrizioneId).catch(() => null);
+  if (!rec) return [];
+  const ids = ((rec.fields.MesiIscrizione as string[] | undefined) ?? []);
+  if (ids.length === 0) return [];
+  const filterByFormula = `OR(${ids.map((id) => `RECORD_ID() = '${id}'`).join(", ")})`;
   const records = await base(TABLE_NAMES.mesi)
     .select({
-      filterByFormula: `FIND('${iscrizioneId}', ARRAYJOIN({iscrizione}))`,
+      filterByFormula,
       sort: [{ field: "chiave_periodo", direction: "asc" }],
     })
     .all();
@@ -123,13 +129,9 @@ export async function deleteRateBySessioneEIscrizione(
   sessioneId: string,
 ): Promise<number> {
   if (!base) return 0;
-  const records = await base(TABLE_NAMES.mesi)
-    .select({
-      filterByFormula: `AND(FIND('${iscrizioneId}', ARRAYJOIN({iscrizione})), FIND('${sessioneId}', ARRAYJOIN({sessione})))`,
-      fields: ["codice"],
-    })
-    .all();
-  const ids = records.map((r) => r.id);
+  // Reverse lookup via listMesiByIscrizione e poi filtra per sessione lato JS.
+  const rate = await listMesiByIscrizione(iscrizioneId);
+  const ids = rate.filter((r) => r.sessioneId === sessioneId).map((r) => r.recordId);
   for (let i = 0; i < ids.length; i += 10) {
     await base(TABLE_NAMES.mesi).destroy(ids.slice(i, i + 10));
   }
@@ -141,12 +143,10 @@ export async function hasRataPagataForSessione(
   sessioneId: string,
 ): Promise<boolean> {
   if (!base) return false;
-  const records = await base(TABLE_NAMES.mesi)
-    .select({
-      filterByFormula: `AND(FIND('${iscrizioneId}', ARRAYJOIN({iscrizione})), FIND('${sessioneId}', ARRAYJOIN({sessione})), OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale'))`,
-      fields: ["stato_pagamento"],
-      maxRecords: 1,
-    })
-    .all();
-  return records.length > 0;
+  const rate = await listMesiByIscrizione(iscrizioneId);
+  return rate.some(
+    (r) =>
+      r.sessioneId === sessioneId &&
+      (r.statoPagamento === "pagato" || r.statoPagamento === "parziale"),
+  );
 }
