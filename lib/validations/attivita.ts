@@ -1,16 +1,15 @@
 import { z } from "zod";
 import { TIPI_ATTIVITA } from "@/lib/config";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
+import { optionalText } from "./utils";
 
 export const attivitaSchema = z
   .object({
     nome: z.string().trim().min(1, "Nome attività obbligatorio"),
     tipo: z.enum(TIPI_ATTIVITA),
-    dataInizio: optionalString,
-    dataFine: optionalString,
+    dataInizio: optionalText,
+    dataFine: optionalText,
     attivo: z.coerce.boolean().default(true),
-    note: optionalString,
+    note: optionalText,
     autoGeneraSessioniMensili: z.coerce.boolean().default(false),
   })
   .superRefine((val, ctx) => {

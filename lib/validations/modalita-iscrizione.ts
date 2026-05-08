@@ -1,13 +1,11 @@
 import { z } from "zod";
-import { currencyNumber } from "./utils";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
+import { currencyNumber, optionalText } from "./utils";
 
 export const modalitaIscrizioneSchema = z.object({
   attivitaId: z.string().trim().min(1, "Attività obbligatoria"),
   nome: z.string().trim().min(1, "Nome obbligatorio"),
   importo: currencyNumber,
-  descrizione: optionalString,
+  descrizione: optionalText,
   attivo: z.coerce.boolean().default(true),
 });
 

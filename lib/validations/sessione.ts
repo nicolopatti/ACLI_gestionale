@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { TIPI_UNITA } from "@/lib/config";
-import { currencyNumberOptional } from "./utils";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
+import { currencyNumberOptional, optionalText } from "./utils";
 
 export const sessioneSchema = z.object({
   attivitaId: z.string().trim().min(1, "Attività obbligatoria"),
@@ -10,7 +8,7 @@ export const sessioneSchema = z.object({
   dataInizio: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inizio obbligatoria"),
-  dataFine: optionalString,
+  dataFine: optionalText,
   importo: currencyNumberOptional,
 });
 

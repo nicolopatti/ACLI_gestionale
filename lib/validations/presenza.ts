@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalText } from "./utils";
 
 const oraRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -19,7 +20,7 @@ export type PresenzaRigaInput = z.infer<typeof presenzaRigaSchema>;
 
 export const presenzeBatchSchema = z.object({
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data ISO obbligatoria"),
-  attivitaId: z.string().trim().optional().or(z.literal("")),
+  attivitaId: optionalText,
   righe: z.array(presenzaRigaSchema),
 });
 

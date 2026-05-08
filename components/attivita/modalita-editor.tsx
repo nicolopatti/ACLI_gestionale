@@ -115,7 +115,7 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
         onSubmit={submit}
         className="grid gap-3 rounded-md border border-[var(--border)] p-3 md:grid-cols-12"
       >
-        <div className="md:col-span-5 space-y-1">
+        <div className="md:col-span-4 space-y-1">
           <Label className="text-xs">Nome modalità</Label>
           <Input
             value={nome}
@@ -123,14 +123,14 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
             placeholder='es. "Mensile 14-16 (3 giorni)"'
           />
         </div>
-        <div className="md:col-span-2 space-y-1">
+        <div className="md:col-span-3 space-y-1">
           <Label className="text-xs">Importo (€)</Label>
           <Input
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={importo}
             onChange={(e) => setImporto(e.target.value)}
+            placeholder="es. 79,99"
           />
         </div>
         <div className="md:col-span-3 space-y-1">

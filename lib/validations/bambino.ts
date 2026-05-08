@@ -1,36 +1,29 @@
 import { z } from "zod";
 import { CONTATTO_RUOLI } from "@/lib/config";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
-const optionalEmail = z
-  .string()
-  .trim()
-  .email("Email non valida")
-  .optional()
-  .or(z.literal(""));
+import { optionalEmail, optionalText } from "./utils";
 
 export const contattoAggiuntivoSchema = z.object({
-  recordId: optionalString,
+  recordId: optionalText,
   ruolo: z.enum(CONTATTO_RUOLI),
   nome: z.string().trim().min(1, "Nome contatto obbligatorio"),
   cognome: z.string().trim().min(1, "Cognome contatto obbligatorio"),
-  telefono: optionalString,
-  note: optionalString,
+  telefono: optionalText,
+  note: optionalText,
 });
 
 export const bambinoSchema = z.object({
   nome: z.string().trim().min(1, "Nome obbligatorio"),
   cognome: z.string().trim().min(1, "Cognome obbligatorio"),
-  dataNascita: optionalString,
-  scuola: optionalString,
-  classe: optionalString,
+  dataNascita: optionalText,
+  scuola: optionalText,
+  classe: optionalText,
   nomeGenitore: z.string().trim().min(1, "Nome genitore obbligatorio"),
   cognomeGenitore: z.string().trim().min(1, "Cognome genitore obbligatorio"),
-  telefonoGenitore: optionalString,
+  telefonoGenitore: optionalText,
   emailGenitore: optionalEmail,
-  cfGenitore: optionalString,
-  fratelloDiId: optionalString,
-  note: optionalString,
+  cfGenitore: optionalText,
+  fratelloDiId: optionalText,
+  note: optionalText,
   attivo: z.coerce.boolean().default(true),
   contatti: z.array(contattoAggiuntivoSchema).default([]),
 });

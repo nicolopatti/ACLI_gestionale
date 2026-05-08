@@ -56,9 +56,8 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
             <Input
               id="importoPagato"
               name="importoPagato"
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="decimal"
               required
               defaultValue={mese.importoDovuto}
             />
