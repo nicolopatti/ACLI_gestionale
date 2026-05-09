@@ -6,6 +6,7 @@ import {
   GraduationCap,
   HeartHandshake,
   LayoutDashboard,
+  Receipt,
   Shield,
   UserCog,
   type LucideIcon,
@@ -52,6 +53,7 @@ export const NAV: Record<Area, NavSection> = {
       { href: "/attivita", label: "Attività", icon: CalendarRange },
       { href: "/iscrizioni", label: "Iscrizioni", icon: GraduationCap },
       { href: "/presenze", label: "Presenze", icon: CalendarCheck },
+      { href: "/spese-edu", label: "Registra movimento", icon: Receipt },
     ],
   },
 };
