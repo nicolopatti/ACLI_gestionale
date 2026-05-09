@@ -139,14 +139,13 @@ Non si introduce la tabella né la route. Se in futuro servirà, si parte dall'a
 - **Niente badge "SCOPERTO"** sulle celle vuote. Cella vuota = cella vuota.
 - Differenziazione visiva pianificato vs consuntivato (es. avatar pieno vs avatar con bordo tratteggiato, o fascia colore di sfondo diversa).
 - Click sull'avatar → dialog modifica/rimozione + inserimento ore effettive.
-- Aggiunta: **click sulla cella vuota → dialog multi-select educatori** (alternativa più semplice al drag-drop del prototipo) **oppure drag-drop dalla sidebar** (da decidere — entrambe creano record `Disponibilita`).
+- **Click sulla cella → dialog multi-select educatori** (decisione utente: niente drag-drop). Il dialog mostra la lista degli educatori attivi; selezionando uno o più educatori si creano i record `Disponibilita` per quella `data × fascia`. Click su una cella già popolata → stesso dialog ma con gli educatori già selezionati, che si possono aggiungere/togliere.
 - Stats utili (header pagina): ore pianificate nel periodo, ore consuntivate, totale educatori che hanno fatto almeno un turno. **Niente "turni coperti / da coprire"**.
 
 **Tabella secondaria** (sotto la griglia): per ogni educatore attivo nel periodo, riassunto giorni/sett, ore pianificate, ore consuntivate. Questa è la base dati che il responsabile esporta/copia per calcolare i compensi.
 
-**Punti aperti** (PR-time):
-- Drag-drop o click-su-cella? (vedi sopra). Drag-drop = `@dnd-kit` (~10kb), più "fluido" su desktop ma più costoso. Click-multi-select = nessuna libreria, funziona ovunque.
-- Bulk action "copia settimana precedente" → fuori scope MVP, ma da segnare come follow-up.
+**Follow-up** (fuori scope MVP):
+- Bulk action "copia settimana precedente" per accelerare la pianificazione di settimane simili.
 
 ---
 
@@ -216,7 +215,7 @@ Ipotesi: ogni PR è atomica, mergeabile, deployabile in preview. Ordine pensato 
 | 7 | **`/educatori` split-view** (lista sx + detail dx) + KPI ore/compenso | 🟡 | #1 |
 | 8 | **Gating proxy esteso a `coordinatore_educativo`** + utente reale di test | ⚠️ | nessuna |
 | 9 | **`/spese-edu`** form rapido educatore | 🟡 + ⚠️ | #1, #8 |
-| 10 | **`/turni`** estende `Disponibilita` (consuntivo ore) + UI griglia settimana/mese | 🔴 (3 campi) + 🟡 + ⚠️ | #1, #8 |
+| 10 | **`/turni`** estende `Disponibilita` (consuntivo ore) + UI griglia settimana/mese, click-su-cella | 🔴 (3 campi) + 🟡 + ⚠️ | #1, #8 |
 | 11 | **`/dashboard` rifinito**: split admin/edu con tabs interni | 🟡 | #1, #8 |
 | 12 | **Login 2-colonne** restyling | 🟢 | nessuna |
 | 13 | **Presenze** stat card + filtro fascia oraria visivo | 🟡 | #1 |
