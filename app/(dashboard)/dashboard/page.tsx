@@ -31,7 +31,6 @@ import { MEZZI_PAGAMENTO } from "@/lib/config";
 
 const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
   "14-16": 2,
-  "14-18": 4,
   "16-18": 2,
 };
 

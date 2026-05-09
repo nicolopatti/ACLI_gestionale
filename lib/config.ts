@@ -41,7 +41,11 @@ export const TIPO_ATTIVITA_TO_UNITA: Record<TipoAttivita, TipoUnita> = {
 export const FASCE_ORARIE = ["14-16", "14-18"] as const;
 export type FasciaOraria = (typeof FASCE_ORARIE)[number];
 
-export const FASCE_DISPONIBILITA = ["14-16", "14-18", "16-18"] as const;
+// Fasce di turno per gli educatori: 14-16 e 16-18, due slot di 2h
+// non sovrapposti che coprono l'intero pomeriggio del doposcuola.
+// Niente 14-18 perché ridondante (= 14-16 + 16-18) e creava una colonna
+// "vuota" sempre presente che sembrava un placeholder.
+export const FASCE_DISPONIBILITA = ["14-16", "16-18"] as const;
 export type FasciaDisponibilita = (typeof FASCE_DISPONIBILITA)[number];
 
 export const CONTATTO_RUOLI = ["nonno", "nonna", "zio", "zia", "altro"] as const;
