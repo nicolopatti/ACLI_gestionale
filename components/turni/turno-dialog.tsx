@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { salvaTurnoCellaAction } from "@/lib/actions/disponibilita";
@@ -56,6 +57,7 @@ export function TurnoDialog({
   initialRows,
   contextLabel,
 }: TurnoDialogProps) {
+  const router = useRouter();
   const [rows, setRows] = useState<TurnoRowState[]>(initialRows);
   const [pending, startTransition] = useTransition();
 
@@ -83,6 +85,10 @@ export function TurnoDialog({
       if (res?.ok) {
         toast.success("Turno salvato");
         onOpenChange(false);
+        // Forza re-fetch lato server: senza questo la TurniGrid resta
+        // sui dati di prop precedenti e gli educatori rimossi sembrano
+        // ancora "occupare" la cella.
+        router.refresh();
       } else if (res?.error) {
         toast.error(res.error);
       }
