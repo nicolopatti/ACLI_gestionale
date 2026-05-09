@@ -3,6 +3,18 @@
 > Scopo: confronto sistematico tra le funzionalità del prototipo Claude Design (`design-prototype/prototype/`) e quelle realmente presenti nel codice. Per ogni voce: stato, costo stimato e — quando la soluzione del prototipo è cara — un'alternativa più semplice da valutare insieme.
 >
 > Compilato: 2026-05-09. Branch: `claude/align-design-code-Lmqps`.
+> Aggiornato: 2026-05-09 (sera) — decisioni di scope dopo il primo giro di domande.
+
+## Scope deciso
+
+| Voce | Decisione |
+|---|---|
+| **Eventi** | ❌ Fuori scope. Niente tabella, niente route. |
+| **Turni** | ✅ Come da prototipo: tabella assegnazioni nuova + drag-drop educatori. |
+| **Cassa-edu** | ❌ Fuori scope come pagina dedicata. Si elimina anche il flag `area` sulle Categorie: il bisogno reale è solo il form di registrazione movimento, coperto da `/spese-edu`. |
+| **Presenze "giustificato"** | ❌ Non si traccia. |
+| **Charts** | ❌ Fuori scope ora. Quando si faranno, dovranno essere interattivi (hover, click su barra/punto). |
+| **Spese-edu** | ✅ Form rapido per educatore: registra Movimento, dopo submit toast + reset (no redirect a cassa-edu, che non esiste). |
 
 ## Legenda
 
@@ -17,12 +29,12 @@
 
 | # | Route prototipo | Stato codice | Costo | Note |
 |---|---|---|---|---|
-| 1 | `/eventi` | assente | 🔴 + 🟡 | Tabella Eventi nuova (vedi §4.1). |
-| 2 | `/adm-home` | esiste `/dashboard` ma generico | 🟡 | Cruscotto presidenza con stats finanziarie + eventi prossimi. |
+| 1 | ~~`/eventi`~~ | — | — | **Fuori scope.** |
+| 2 | `/adm-home` | esiste `/dashboard` ma generico | 🟡 | Cruscotto presidenza: stats finanziarie + alert. _Niente eventi prossimi._ |
 | 3 | `/edu-home` | assente | 🟡 | Cruscotto coordinatore: presenze oggi, morosità, turni settimana. |
-| 4 | `/turni` | assente | 🔴 + 🟡 + ⚠️ | Vedi §4.2: turni come entità o derivati da `Disponibilita`. |
-| 5 | `/spese-edu` | assente | 🟡 + ⚠️ | Form rapido educatori — riusa tabella Movimenti, gating per ruolo. |
-| 6 | `/cassa-edu` | assente | 🟡 (con alternativa 🟢) | Vedi §4.3: route nuova vs filtro su `/cassa`. |
+| 4 | `/turni` | assente | 🔴 + 🟡 + ⚠️ | Tabella `AssegnazioniTurni` + UI drag-drop. Vedi §4.2. |
+| 5 | `/spese-edu` | assente | 🟡 + ⚠️ | Form rapido per educatore — riusa tabella Movimenti, gating per ruolo. |
+| 6 | ~~`/cassa-edu`~~ | — | — | **Fuori scope.** Educatore registra movimenti via `/spese-edu`. |
 | 7 | Login 2-colonne | login presente, no art panel | 🟢 | Estetico, restyling pagina `(auth)/login`. |
 
 ## 2. Pagine esistenti — gap funzionali
@@ -59,8 +71,7 @@
 ### `/presenze`
 | Funzionalità prototipo | Codice attuale | Stato | Costo |
 |---|---|---|---|
-| 4 stat card: Totali / Presenti / Assenti / **Giustificati** | nessuno | mancante | 🟡 + nuovo enum |
-| Stato "giustificato" sulle righe | non esiste | mancante | 🔴 (nuovo campo o convenzione su `note`) |
+| 3 stat card: Totali / Presenti / Assenti _(no "Giustificati", fuori scope)_ | nessuno | mancante | 🟡 |
 | Filtro fascia oraria + date picker chiaro | filtro esiste via query param | parziale | 🟢 |
 
 ### `/cassa`
@@ -86,119 +97,77 @@ Va **splittata** in `adm-home` (presidenza) e `edu-home` (coordinatore) — vedi
 
 | Concetto prototipo | Su Airtable | Note |
 |---|---|---|
-| `Movimenti.conto` ∈ {Cassa, BCC, Sumup} | ✓ presente | Identico |
-| `Movimenti.area` ∈ {amm, edu} | ✗ assente | Vedi §4.3: alternativa via categoria. |
-| `Eventi` (nome, data, luogo, responsabile, stato, budget, incassato) | ✗ assente | Tabella nuova. |
-| `Turni` (giorno × slot × educatori, stato copertura) | ✗ — esiste `Disponibilita` (data, fascia, educatore) | Vedi §4.2. |
-| `Presenze.stato` ∈ {presente, assente, giustificato} | ✗ — derivato da ore_ingresso/uscita | "Giustificato" non esprimibile. |
+| `Movimenti.conto` ∈ {Cassa, BCC, Sumup} | ✓ presente | Identico al prototipo. |
+| ~~`Movimenti.area`~~ | — | **Fuori scope** (cassa-edu eliminato). |
+| ~~`Eventi`~~ | — | **Fuori scope.** |
+| `AssegnazioniTurni` (data, fascia, educatore) | ✗ assente | Tabella nuova. Distinta da `Disponibilita` (che dichiara la disponibilità). Vedi §4.2. |
+| ~~`Presenze.stato` "giustificato"~~ | — | **Fuori scope.** Resta lo stato implicito presente/assente da `oraIngresso/oraUscita`. |
 | `Iscrizioni.stato` ∈ {attiva, in_ritardo, completata} | ✗ — derivabile da rate | Calcolabile lato server. |
-| `coordinatore_educativo` come ruolo reale | tipo + nav, ma nessun utente | Va creato + esteso il proxy gating. |
+| `coordinatore_educativo` come ruolo reale | tipo + nav, ma nessun utente | Va creato + esteso il proxy gating per `/turni`, `/spese-edu`, `/edu-home`. |
 
 ---
 
-## 4. Punti complessi — alternative più semplici
+## 4. Decisioni di scope (chiuse)
 
-### 4.1 Eventi: tabella completa **vs** anagrafica leggera
+### 4.1 ~~Eventi~~ — fuori scope
 
-**Prototipo**: card con `nome / data / luogo / responsabile / stato / budget / incassato`. Stato a 3 valori (`in_preparazione / in_corso / concluso`).
-
-**Costo pieno**: nuova tabella su Airtable, mapper, server actions CRUD, possibilmente collegamento Movimenti → Evento per calcolare incassato/budget reale.
-
-**Alternativa più semplice (consigliata per la prima iterazione)**:
-
-- Tabella Eventi minimale: `nome / data / luogo / note / stato`. Stato a 2 valori (`programmato / concluso`).
-- **Niente budget/incassato**. Si valuta dopo se serve davvero il legame contabile.
-- Solo lista (no detail page). Modifica inline o piccolo dialog.
-
-**Cosa si perde**: il legame "questo evento ha incassato X". Si recupera in seconda battuta aggiungendo un campo opzionale `evento` sui Movimenti.
+Non si introduce la tabella né la route. Se in futuro servirà, si parte dall'anagrafica minimale (`nome / data / luogo / stato`).
 
 ---
 
-### 4.2 Turni: tabella dedicata **vs** vista derivata da Disponibilità
+### 4.2 Turni — come da prototipo (drag-drop su tabella nuova)
 
-**Prototipo**: griglia `giorni × slot` con educatori assegnati per cella, stato "scoperto", drag-drop dalla colonna educatori disponibili.
+**Da fare**:
 
-**Costo pieno**: nuova tabella Turni (assegnazione effettiva), UI drag-drop (cara da fare bene), conflict detection con disponibilità.
+- Nuova tabella Airtable `AssegnazioniTurni` con campi: `data` (date), `fascia` (single select: 14-16 / 14-18 / 16-18), `educatore` (link a Educatori), `note` (text). Una assegnazione per coppia (fascia × educatore × giorno). Più educatori per stessa fascia/giorno → più record.
+- Mapper + server actions `assegnaTurno` / `rimuoviTurno`.
+- UI griglia `giorni × slot` con celle che mostrano gli avatar degli educatori assegnati. Cella vuota → badge `SCOPERTO` rosso.
+- Sidebar destra "Educatori disponibili nel periodo": lista degli educatori che hanno una `Disponibilita` matching su quella fascia/data.
+- Drag-drop dalla sidebar sulle celle. Implementazione: `@dnd-kit` (libreria standard React, ~10kb gz).
+- Validation soft: se trascini un educatore su una fascia in cui **non** ha disponibilità, mostra warning ma consenti override.
 
-**Alternativa più semplice (consigliata)**:
-
-- **Niente nuova tabella**. La pagina `/turni` è una **vista read-only** sulla tabella `Disponibilita` esistente: aggrega per `(data, fascia)` e mostra chi si è dichiarato disponibile.
-- "Scoperto" = nessun educatore disponibile per quella cella.
-- La modifica avviene editando le `Disponibilita` (UI già esistente sotto educatori).
-- **Niente drag-drop**: se serve davvero un'assegnazione vincolante (≠ disponibilità), si aggiunge dopo un campo `confermato` sulla tabella.
-
-**Cosa si perde**: la distinzione "disponibile" vs "in turno". Per circoli piccoli (volume attuale) la distinzione è accademica.
-
----
-
-### 4.3 Cassa-edu: route separata **vs** filtro su `/cassa`
-
-**Prototipo**: `/cassa-edu` è una pagina identica a `/cassa` ma filtrata su categorie educative (`Quote iscrizione`, `Quote laboratorio`, `Compensi educatori`, `Materiale didattico`, `Cancelleria`, `Merenda`).
-
-**Costo pieno (con campo `area`)**: aggiungere `area` su Movimenti, retro-compilare i record esistenti, mapper, due route gemelle.
-
-**Alternativa più semplice**:
-
-- **Niente campo `area`**. Si introduce su tabella `Categorie` un flag `area` (`amm | edu | entrambi`).
-- `/cassa` di default mostra tutto; `/cassa?area=edu` filtra; il coordinatore educativo viene mandato direttamente lì dalla nav.
-- Per il presidente la distinzione è un toggle nel filterbar — niente route gemella.
-
-**Cosa si perde**: nulla di sostanziale. La separazione visiva resta perché la nav punta a URL diversi.
+**Punti aperti** (decideremo in fase di PR):
+- Scope temporale: settimana o mese? Il prototipo mostra settimana.
+- Stato cella oltre a "scoperto": "ok 2 educatori", "completo 3 educatori"? Soglia copertura va decisa.
+- Assegnazione massiva (es. "copia turni della settimana scorsa")? Probabilmente fuori scope dell'MVP.
 
 ---
 
-### 4.4 Tre dashboard separate **vs** un `/home` parametrico
+### 4.3 ~~Cassa-edu~~ — fuori scope
 
-**Prototipo**: `adm-home`, `edu-home`, e una `home` legacy.
-
-**Alternativa più semplice (consigliata)**:
-
-- Un'unica `/dashboard` (già esistente) che varia il contenuto in base a `session.ruolo`. Rinominata o no, è la stessa route.
-- L'admin vede stats finanziarie + eventi; il coordinatore vede presenze oggi + morosità + turni; entrambi i ruoli (se l'utente è cumulativo) → tabbed (`Amministrazione | Educativo`).
-
-**Cosa si perde**: due URL separati per il bookmark. Trascurabile.
+L'educatore registra movimenti via `/spese-edu` (form rapido). Niente flag `area` su Categorie, niente filtro su `/cassa`. La pagina `/cassa` resta unica e admin-only come ora.
 
 ---
 
-### 4.5 Spese-edu: wizard 3 step **vs** form singolo
+### 4.4 Dashboard — split logico, non per route
 
-**Prototipo**: form 3 step (`compila → conferma → ok`).
+Resta **una sola** route `/dashboard`. Il contenuto varia per ruolo:
 
-**Alternativa più semplice (consigliata)**:
+- **admin** → blocco "Amministrazione" (stats finanziarie, alert, ultimi movimenti).
+- **coordinatore_educativo** → blocco "Educativo" (presenze oggi, morosità, turni della settimana).
+- ruoli cumulativi (se in futuro un utente avrà entrambi) → tabs interni alla pagina.
 
-- Form singolo con dialog di conferma al submit (pattern già in uso in `/iscrizioni` per "Segna pagato").
-- Toast di successo + redirect a `/cassa-edu` (o `/cassa?area=edu`).
-
-**Cosa si perde**: nulla a livello di funzione, solo "polish" del flusso.
-
----
-
-### 4.6 Drawer multi-tab bambino **vs** full-page detail già esistente
-
-**Prototipo**: drawer 640px con 5 tabs (`Anagrafica / Iscrizioni / Presenze / Pagamenti / Note`).
-
-**Stato**: esiste già `/bambini/[id]` come pagina piena con sezioni ma senza tabs.
-
-**Alternativa più semplice (consigliata per ora)**:
-
-- Tenere la full-page detail. Aggiungere solo i **tabs** dentro la pagina (componente Tabs nuovo, una volta sola) per ottenere lo stesso effetto informativo del drawer.
-- Drawer dalla list page → in seconda battuta, dopo che il componente Tabs è in libreria.
-
-**Cosa si perde**: l'effetto "side-peek" senza cambiare URL. Riproponibile dopo.
+Niente `/adm-home` e `/edu-home` come URL separati: stessa pagina, contenuto condizionato.
 
 ---
 
-### 4.7 Trend chart 14 giorni e categorie chart
+### 4.5 Spese-edu — form singolo
 
-**Prototipo**: barre / area chart su movimenti e distribuzione categorie.
+- Form unico (no wizard 3 step). Pattern: dialog di conferma al submit, come `/iscrizioni`.
+- Dopo submit → toast successo + form pulito (resta sulla pagina, no redirect a `/cassa-edu` che non esiste).
+- Sidebar destra "I miei ultimi movimenti": ultimi 5 inseriti dall'educatore (filtra su volontario corrente).
 
-**Alternativa più semplice (consigliata per la prima iterazione)**:
+---
 
-- KPI numerici puri (saldo + delta vs periodo precedente come testo).
-- "Categorie" = lista ordinata per importo, no chart.
-- Una libreria di charting si aggiunge solo se l'utente la chiede esplicitamente.
+### 4.6 Drawer multi-tab bambino — solo tabs, no drawer
 
-**Cosa si perde**: l'effetto "wow" del trend visivo. Il dato c'è comunque.
+Si tiene la full-page `/bambini/[id]`, ma si aggiunge il componente **Tabs** dentro la pagina (`Anagrafica / Iscrizioni / Presenze / Pagamenti / Note`). Nessun drawer dalla list page nell'MVP. Si valuta dopo se serve davvero il side-peek.
+
+---
+
+### 4.7 ~~Charts~~ — fuori scope ora
+
+Niente chart adesso. Quando si introdurranno (priorità bassa), dovranno essere **interattivi**: hover con valore esatto, click su barra/punto che apre la lista filtrata. KPI numerici e liste ordinate sono sufficienti per il momento.
 
 ---
 
@@ -217,27 +186,28 @@ Va **splittata** in `adm-home` (presidenza) e `edu-home` (coordinatore) — vedi
 
 ## 6. Ordine proposto (PR per PR)
 
-Ipotesi: ogni PR è atomica, mergeabile, deployabile in preview. Ordine pensato per minimizzare il blocco reciproco.
+Ipotesi: ogni PR è atomica, mergeabile, deployabile in preview. Ordine pensato per minimizzare il blocco reciproco — i componenti base abilitano tutte le PR successive, le route admin-only precedono quelle che richiedono il gating per `coordinatore_educativo`.
 
-1. **Componenti UI base**: `Tabs`, `Drawer/Sheet`, `Avatar`, `ProgressBar`, `Filterbar`. Una PR sola, niente uso ancora. _(🟢)_
-2. **`/bambini` arricchito**: tabs + filtri + colonne saldo/presenze (calcolate server). _(🟡)_
-3. **`/iscrizioni` arricchito**: tabs by stato + bar avanzamento + segna-pagato inline. _(🟡)_
-4. **`/cassa` arricchito**: filterbar + 4 KPI per conto + footer totali periodo. _(🟢)_
-5. **Categorie con flag `area`** + `/cassa?area=edu`. Coordinatore in nav punta lì. _(🔴 mini, su tabella Categorie)_
-6. **Eventi MVP** (tabella minimale, niente budget): lista + form. _(🔴 + 🟡)_
-7. **`/turni` come vista derivata** da Disponibilità. _(🟡)_
-8. **`/edu-home`**: cruscotto coordinatore (riusa dati esistenti, niente schema). _(🟡 + ⚠️)_
-9. **`/spese-edu`** form singolo + dialog conferma. _(🟡 + ⚠️)_
-10. **Adm-home** rifinitura del `/dashboard` con focus presidenza. _(🟡)_
-11. **Login 2-colonne** restyling. _(🟢)_
-12. **Drawer bambino** dalla list (se serve ancora dopo §2). _(🟢)_
+| # | PR | Tipo | Dipendenze |
+|---|---|---|---|
+| 1 | **Componenti UI base** (`Tabs`, `Drawer/Sheet`, `Avatar`, `ProgressBar`, `Filterbar`) | 🟢 | nessuna |
+| 2 | **`/bambini` arricchito**: tabs + filtri (scuola/classe/iscrizione) + colonne saldo/presenze del mese | 🟡 | #1 |
+| 3 | **`/iscrizioni` arricchito**: tabs by stato + bar avanzamento + segna-pagato inline | 🟡 | #1 |
+| 4 | **`/cassa` arricchito**: filterbar + 4 KPI per conto + footer totali periodo | 🟢 | #1 |
+| 5 | **`/attivita`** card grid + sotto-tabella sessioni del mese | 🟡 | #1 |
+| 6 | **Tabs nel detail bambino** (Anagrafica/Iscrizioni/Presenze/Pagamenti/Note) | 🟢 | #1 |
+| 7 | **`/educatori` split-view** (lista sx + detail dx) + KPI ore/compenso | 🟡 | #1 |
+| 8 | **Gating proxy esteso a `coordinatore_educativo`** + utente reale di test | ⚠️ | nessuna |
+| 9 | **`/spese-edu`** form rapido educatore | 🟡 + ⚠️ | #1, #8 |
+| 10 | **`/turni`** tabella `AssegnazioniTurni` + UI drag-drop | 🔴 + 🟡 + ⚠️ | #1, #8 |
+| 11 | **`/dashboard` rifinito**: split admin/edu con tabs interni | 🟡 | #1, #8 |
+| 12 | **Login 2-colonne** restyling | 🟢 | nessuna |
+| 13 | **Presenze** stat card + filtro fascia oraria visivo | 🟡 | #1 |
+| 14 | **`/utenti` drawer** "Modifica utente" | 🟢 | #1 |
 
----
+**Critical path**: #1 → tutto il resto. #8 prima di #9, #10, #11.
 
-## Domande aperte per te
+**PR che richiedono modifiche su Airtable**:
+- #10 → nuova tabella `AssegnazioniTurni`.
 
-1. **Eventi** servono davvero ora, o sono "nice to have"? (Se servono, alternativa minimale §4.1 va bene?)
-2. **Turni**: ti basta la vista read-only su `Disponibilita` o vuoi davvero un'assegnazione confermata distinta?
-3. **Cassa-edu**: ok l'idea del flag `area` su `Categorie` invece del campo su `Movimenti`?
-4. **`giustificato`** sulle presenze è un valore che vuoi tracciare o si può ignorare?
-5. **Charts** (trend, categorie): sono importanti per te o partiamo senza?
+Tutte le altre PR sono codice puro (UI o logica server), nessuna migrazione dati richiesta.
