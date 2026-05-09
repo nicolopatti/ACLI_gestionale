@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import {
   createModalitaAction,
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function ModalitaEditor({ attivitaId, modalita }: Props) {
+  const router = useRouter();
   const [nome, setNome] = useState("");
   const [importo, setImporto] = useState("");
   const [descrizione, setDescrizione] = useState("");
@@ -46,12 +48,14 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
       setNome("");
       setImporto("");
       setDescrizione("");
+      router.refresh();
     });
   };
 
   const onDelete = (id: string) => {
     startTransition(async () => {
       await deleteModalitaAction(id, attivitaId);
+      router.refresh();
     });
   };
 
