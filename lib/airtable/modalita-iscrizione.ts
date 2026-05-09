@@ -18,13 +18,17 @@ export async function listModalitaByAttivita(
   attivitaId: string,
 ): Promise<ModalitaIscrizione[]> {
   if (!base) return [];
+  // Filtro lato server: filterByFormula con FIND su un linked record
+  // confronta il primary field (display name) del record collegato, non
+  // il record id. Carichiamo tutto e filtriamo in JS.
   const records = await base(TABLE_NAMES.modalitaIscrizione)
     .select({
-      filterByFormula: `FIND('${attivitaId}', ARRAYJOIN({attivita}))`,
       sort: [{ field: "importo", direction: "asc" }],
     })
     .all();
-  return records.map((r) => mapModalita({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapModalita({ id: r.id, fields: r.fields }))
+    .filter((m) => m.attivitaId === attivitaId);
 }
 
 export async function getModalita(recordId: string): Promise<ModalitaIscrizione | null> {

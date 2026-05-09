@@ -19,13 +19,17 @@ function mapSessione(record: { id: string; fields: Record<string, unknown> }): S
 
 export async function listSessioniByAttivita(attivitaId: string): Promise<Sessione[]> {
   if (!base) return [];
+  // Filtro lato server: ARRAYJOIN su linked record dà il display name, non
+  // il record id, quindi FIND con un id non matcha mai. Carichiamo tutto e
+  // filtriamo in JS.
   const records = await base(TABLE_NAMES.sessioni)
     .select({
-      filterByFormula: `FIND('${attivitaId}', ARRAYJOIN({attivita}))`,
       sort: [{ field: "chiave", direction: "asc" }],
     })
     .all();
-  return records.map((r) => mapSessione({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapSessione({ id: r.id, fields: r.fields }))
+    .filter((s) => s.attivitaId === attivitaId);
 }
 
 export async function listSessioni(opts?: { recordIds?: string[] }): Promise<Sessione[]> {
