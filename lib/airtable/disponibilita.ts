@@ -20,6 +20,17 @@ function mapDisponibilita(record: {
   };
 }
 
+export async function listDisponibilitaByMese(meseAnno: string): Promise<Disponibilita[]> {
+  if (!base) return [];
+  const records = await base(TABLE_NAMES.disponibilita)
+    .select({
+      filterByFormula: `LEFT({data}, 7) = '${escapeFormulaString(meseAnno)}'`,
+      sort: [{ field: "data", direction: "asc" }],
+    })
+    .all();
+  return records.map((r) => mapDisponibilita({ id: r.id, fields: r.fields }));
+}
+
 export async function listDisponibilitaByEducatoreEMese(
   educatoreId: string,
   meseAnno: string,
