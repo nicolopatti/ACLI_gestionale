@@ -27,13 +27,17 @@ function mapMese(record: { id: string; fields: Record<string, unknown> }): MeseI
 
 export async function listMesiByIscrizione(iscrizioneId: string): Promise<MeseIscrizione[]> {
   if (!base) return [];
+  // Filtro lato server: ARRAYJOIN su un linked record produce i display name,
+  // non gli id, quindi FIND('rec...') non matcha mai. Carichiamo tutto e
+  // filtriamo in JS.
   const records = await base(TABLE_NAMES.mesi)
     .select({
-      filterByFormula: `FIND('${iscrizioneId}', ARRAYJOIN({iscrizione}))`,
       sort: [{ field: "chiave_periodo", direction: "asc" }],
     })
     .all();
-  return records.map((r) => mapMese({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapMese({ id: r.id, fields: r.fields }))
+    .filter((m) => m.iscrizioneId === iscrizioneId);
 }
 
 export async function listMesiByChiavePeriodo(chiave: string): Promise<MeseIscrizione[]> {
@@ -123,13 +127,11 @@ export async function deleteRateBySessioneEIscrizione(
   sessioneId: string,
 ): Promise<number> {
   if (!base) return 0;
-  const records = await base(TABLE_NAMES.mesi)
-    .select({
-      filterByFormula: `AND(FIND('${iscrizioneId}', ARRAYJOIN({iscrizione})), FIND('${sessioneId}', ARRAYJOIN({sessione})))`,
-      fields: ["codice"],
-    })
-    .all();
-  const ids = records.map((r) => r.id);
+  const records = await base(TABLE_NAMES.mesi).select({}).all();
+  const ids = records
+    .map((r) => mapMese({ id: r.id, fields: r.fields }))
+    .filter((m) => m.iscrizioneId === iscrizioneId && m.sessioneId === sessioneId)
+    .map((m) => m.recordId);
   for (let i = 0; i < ids.length; i += 10) {
     await base(TABLE_NAMES.mesi).destroy(ids.slice(i, i + 10));
   }
@@ -143,12 +145,12 @@ export async function hasRataPagataForSessione(
   if (!base) return false;
   const records = await base(TABLE_NAMES.mesi)
     .select({
-      filterByFormula: `AND(FIND('${iscrizioneId}', ARRAYJOIN({iscrizione})), FIND('${sessioneId}', ARRAYJOIN({sessione})), OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale'))`,
-      fields: ["stato_pagamento"],
-      maxRecords: 1,
+      filterByFormula: `OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale')`,
     })
     .all();
-  return records.length > 0;
+  return records
+    .map((r) => mapMese({ id: r.id, fields: r.fields }))
+    .some((m) => m.iscrizioneId === iscrizioneId && m.sessioneId === sessioneId);
 }
 
 export async function hasAnyRataPagataForSessione(
@@ -157,10 +159,10 @@ export async function hasAnyRataPagataForSessione(
   if (!base) return false;
   const records = await base(TABLE_NAMES.mesi)
     .select({
-      filterByFormula: `AND(FIND('${sessioneId}', ARRAYJOIN({sessione})), OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale'))`,
-      fields: ["stato_pagamento"],
-      maxRecords: 1,
+      filterByFormula: `OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale')`,
     })
     .all();
-  return records.length > 0;
+  return records
+    .map((r) => mapMese({ id: r.id, fields: r.fields }))
+    .some((m) => m.sessioneId === sessioneId);
 }
