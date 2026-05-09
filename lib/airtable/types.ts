@@ -155,6 +155,8 @@ export interface Disponibilita {
   educatoreId: string;
   data: string;
   fasciaOraria: FasciaDisponibilita;
+  oraIngresso?: string;
+  oraUscita?: string;
   note?: string;
 }
 

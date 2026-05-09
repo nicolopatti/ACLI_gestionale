@@ -3,13 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { disponibilitaBatchSchema } from "@/lib/validations/disponibilita";
-import { replaceDisponibilita } from "@/lib/airtable/disponibilita";
-import { getEducatore } from "@/lib/airtable/educatori";
-import type { FasciaDisponibilita } from "@/lib/config";
+import { replaceDisponibilita, replaceTurnoCella, type TurnoCellaRow } from "@/lib/airtable/disponibilita";
+import { getEducatore, listEducatori } from "@/lib/airtable/educatori";
+import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
 
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+}
+
+async function requireEduOrAdmin() {
+  const session = await auth();
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new Error("Non autorizzato");
+  }
 }
 
 /**
@@ -54,4 +62,70 @@ export async function salvaDisponibilitaAction(formData: FormData) {
   );
   revalidatePath(`/educatori/${educatoreId}`);
   return { ok: true };
+}
+
+const ORA_RE = /^(\d{2}):(\d{2})$/;
+
+/**
+ * Sostituisce gli educatori in turno per una cella (data, fascia) e
+ * imposta le ore consuntivo opzionali. Riceve un payload JSON-friendly
+ * tramite FormData come "rows" (JSON-encoded). Accessibile a admin e
+ * coordinatore_educativo.
+ */
+export async function salvaTurnoCellaAction(
+  _prev: { ok?: boolean; error?: string } | undefined,
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const data = String(formData.get("data") ?? "").trim();
+  const fascia = String(formData.get("fascia") ?? "").trim() as FasciaDisponibilita;
+  const rowsRaw = String(formData.get("rows") ?? "[]");
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { error: "Data non valida" };
+  if (!FASCE_DISPONIBILITA.includes(fascia)) return { error: "Fascia non valida" };
+
+  let rows: TurnoCellaRow[];
+  try {
+    const parsed = JSON.parse(rowsRaw) as unknown;
+    if (!Array.isArray(parsed)) throw new Error();
+    rows = parsed
+      .filter((r): r is { educatoreId: string; oraIngresso?: string; oraUscita?: string } => {
+        return Boolean(r && typeof r === "object" && "educatoreId" in r);
+      })
+      .map((r) => {
+        const ingresso = typeof r.oraIngresso === "string" ? r.oraIngresso.trim() : "";
+        const uscita = typeof r.oraUscita === "string" ? r.oraUscita.trim() : "";
+        return {
+          educatoreId: String(r.educatoreId),
+          oraIngresso: ingresso && ORA_RE.test(ingresso) ? ingresso : undefined,
+          oraUscita: uscita && ORA_RE.test(uscita) ? uscita : undefined,
+        };
+      });
+  } catch {
+    return { error: "Payload non valido" };
+  }
+
+  // Arricchisce le righe con il nome dell'educatore (per l'etichetta)
+  const educatori = await listEducatori();
+  const eduById = new Map(educatori.map((e) => [e.recordId, e] as const));
+  const enrichedRows: TurnoCellaRow[] = rows
+    .filter((r) => eduById.has(r.educatoreId))
+    .map((r) => ({
+      ...r,
+      educatoreNomeCompleto: eduById.get(r.educatoreId)?.nomeCompleto,
+    }));
+
+  try {
+    await replaceTurnoCella(data, fascia, enrichedRows);
+    revalidatePath("/turni");
+    revalidatePath("/educatori");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
