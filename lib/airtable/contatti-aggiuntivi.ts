@@ -21,13 +21,16 @@ function mapContatto(record: { id: string; fields: Record<string, unknown> }): C
 
 export async function listContattiByBambino(bambinoId: string): Promise<ContattoAggiuntivo[]> {
   if (!base) return [];
+  // Filtro lato server: ARRAYJOIN su un linked record produce i display name,
+  // non gli id, quindi FIND('rec...') non matcha. Carichiamo tutto e filtriamo.
   const records = await base(TABLE_NAMES.contattiAggiuntivi)
     .select({
-      filterByFormula: `FIND('${bambinoId}', ARRAYJOIN({bambino}))`,
       sort: [{ field: "ruolo", direction: "asc" }],
     })
     .all();
-  return records.map((r) => mapContatto({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapContatto({ id: r.id, fields: r.fields }))
+    .filter((c) => c.bambinoId === bambinoId);
 }
 
 export type ContattoInput = {

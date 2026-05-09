@@ -30,19 +30,21 @@ export async function listIscrizioni(opts?: {
   attivitaId?: string;
 }): Promise<Iscrizione[]> {
   if (!base) return [];
-  const conds: string[] = [];
-  if (opts?.bambinoId) conds.push(`FIND('${opts.bambinoId}', ARRAYJOIN({bambino}))`);
-  if (opts?.attivitaId) conds.push(`FIND('${opts.attivitaId}', ARRAYJOIN({attivita}))`);
-  const filterByFormula =
-    conds.length === 0 ? undefined : conds.length === 1 ? conds[0] : `AND(${conds.join(", ")})`;
-
+  // Filtro lato server: ARRAYJOIN su un linked record produce i display name,
+  // non gli id, quindi FIND('rec...') non matcha. Carichiamo tutto e filtriamo
+  // in JS.
   const records = await base(TABLE_NAMES.iscrizioni)
     .select({
       sort: [{ field: "data_iscrizione", direction: "desc" }],
-      ...(filterByFormula ? { filterByFormula } : {}),
     })
     .all();
-  return records.map((r) => mapIscrizione({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapIscrizione({ id: r.id, fields: r.fields }))
+    .filter((i) => {
+      if (opts?.bambinoId && i.bambinoId !== opts.bambinoId) return false;
+      if (opts?.attivitaId && i.attivitaId !== opts.attivitaId) return false;
+      return true;
+    });
 }
 
 export async function getIscrizione(recordId: string): Promise<Iscrizione | null> {

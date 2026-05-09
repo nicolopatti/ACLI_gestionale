@@ -24,36 +24,25 @@ export async function listDisponibilitaByEducatoreEMese(
   educatoreId: string,
   meseAnno: string,
 ): Promise<Disponibilita[]> {
-  if (!base) return [];
-  const inizio = `${meseAnno}-01`;
-  const [y, m] = meseAnno.split("-").map((s) => parseInt(s, 10));
-  const ultimoGiorno = new Date(y, m, 0).getDate();
-  const fine = `${meseAnno}-${String(ultimoGiorno).padStart(2, "0")}`;
-  const records = await base(TABLE_NAMES.disponibilita)
-    .select({
-      filterByFormula: `AND(FIND('${educatoreId}', ARRAYJOIN({educatore})), IS_AFTER({data}, '${escapeFormulaString(inizio)}'), IS_BEFORE({data}, '${escapeFormulaString(fine)}'))`,
-      sort: [{ field: "data", direction: "asc" }],
-    })
-    .all();
-  return records.map((r) => mapDisponibilita({ id: r.id, fields: r.fields }));
+  // Filtra lato server: ARRAYJOIN su un linked record produce i display name,
+  // non gli id, quindi FIND('rec...') non matcha. Riusiamo la versione "tutte"
+  // e filtriamo per mese qui.
+  const all = await listDisponibilitaByEducatore(educatoreId);
+  return all.filter((d) => d.data.startsWith(meseAnno));
 }
 
-/**
- * Versione "inclusiva" via filterByFormula: prendiamo tutte le disponibilità
- * dell'educatore e filtriamo per mese in JS (più semplice e robusto rispetto
- * a IS_AFTER/IS_BEFORE che non sono inclusivi).
- */
 export async function listDisponibilitaByEducatore(
   educatoreId: string,
 ): Promise<Disponibilita[]> {
   if (!base) return [];
   const records = await base(TABLE_NAMES.disponibilita)
     .select({
-      filterByFormula: `FIND('${educatoreId}', ARRAYJOIN({educatore}))`,
       sort: [{ field: "data", direction: "asc" }],
     })
     .all();
-  return records.map((r) => mapDisponibilita({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapDisponibilita({ id: r.id, fields: r.fields }))
+    .filter((d) => d.educatoreId === educatoreId);
 }
 
 export async function listDisponibilitaByDataEFascia(

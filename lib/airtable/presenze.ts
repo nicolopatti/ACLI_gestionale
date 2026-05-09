@@ -35,13 +35,16 @@ export async function listPresenzeByData(data: string): Promise<Presenza[]> {
 
 export async function listPresenzeByBambino(bambinoId: string): Promise<Presenza[]> {
   if (!base) return [];
+  // Filtro lato server: ARRAYJOIN su un linked record produce i display name,
+  // non gli id, quindi FIND('rec...') non matcha. Carichiamo tutto e filtriamo.
   const records = await base(TABLE_NAMES.presenze)
     .select({
-      filterByFormula: `FIND('${bambinoId}', ARRAYJOIN({bambino}))`,
       sort: [{ field: "data", direction: "desc" }],
     })
     .all();
-  return records.map((r) => mapPresenza({ id: r.id, fields: r.fields }));
+  return records
+    .map((r) => mapPresenza({ id: r.id, fields: r.fields }))
+    .filter((p) => p.bambinoId === bambinoId);
 }
 
 export type PresenzaInput = {
