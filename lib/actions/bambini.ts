@@ -70,36 +70,42 @@ export async function createBambinoAction(_prev: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  const created = await createBambinoAt({
-    nome: d.nome,
-    cognome: d.cognome,
-    dataNascita: d.dataNascita || undefined,
-    scuola: d.scuola || undefined,
-    classe: d.classe || undefined,
-    nomeGenitore: d.nomeGenitore,
-    cognomeGenitore: d.cognomeGenitore,
-    telefonoGenitore: d.telefonoGenitore || undefined,
-    emailGenitore: d.emailGenitore || undefined,
-    cfGenitore: d.cfGenitore || undefined,
-    fratelloDiId: d.fratelloDiId || undefined,
-    note: d.note || undefined,
-    attivo: d.attivo,
-  });
-  if (d.contatti.length > 0) {
-    await replaceContattiForBambino(
-      created.recordId,
-      d.contatti.map((c) => ({
-        recordId: c.recordId || undefined,
-        ruolo: c.ruolo,
-        nome: c.nome,
-        cognome: c.cognome,
-        telefono: c.telefono || undefined,
-        note: c.note || undefined,
-      })),
-    );
+  let createdId: string;
+  try {
+    const created = await createBambinoAt({
+      nome: d.nome,
+      cognome: d.cognome,
+      dataNascita: d.dataNascita || undefined,
+      scuola: d.scuola || undefined,
+      classe: d.classe || undefined,
+      nomeGenitore: d.nomeGenitore,
+      cognomeGenitore: d.cognomeGenitore,
+      telefonoGenitore: d.telefonoGenitore || undefined,
+      emailGenitore: d.emailGenitore || undefined,
+      cfGenitore: d.cfGenitore || undefined,
+      fratelloDiId: d.fratelloDiId || undefined,
+      note: d.note || undefined,
+      attivo: d.attivo,
+    });
+    createdId = created.recordId;
+    if (d.contatti.length > 0) {
+      await replaceContattiForBambino(
+        created.recordId,
+        d.contatti.map((c) => ({
+          recordId: c.recordId || undefined,
+          ruolo: c.ruolo,
+          nome: c.nome,
+          cognome: c.cognome,
+          telefono: c.telefono || undefined,
+          note: c.note || undefined,
+        })),
+      );
+    }
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
   }
   revalidatePath("/bambini");
-  redirect(`/bambini/${created.recordId}`);
+  redirect(`/bambini/${createdId}`);
 }
 
 export async function updateBambinoAction(
@@ -113,32 +119,36 @@ export async function updateBambinoAction(
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  await updateBambinoAt(recordId, {
-    nome: d.nome,
-    cognome: d.cognome,
-    dataNascita: d.dataNascita || undefined,
-    scuola: d.scuola || undefined,
-    classe: d.classe || undefined,
-    nomeGenitore: d.nomeGenitore,
-    cognomeGenitore: d.cognomeGenitore,
-    telefonoGenitore: d.telefonoGenitore || undefined,
-    emailGenitore: d.emailGenitore || undefined,
-    cfGenitore: d.cfGenitore || undefined,
-    fratelloDiId: d.fratelloDiId || undefined,
-    note: d.note || undefined,
-    attivo: d.attivo,
-  });
-  await replaceContattiForBambino(
-    recordId,
-    d.contatti.map((c) => ({
-      recordId: c.recordId || undefined,
-      ruolo: c.ruolo,
-      nome: c.nome,
-      cognome: c.cognome,
-      telefono: c.telefono || undefined,
-      note: c.note || undefined,
-    })),
-  );
+  try {
+    await updateBambinoAt(recordId, {
+      nome: d.nome,
+      cognome: d.cognome,
+      dataNascita: d.dataNascita || undefined,
+      scuola: d.scuola || undefined,
+      classe: d.classe || undefined,
+      nomeGenitore: d.nomeGenitore,
+      cognomeGenitore: d.cognomeGenitore,
+      telefonoGenitore: d.telefonoGenitore || undefined,
+      emailGenitore: d.emailGenitore || undefined,
+      cfGenitore: d.cfGenitore || undefined,
+      fratelloDiId: d.fratelloDiId || undefined,
+      note: d.note || undefined,
+      attivo: d.attivo,
+    });
+    await replaceContattiForBambino(
+      recordId,
+      d.contatti.map((c) => ({
+        recordId: c.recordId || undefined,
+        ruolo: c.ruolo,
+        nome: c.nome,
+        cognome: c.cognome,
+        telefono: c.telefono || undefined,
+        note: c.note || undefined,
+      })),
+    );
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
+  }
   revalidatePath("/bambini");
   revalidatePath(`/bambini/${recordId}`);
   return { ok: true };
@@ -146,7 +156,11 @@ export async function updateBambinoAction(
 
 export async function deleteBambinoAction(recordId: string) {
   await requireAdmin();
-  await deleteBambinoAt(recordId);
+  try {
+    await deleteBambinoAt(recordId);
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante l'eliminazione" };
+  }
   revalidatePath("/bambini");
   redirect("/bambini");
 }
