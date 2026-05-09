@@ -25,6 +25,14 @@ function mapMese(record: { id: string; fields: Record<string, unknown> }): MeseI
   };
 }
 
+export async function listAllMesi(): Promise<MeseIscrizione[]> {
+  if (!base) return [];
+  const records = await base(TABLE_NAMES.mesi)
+    .select({ sort: [{ field: "chiave_periodo", direction: "asc" }] })
+    .all();
+  return records.map((r) => mapMese({ id: r.id, fields: r.fields }));
+}
+
 export async function listMesiByIscrizione(iscrizioneId: string): Promise<MeseIscrizione[]> {
   if (!base) return [];
   // Filtro lato server: ARRAYJOIN su un linked record produce i display name,

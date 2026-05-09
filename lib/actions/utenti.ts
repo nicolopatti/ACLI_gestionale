@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "@/lib/auth/auth";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import {
+  aggiornaUtenteSchema,
   cambiaPasswordSchema,
   nuovoUtenteSchema,
   primoAccessoSchema,
@@ -38,10 +39,40 @@ export async function createUtenteAction(_prev: unknown, formData: FormData) {
   redirect("/utenti");
 }
 
-export async function toggleAttivoAction(recordId: string, attivo: boolean) {
-  await requireAdmin();
-  await updateUser(recordId, { attivo });
-  revalidatePath("/utenti");
+export async function aggiornaUtenteAction(
+  _prev: { ok?: boolean; error?: string } | undefined,
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const parsed = aggiornaUtenteSchema.safeParse({
+    recordId: formData.get("recordId"),
+    nome: formData.get("nome"),
+    ruolo: formData.get("ruolo"),
+    telegramUserId: formData.get("telegramUserId") ?? "",
+    attivo: formData.get("attivo") === "true",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+  }
+  const d = parsed.data;
+  try {
+    await updateUser(d.recordId, {
+      nome: d.nome,
+      ruolo: d.ruolo,
+      attivo: d.attivo,
+      ...(d.telegramUserId
+        ? { telegram_user_id: d.telegramUserId }
+        : { telegram_user_id: "" }),
+    });
+    revalidatePath("/utenti");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 export async function resetPasswordAction(_prev: unknown, formData: FormData) {

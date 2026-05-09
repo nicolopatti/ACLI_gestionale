@@ -37,23 +37,42 @@ export const authConfig = {
       if (!auth?.user?.mustChangePassword && isOnPrimoAccesso) {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
-      // Gating ruoli: solo admin può accedere alle aree di gestione
+      // Gating ruoli per area
       const ruolo = auth?.user?.ruolo;
-      const adminOnly = [
+      const path = nextUrl.pathname;
+      const matches = (paths: string[]) => paths.some((p) => path.startsWith(p));
+
+      // Route universali (accessibili a chiunque sia loggato)
+      const universal = ["/profilo"];
+      // Area Educativa (incluse rotte previste dalle PR successive: turni, spese-edu)
+      const eduRoutes = [
+        "/dashboard",
         "/bambini",
+        "/educatori",
         "/attivita",
         "/iscrizioni",
-        "/educatori",
         "/presenze",
-        "/utenti",
+        "/turni",
+        "/spese-edu",
       ];
-      if (
-        adminOnly.some((p) => nextUrl.pathname.startsWith(p)) &&
-        ruolo !== "admin"
-      ) {
+
+      if (matches(universal)) return true;
+
+      if (ruolo === "admin") return true;
+
+      if (ruolo === "coordinatore_educativo") {
+        if (matches(eduRoutes)) return true;
+        // Fuori dal proprio perimetro -> torna al cruscotto
+        return Response.redirect(new URL("/dashboard", nextUrl));
+      }
+
+      if (ruolo === "volontario_cassa") {
+        if (path.startsWith("/cassa")) return true;
         return Response.redirect(new URL("/cassa", nextUrl));
       }
-      return true;
+
+      // Ruolo sconosciuto: nega accesso
+      return false;
     },
     jwt({ token, user, trigger, session }) {
       if (user) {

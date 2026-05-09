@@ -1,6 +1,9 @@
+import type Airtable from "airtable";
 import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { Movimento } from "./types";
 import type { MezzoPagamento } from "@/lib/config";
+
+type Fields = Partial<Airtable.FieldSet>;
 
 function mapMovimento(record: { id: string; fields: Record<string, unknown> }): Movimento {
   const f = record.fields;
@@ -53,6 +56,39 @@ export async function listMovimenti(opts: ListMovimentiOpts = {}): Promise<Movim
     })
     .all();
   return records.map((r) => mapMovimento({ id: r.id, fields: r.fields }));
+}
+
+export interface CreaMovimentoInput {
+  tipo: "Entrata" | "Uscita";
+  importo: number;
+  conto: MezzoPagamento;
+  dataMovimento: string;
+  categoriaId?: string;
+  descrizione?: string;
+  volontario?: string;
+  telegramUserId?: string;
+  note?: string;
+}
+
+export async function createMovimento(input: CreaMovimentoInput): Promise<Movimento> {
+  if (!base) throw new Error("Airtable client non configurato");
+  const id = `app_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const fields: Fields = {
+    id,
+    tipo: input.tipo,
+    importo: input.importo,
+    conto: input.conto,
+    data_movimento: input.dataMovimento,
+    timestamp: new Date().toISOString(),
+    stato: "valido",
+    ...(input.categoriaId ? { categoria: [input.categoriaId] } : {}),
+    ...(input.descrizione ? { descrizione: input.descrizione } : {}),
+    ...(input.volontario ? { volontario: input.volontario } : {}),
+    ...(input.telegramUserId ? { telegram_user_id: input.telegramUserId } : {}),
+    ...(input.note ? { note: input.note } : {}),
+  };
+  const created = await base(TABLE_NAMES.movimenti).create([{ fields }]);
+  return mapMovimento({ id: created[0].id, fields: created[0].fields });
 }
 
 export async function totaliPerConto(): Promise<Record<MezzoPagamento, { entrate: number; uscite: number; saldo: number }>> {

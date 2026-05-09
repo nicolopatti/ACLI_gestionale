@@ -33,6 +33,17 @@ export async function listPresenzeByData(data: string): Promise<Presenza[]> {
   return records.map((r) => mapPresenza({ id: r.id, fields: r.fields }));
 }
 
+export async function listPresenzeByMese(meseAnno: string): Promise<Presenza[]> {
+  if (!base) return [];
+  // meseAnno = "YYYY-MM"
+  const records = await base(TABLE_NAMES.presenze)
+    .select({
+      filterByFormula: `LEFT({data}, 7) = '${escapeFormulaString(meseAnno)}'`,
+    })
+    .all();
+  return records.map((r) => mapPresenza({ id: r.id, fields: r.fields }));
+}
+
 export async function listPresenzeByBambino(bambinoId: string): Promise<Presenza[]> {
   if (!base) return [];
   // Filtro lato server: ARRAYJOIN su un linked record produce i display name,

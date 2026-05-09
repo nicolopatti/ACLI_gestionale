@@ -16,8 +16,35 @@ function mapDisponibilita(record: {
     educatoreId: eduLink[0] ?? "",
     data: (f.data as string) ?? "",
     fasciaOraria: (f.fascia_oraria as FasciaDisponibilita) ?? "14-16",
+    oraIngresso: (f.ora_ingresso as string) || undefined,
+    oraUscita: (f.ora_uscita as string) || undefined,
     note: (f.note as string) ?? undefined,
   };
+}
+
+export async function listDisponibilitaByRange(
+  dataInizio: string,
+  dataFine: string,
+): Promise<Disponibilita[]> {
+  if (!base) return [];
+  const records = await base(TABLE_NAMES.disponibilita)
+    .select({
+      filterByFormula: `AND({data} >= '${escapeFormulaString(dataInizio)}', {data} <= '${escapeFormulaString(dataFine)}')`,
+      sort: [{ field: "data", direction: "asc" }],
+    })
+    .all();
+  return records.map((r) => mapDisponibilita({ id: r.id, fields: r.fields }));
+}
+
+export async function listDisponibilitaByMese(meseAnno: string): Promise<Disponibilita[]> {
+  if (!base) return [];
+  const records = await base(TABLE_NAMES.disponibilita)
+    .select({
+      filterByFormula: `LEFT({data}, 7) = '${escapeFormulaString(meseAnno)}'`,
+      sort: [{ field: "data", direction: "asc" }],
+    })
+    .all();
+  return records.map((r) => mapDisponibilita({ id: r.id, fields: r.fields }));
 }
 
 export async function listDisponibilitaByEducatoreEMese(
@@ -62,6 +89,79 @@ export type DisponibilitaSlot = {
   data: string;
   fasciaOraria: FasciaDisponibilita;
 };
+
+export type TurnoCellaRow = {
+  educatoreId: string;
+  educatoreNomeCompleto?: string;
+  oraIngresso?: string;
+  oraUscita?: string;
+};
+
+/**
+ * Sostituisce i record di Disponibilita per una cella (data, fascia) con
+ * la lista di educatori passata. Crea i record nuovi, aggiorna le ore di
+ * quelli esistenti, e cancella i record degli educatori rimossi. Lascia
+ * intatti i record di altri (data, fascia).
+ */
+export async function replaceTurnoCella(
+  data: string,
+  fascia: FasciaDisponibilita,
+  rows: TurnoCellaRow[],
+): Promise<void> {
+  if (!base) throw new Error("Airtable client non configurato");
+  const existing = await listDisponibilitaByDataEFascia(data, fascia);
+
+  const wantedByEdu = new Map(rows.map((r) => [r.educatoreId, r] as const));
+  const existingByEdu = new Map(existing.map((d) => [d.educatoreId, d] as const));
+
+  const toCreate: Array<{ fields: Fields }> = [];
+  const toUpdate: Array<{ id: string; fields: Fields }> = [];
+  const toDelete: string[] = [];
+
+  for (const r of rows) {
+    const ex = existingByEdu.get(r.educatoreId);
+    if (!ex) {
+      const fields: Fields = {
+        educatore: [r.educatoreId],
+        data,
+        fascia_oraria: fascia,
+      };
+      if (r.educatoreNomeCompleto) {
+        fields.etichetta = `${r.educatoreNomeCompleto} · ${data} · ${fascia}`;
+      }
+      if (r.oraIngresso) fields.ora_ingresso = r.oraIngresso;
+      if (r.oraUscita) fields.ora_uscita = r.oraUscita;
+      toCreate.push({ fields });
+    } else {
+      const wantsIngresso = r.oraIngresso ?? "";
+      const wantsUscita = r.oraUscita ?? "";
+      const hasIngresso = ex.oraIngresso ?? "";
+      const hasUscita = ex.oraUscita ?? "";
+      if (wantsIngresso !== hasIngresso || wantsUscita !== hasUscita) {
+        toUpdate.push({
+          id: ex.recordId,
+          fields: {
+            ora_ingresso: wantsIngresso,
+            ora_uscita: wantsUscita,
+          },
+        });
+      }
+    }
+  }
+  for (const ex of existing) {
+    if (!wantedByEdu.has(ex.educatoreId)) toDelete.push(ex.recordId);
+  }
+
+  for (let i = 0; i < toCreate.length; i += 10) {
+    await base(TABLE_NAMES.disponibilita).create(toCreate.slice(i, i + 10));
+  }
+  for (let i = 0; i < toUpdate.length; i += 10) {
+    await base(TABLE_NAMES.disponibilita).update(toUpdate.slice(i, i + 10));
+  }
+  for (let i = 0; i < toDelete.length; i += 10) {
+    await base(TABLE_NAMES.disponibilita).destroy(toDelete.slice(i, i + 10));
+  }
+}
 
 /**
  * Sincronizza le disponibilità di un educatore per un dato insieme di slot.

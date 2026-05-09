@@ -14,6 +14,14 @@ function mapModalita(record: { id: string; fields: Record<string, unknown> }): M
   };
 }
 
+export async function listAllModalita(): Promise<ModalitaIscrizione[]> {
+  if (!base) return [];
+  const records = await base(TABLE_NAMES.modalitaIscrizione)
+    .select({ sort: [{ field: "importo", direction: "asc" }] })
+    .all();
+  return records.map((r) => mapModalita({ id: r.id, fields: r.fields }));
+}
+
 export async function listModalitaByAttivita(
   attivitaId: string,
 ): Promise<ModalitaIscrizione[]> {
