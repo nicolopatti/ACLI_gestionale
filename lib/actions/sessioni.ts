@@ -18,7 +18,6 @@ function parseSessioneForm(formData: FormData) {
     tipoUnita: formData.get("tipoUnita"),
     dataInizio: formData.get("dataInizio"),
     dataFine: formData.get("dataFine"),
-    importo: formData.get("importo"),
   };
 }
 
@@ -40,7 +39,6 @@ export async function createSessioneAction(_prev: unknown, formData: FormData) {
       etichetta: derived.etichetta,
       dataInizio: d.dataInizio,
       dataFine: d.dataFine || d.dataInizio,
-      importo: d.importo,
     },
   ]);
   revalidatePath(`/attivita/${d.attivitaId}`);
