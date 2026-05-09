@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Mail, Pencil, Phone, Plus } from "lucide-react";
 import { listEducatori } from "@/lib/airtable/educatori";
 import { listDisponibilitaByMese } from "@/lib/airtable/disponibilita";
+import { listAttivita } from "@/lib/airtable/attivita";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
 
 const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
@@ -52,15 +53,30 @@ function aggregaOreEduMese(disp: Disponibilita[]): Map<
 export default async function EducatoriPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string; mese?: string }>;
+  searchParams: Promise<{ id?: string; mese?: string; attivitaId?: string }>;
 }) {
   const sp = await searchParams;
   const meseAnno = sp.mese && /^\d{4}-\d{2}$/.test(sp.mese) ? sp.mese : meseCorrenteIso();
 
-  const [educatori, dispMese] = await Promise.all([
+  const [educatori, dispMese, attivita] = await Promise.all([
     listEducatori(),
     listDisponibilitaByMese(meseAnno),
+    listAttivita({ attivo: true }),
   ]);
+
+  // Default attivitaId: prima doposcuola attiva, fallback prima attività attiva
+  const attivitaId =
+    sp.attivitaId === "" // selezione esplicita "tutte"
+      ? ""
+      : sp.attivitaId ||
+        attivita.find((a) => a.tipo === "doposcuola")?.recordId ||
+        attivita[0]?.recordId ||
+        "";
+  const attivitaSel = attivita.find((a) => a.recordId === attivitaId);
+  const fasceVisibili: FasciaDisponibilita[] =
+    attivitaSel && attivitaSel.fasceOrarie.length > 0
+      ? FASCE_DISPONIBILITA.filter((f) => attivitaSel.fasceOrarie.includes(f))
+      : [...FASCE_DISPONIBILITA];
 
   const oreByEducatore = aggregaOreEduMese(dispMese);
 
@@ -82,12 +98,22 @@ export default async function EducatoriPage({
     const next = new URLSearchParams();
     next.set("id", id);
     if (sp.mese) next.set("mese", meseAnno);
+    if (sp.attivitaId !== undefined) next.set("attivitaId", attivitaId);
+    return `?${next.toString()}`;
+  }
+
+  function buildAttivitaHref(targetId: string | null): string {
+    const next = new URLSearchParams();
+    if (sp.id) next.set("id", sp.id);
+    if (sp.mese) next.set("mese", meseAnno);
+    // "" = tutte le attività (override esplicito del default)
+    next.set("attivitaId", targetId ?? "");
     return `?${next.toString()}`;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Educatori</h1>
           <p className="text-[13px] text-[var(--muted-foreground)] mt-0.5 capitalize">
@@ -100,6 +126,64 @@ export default async function EducatoriPage({
           </Link>
         </Button>
       </div>
+
+      {attivita.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[12px] text-[var(--muted-foreground)] mr-1">
+            Attività:
+          </span>
+          <Link
+            href={buildAttivitaHref(null)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline",
+              !attivitaSel
+                ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-soft-ink)]"
+                : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--border-strong)]",
+            )}
+          >
+            Tutte le attività
+          </Link>
+          {attivita.map((a) => {
+            const active = attivitaSel?.recordId === a.recordId;
+            return (
+              <Link
+                key={a.recordId}
+                href={buildAttivitaHref(a.recordId)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline",
+                  active
+                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-soft-ink)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--border-strong)]",
+                )}
+                title={
+                  a.giorniSettimana.length > 0 || a.fasceOrarie.length > 0
+                    ? `${a.giorniSettimana.join(", ") || "tutti i giorni"} · ${a.fasceOrarie.join(", ") || "tutte le fasce"}`
+                    : "Nessun filtro configurato"
+                }
+              >
+                {a.nome}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {attivitaSel &&
+      attivitaSel.giorniSettimana.length === 0 &&
+      attivitaSel.fasceOrarie.length === 0 ? (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 p-3.5">
+            <p className="text-[12.5px] text-[var(--muted-foreground)]">
+              <strong className="text-[var(--ink)]">{attivitaSel.nome}</strong> non
+              ha ancora giorni o fasce configurate. Senza configurazione il
+              calendario mostra l&apos;intera settimana.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/attivita/${attivitaSel.recordId}`}>Configura</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {educatoriSorted.length === 0 ? (
         <Card>
@@ -232,6 +316,8 @@ export default async function EducatoriPage({
                     educatoreId={selected.recordId}
                     meseAnno={meseAnno}
                     disponibilita={selectedDisp}
+                    giorniAmmessi={attivitaSel?.giorniSettimana}
+                    fasce={fasceVisibili}
                   />
                 </CardContent>
               </Card>

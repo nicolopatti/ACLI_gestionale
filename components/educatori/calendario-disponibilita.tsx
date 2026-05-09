@@ -3,20 +3,44 @@
 import { useMemo, useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { salvaDisponibilitaAction } from "@/lib/actions/disponibilita";
-import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
+import {
+  FASCE_DISPONIBILITA,
+  type FasciaDisponibilita,
+  type GiornoSettimana,
+} from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { Disponibilita } from "@/lib/airtable/types";
 
 interface Props {
   educatoreId: string;
   meseAnno: string;
   disponibilita: Disponibilita[];
+  /**
+   * Sottoinsieme di giorni della settimana ammessi per la pianificazione
+   * (es. dai `giorniSettimana` dell'attività selezionata). Se vuoto: tutti.
+   */
+  giorniAmmessi?: GiornoSettimana[];
+  /**
+   * Sottoinsieme di fasce orarie da renderizzare come colonne. Se omesso:
+   * tutte le fasce di {@link FASCE_DISPONIBILITA}.
+   */
+  fasce?: FasciaDisponibilita[];
 }
 
 const NOMI_GIORNI = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
+const DOW_TO_GIORNO: Record<number, GiornoSettimana> = {
+  0: "dom",
+  1: "lun",
+  2: "mar",
+  3: "mer",
+  4: "gio",
+  5: "ven",
+  6: "sab",
+};
 const NOMI_MESI = [
   "gennaio",
   "febbraio",
@@ -57,10 +81,16 @@ export function CalendarioDisponibilita({
   educatoreId,
   meseAnno,
   disponibilita,
+  giorniAmmessi,
+  fasce = FASCE_DISPONIBILITA as readonly FasciaDisponibilita[] as FasciaDisponibilita[],
 }: Props) {
   const [meseSel, setMeseSel] = useState(meseAnno);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const giorniAmmessiSet = useMemo(
+    () => (giorniAmmessi && giorniAmmessi.length > 0 ? new Set(giorniAmmessi) : null),
+    [giorniAmmessi],
+  );
 
   const giorni = useMemo(() => giorniDelMese(meseSel), [meseSel]);
   const setIniziale = useMemo(
@@ -144,8 +174,8 @@ export function CalendarioDisponibilita({
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[var(--muted)]/50">
                   <th className="text-left p-2 w-32">Giorno</th>
-                  {FASCE_DISPONIBILITA.map((f) => (
-                    <th key={f} className="p-2 text-center w-24">
+                  {fasce.map((f) => (
+                    <th key={f} className="p-2 text-center w-24 tabular-nums">
                       {f}
                     </th>
                   ))}
@@ -154,10 +184,17 @@ export function CalendarioDisponibilita({
               <tbody>
                 {giorni.map((g) => {
                   const isWeekend = g.dow === 0 || g.dow === 6;
+                  const giornoLabel = DOW_TO_GIORNO[g.dow];
+                  const fuoriAttivita =
+                    giorniAmmessiSet !== null && !giorniAmmessiSet.has(giornoLabel);
                   return (
                     <tr
                       key={g.data}
-                      className={`border-b border-[var(--border)] ${isWeekend ? "bg-[var(--muted)]/30" : ""}`}
+                      className={cn(
+                        "border-b border-[var(--border)]",
+                        isWeekend && "bg-[var(--muted)]/30",
+                        fuoriAttivita && "bg-[var(--surface-2)]/40 opacity-50",
+                      )}
                     >
                       <td className="p-2">
                         <span className="capitalize text-[var(--muted-foreground)]">
@@ -165,7 +202,7 @@ export function CalendarioDisponibilita({
                         </span>{" "}
                         <span className="font-medium">{g.numero}</span>
                       </td>
-                      {FASCE_DISPONIBILITA.map((f) => {
+                      {fasce.map((f) => {
                         const key = `${g.data}__${f}`;
                         return (
                           <td key={f} className="p-2 text-center">
@@ -173,6 +210,7 @@ export function CalendarioDisponibilita({
                               type="checkbox"
                               checked={checked.has(key)}
                               onChange={() => toggle(g.data, f)}
+                              disabled={fuoriAttivita}
                               className="h-4 w-4"
                             />
                           </td>

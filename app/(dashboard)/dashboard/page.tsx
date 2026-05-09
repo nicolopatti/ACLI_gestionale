@@ -32,7 +32,6 @@ import { calcolaCandidatiPresenza } from "@/lib/presenze-utils";
 import {
   PresenzeRapide,
   type PresenzaRapidaCandidato,
-  type StatoPresenzaRapida,
 } from "@/components/presenze/presenze-rapide";
 
 const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
@@ -555,16 +554,15 @@ function buildCandidatiRapidi(input: {
   return candidati
     .map((c) => {
       const p = presenzeByBambino.get(c.bambino.recordId);
-      let stato: StatoPresenzaRapida = null;
-      if (p) {
-        stato = presenzaAssente(p) ? "assente" : "presente";
-      }
+      const presente = Boolean(p && !presenzaAssente(p));
       return {
         bambinoId: c.bambino.recordId,
         nomeCompleto: `${c.bambino.cognome} ${c.bambino.nome}`,
         sessioneId: c.sessioneId,
         fasceOrarie: c.iscrizione.fasceOrarie,
-        statoIniziale: stato,
+        presenteIniziale: presente,
+        oraIngressoIniziale: p?.oraIngresso,
+        oraUscitaIniziale: p?.oraUscita,
       };
     })
     .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, "it"));

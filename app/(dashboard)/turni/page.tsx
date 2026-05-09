@@ -176,8 +176,17 @@ export default async function TurniPage({
     listAttivita({ attivo: true }),
   ]);
 
-  const attivitaSel = sp.attivitaId
-    ? attivita.find((a) => a.recordId === sp.attivitaId)
+  // Default: prima doposcuola attiva (fallback alla prima attiva). "" =
+  // override esplicito "Tutte le attività".
+  const attivitaIdEffettivo =
+    sp.attivitaId === ""
+      ? ""
+      : sp.attivitaId ||
+        attivita.find((a) => a.tipo === "doposcuola")?.recordId ||
+        attivita[0]?.recordId ||
+        "";
+  const attivitaSel = attivitaIdEffettivo
+    ? attivita.find((a) => a.recordId === attivitaIdEffettivo)
     : undefined;
 
   const educatoreLight = educatori.map((e) => ({
@@ -254,13 +263,24 @@ export default async function TurniPage({
   }: {
     vista?: Vista;
     d?: string;
+    /**
+     * - `undefined`: mantieni la selezione corrente
+     * - `null`: forza "Tutte le attività" (override del default)
+     * - stringa: seleziona quella specifica
+     */
     attivitaId?: string | null;
   }): string {
     const next = new URLSearchParams();
     if (nv && nv !== "settimana") next.set("vista", nv);
     if (d) next.set("d", d);
-    const att = attivitaId === undefined ? attivitaSel?.recordId : attivitaId;
-    if (att) next.set("attivitaId", att);
+    if (attivitaId === null) {
+      next.set("attivitaId", "");
+    } else if (attivitaId !== undefined) {
+      if (attivitaId) next.set("attivitaId", attivitaId);
+    } else if (sp.attivitaId !== undefined) {
+      // mantieni la selezione esplicita corrente (anche se vuota)
+      next.set("attivitaId", sp.attivitaId);
+    }
     return `?${next.toString()}` || "/turni";
   }
 
@@ -277,6 +297,7 @@ export default async function TurniPage({
           <div className="flex items-center gap-1.5 flex-wrap">
             <Link
               href={buildHref({ vista, d: isoDate(base), attivitaId: null })}
+              prefetch={false}
               className={cn(
                 "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline",
                 !attivitaSel
@@ -372,6 +393,26 @@ export default async function TurniPage({
         <Mini label="Educatori attivi" value={educatoriAttivi.size.toString()} />
       </div>
 
+      {attivitaSel &&
+      attivitaSel.giorniSettimana.length === 0 &&
+      attivitaSel.fasceOrarie.length === 0 ? (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 p-3.5">
+            <p className="text-[12.5px] text-[var(--muted-foreground)]">
+              <strong className="text-[var(--ink)]">{attivitaSel.nome}</strong> non
+              ha ancora giorni o fasce configurate. Senza configurazione la
+              griglia mostra l&apos;intera settimana e tutte le fasce.
+            </p>
+            <Link
+              href={`/attivita/${attivitaSel.recordId}`}
+              className="inline-flex items-center px-3 h-8 text-[12.5px] rounded-md border border-[var(--border)] hover:bg-[var(--surface-2)] no-underline"
+            >
+              Configura
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent className="p-4 overflow-x-auto">
           <TurniGrid
@@ -381,14 +422,6 @@ export default async function TurniPage({
             disponibilita={disponibilita}
             fasce={fasceVisibili}
           />
-          {attivitaSel &&
-          (attivitaSel.giorniSettimana.length === 0 &&
-            attivitaSel.fasceOrarie.length === 0) ? (
-            <p className="text-[12px] text-[var(--muted-foreground)] mt-3">
-              Per filtrare la griglia, configura giorni e fasce nella scheda
-              dell&apos;attività.
-            </p>
-          ) : null}
         </CardContent>
       </Card>
 

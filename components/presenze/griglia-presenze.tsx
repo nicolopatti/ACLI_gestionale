@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { salvaPresenzeAction } from "@/lib/actions/presenze";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  PresenzeRapide,
+  type PresenzaRapidaCandidato,
+} from "./presenze-rapide";
+import { presenzaAssente } from "@/lib/airtable/types";
 import type { Attivita, Bambino, Iscrizione, Presenza } from "@/lib/airtable/types";
 
 interface CandidatoPresenza {
@@ -41,22 +34,33 @@ export function GrigliaPresenze({
   candidati,
   presenzeEsistenti,
 }: Props) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
   const [date, setDate] = useState(data);
   const [attivitaSel, setAttivitaSel] = useState(attivitaId);
-
-  const presenzeMap = new Map<string, Presenza>(
-    presenzeEsistenti.map((p) => [p.bambinoId, p] as const),
-  );
 
   const reload = () => {
     const url = new URL(window.location.href);
     url.searchParams.set("data", date);
     if (attivitaSel) url.searchParams.set("attivitaId", attivitaSel);
+    else url.searchParams.delete("attivitaId");
     window.location.href = url.toString();
   };
+
+  const presenzeByBambino = new Map(
+    presenzeEsistenti.map((p) => [p.bambinoId, p] as const),
+  );
+  const candidatiRapidi: PresenzaRapidaCandidato[] = candidati.map((c) => {
+    const p = presenzeByBambino.get(c.bambino.recordId);
+    const presente = Boolean(p && !presenzaAssente(p));
+    return {
+      bambinoId: c.bambino.recordId,
+      nomeCompleto: `${c.bambino.cognome} ${c.bambino.nome}`,
+      sessioneId: c.sessioneId,
+      fasceOrarie: c.iscrizione.fasceOrarie,
+      presenteIniziale: presente,
+      oraIngressoIniziale: p?.oraIngresso,
+      oraUscitaIniziale: p?.oraUscita,
+    };
+  });
 
   return (
     <div className="space-y-4">
@@ -93,104 +97,11 @@ export function GrigliaPresenze({
         </CardContent>
       </Card>
 
-      <form
-        action={(formData) =>
-          startTransition(async () => {
-            const res = await salvaPresenzeAction(formData);
-            if (res?.error) {
-              setMessage(`Errore: ${res.error}`);
-            } else {
-              setMessage("Presenze salvate.");
-              router.refresh();
-            }
-          })
-        }
-      >
-        <input type="hidden" name="data" value={date} />
-        <input type="hidden" name="attivitaId" value={attivitaSel} />
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Bambino</TableHead>
-                  <TableHead>Sessione</TableHead>
-                  <TableHead>Fasce</TableHead>
-                  <TableHead className="w-32">Ingresso</TableHead>
-                  <TableHead className="w-32">Uscita</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {candidati.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-[var(--muted-foreground)]">
-                      Nessun bambino iscritto previsto per questa data.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  candidati.map(({ bambino, iscrizione, sessioneId, sessioneEtichetta }) => {
-                    const existing = presenzeMap.get(bambino.recordId);
-                    return (
-                      <TableRow key={bambino.recordId}>
-                        <TableCell className="font-medium">
-                          {bambino.cognome} {bambino.nome}
-                        </TableCell>
-                        <TableCell className="text-sm text-[var(--muted-foreground)]">
-                          {sessioneEtichetta ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          {iscrizione.fasceOrarie.length > 0 ? (
-                            <div className="flex gap-1">
-                              {iscrizione.fasceOrarie.map((f) => (
-                                <Badge key={f} variant="outline" className="text-xs">
-                                  {f}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <input
-                            type="time"
-                            name={`oraIngresso_${bambino.recordId}`}
-                            defaultValue={existing?.oraIngresso ?? ""}
-                            className="h-9 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm"
-                          />
-                          <input
-                            type="hidden"
-                            name="candidati"
-                            value={`${bambino.recordId}|${sessioneId ?? ""}`}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <input
-                            type="time"
-                            name={`oraUscita_${bambino.recordId}`}
-                            defaultValue={existing?.oraUscita ?? ""}
-                            className="h-9 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" disabled={pending || candidati.length === 0}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Salva presenze
-          </Button>
-          {message && <p className="text-sm">{message}</p>}
-          <p className="text-xs text-[var(--muted-foreground)] ml-auto">
-            Lascia vuoti entrambi gli orari per registrare un&apos;assenza.
-          </p>
-        </div>
-      </form>
+      <Card>
+        <CardContent className="p-0">
+          <PresenzeRapide data={data} candidati={candidatiRapidi} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
