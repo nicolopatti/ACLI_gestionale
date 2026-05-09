@@ -1,7 +1,7 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-09** — onboarding utenti volontari completo. Cambio password obbligatorio al primo accesso (flag `must_change_password` su Airtable Utenti, gating nel proxy verso `/primo-accesso`, action che termina con `signOut → /login` per rigenerare il JWT senza il flag). Admin UI: dialog "Reset password" su `/utenti` con generatore di password casuale a 12 caratteri leggibili e copia visibile dopo il submit. Fix collaterale: bottone "Esci" del menu utente non partiva (Radix chiudeva il dropdown smontando il `<form>` prima del submit) — risolto con `onSelect=preventDefault`.
+> Ultimo aggiornamento: **2026-05-09** — onboarding utenti volontari completo e verificato in produzione. Flusso end-to-end: admin crea utente / fa reset → utente target al login successivo viene mandato su `/primo-accesso` → imposta nuova password → `signOut → /login` → `/dashboard`. Componenti: flag `must_change_password` su Airtable Utenti (gating nel proxy), pagina `/primo-accesso` (route `(auth)`, no chrome dashboard), dialog admin "Reset password" su `/utenti` con generatore di password casuale a 12 caratteri leggibili. Fix collaterale (anch'esso verificato): bottone "Esci" del menu utente non partiva (Radix chiudeva il dropdown smontando il `<form>` prima del submit) — risolto con `onSelect=preventDefault`.
 
 ## Cosa funziona
 
