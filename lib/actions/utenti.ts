@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
+import { auth, signOut } from "@/lib/auth/auth";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { cambiaPasswordSchema, nuovoUtenteSchema } from "@/lib/validations/utente";
+import {
+  cambiaPasswordSchema,
+  nuovoUtenteSchema,
+  primoAccessoSchema,
+} from "@/lib/validations/utente";
 import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/airtable/users";
 
 async function requireAdmin() {
@@ -43,7 +47,10 @@ export async function resetPasswordAction(recordId: string, nuova: string) {
   await requireAdmin();
   if (nuova.length < 8) return { error: "Almeno 8 caratteri" };
   const passwordHash = await hashPassword(nuova);
-  await updateUser(recordId, { password_hash: passwordHash });
+  await updateUser(recordId, {
+    password_hash: passwordHash,
+    must_change_password: true,
+  });
   return { ok: true };
 }
 
@@ -65,6 +72,43 @@ export async function cambiaPasswordAction(_prev: unknown, formData: FormData) {
   if (!ok) return { error: "Password attuale non corretta" };
 
   const passwordHash = await hashPassword(d.passwordNuova);
-  await updateUser(recordId, { password_hash: passwordHash });
+  await updateUser(recordId, {
+    password_hash: passwordHash,
+    must_change_password: false,
+  });
   return { ok: true };
+}
+
+export async function primoAccessoAction(_prev: unknown, formData: FormData) {
+  const session = await auth();
+  const recordId = session?.user?.recordId;
+  if (!recordId) return { error: "Sessione non valida" };
+
+  const parsed = primoAccessoSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+  }
+  const d = parsed.data;
+
+  const user = await getUserById(recordId);
+  if (!user) return { error: "Utente non trovato" };
+  if (!user.mustChangePassword) {
+    // Flag già abbassato — niente da fare. Rimanderà al dashboard al prossimo redirect.
+    redirect("/dashboard");
+  }
+
+  const sameAsOld = await verifyPassword(d.passwordNuova, user.passwordHash);
+  if (sameAsOld) {
+    return { error: "La nuova password deve essere diversa da quella attuale" };
+  }
+
+  const passwordHash = await hashPassword(d.passwordNuova);
+  await updateUser(recordId, {
+    password_hash: passwordHash,
+    must_change_password: false,
+  });
+
+  // Forza un nuovo login: il JWT corrente porterebbe ancora mustChangePassword=true.
+  // signOut() lancia una NEXT_REDIRECT, quindi non torna; nessun valore da restituire dopo.
+  await signOut({ redirectTo: "/login" });
 }

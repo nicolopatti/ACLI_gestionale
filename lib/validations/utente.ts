@@ -27,3 +27,15 @@ export const cambiaPasswordSchema = z
   });
 
 export type CambiaPasswordInput = z.infer<typeof cambiaPasswordSchema>;
+
+export const primoAccessoSchema = z
+  .object({
+    passwordNuova: z.string().min(8, "Almeno 8 caratteri"),
+    passwordConferma: z.string().min(1, "Conferma la nuova password"),
+  })
+  .refine((d) => d.passwordNuova === d.passwordConferma, {
+    message: "La conferma non coincide con la nuova password",
+    path: ["passwordConferma"],
+  });
+
+export type PrimoAccessoInput = z.infer<typeof primoAccessoSchema>;

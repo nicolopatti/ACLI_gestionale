@@ -11,6 +11,7 @@ function mapUser(record: { id: string; fields: Record<string, unknown> }): User 
     nome: (f.nome as string) ?? "",
     ruolo: (f.ruolo as Ruolo) ?? "volontario_cassa",
     attivo: Boolean(f.attivo),
+    mustChangePassword: Boolean(f.must_change_password),
     telegramUserId: (f.telegram_user_id as string) ?? undefined,
     createdAt: (f.created_at as string) ?? undefined,
     lastLogin: (f.last_login as string) ?? undefined,
@@ -64,6 +65,7 @@ export async function createUser(input: {
         nome: input.nome,
         ruolo: input.ruolo,
         attivo: true,
+        must_change_password: true,
         ...(input.telegramUserId ? { telegram_user_id: input.telegramUserId } : {}),
       },
     },
@@ -80,6 +82,7 @@ export async function updateUser(
     ruolo: Ruolo;
     attivo: boolean;
     password_hash: string;
+    must_change_password: boolean;
     telegram_user_id: string;
     last_login: string;
   }>,

@@ -21,8 +21,13 @@ async function main() {
     process.exit(1);
   }
   const hash = await hashPassword(password);
-  await updateUser(existing.recordId, { password_hash: hash });
-  console.log(`Password aggiornata per ${email} (recordId=${existing.recordId}).`);
+  await updateUser(existing.recordId, {
+    password_hash: hash,
+    must_change_password: true,
+  });
+  console.log(
+    `Password aggiornata per ${email} (recordId=${existing.recordId}). Al prossimo login l'utente dovrà sceglierne una personale.`,
+  );
 }
 
 main().catch((err) => {
