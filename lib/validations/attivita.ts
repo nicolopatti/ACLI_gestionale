@@ -4,8 +4,7 @@ import {
   GIORNI_SETTIMANA,
   TIPI_ATTIVITA,
 } from "@/lib/config";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
+import { optionalString } from "./utils";
 
 export const attivitaSchema = z
   .object({

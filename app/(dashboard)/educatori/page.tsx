@@ -10,6 +10,20 @@ import { Avatar } from "@/components/ui/avatar";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";
 import { AttivitaConfigInline } from "@/components/attivita/config-inline";
 import { cn } from "@/lib/utils";
+
+/**
+ * Default operativi (lun-ven, 14-16/16-18) usati quando un'attività esiste ma
+ * non ha ancora giorni o fasce configurate. Il default operativo è coerente
+ * col prototipo Claude Design.
+ */
+const DEFAULT_GIORNI: import("@/lib/config").GiornoSettimana[] = [
+  "lun",
+  "mar",
+  "mer",
+  "gio",
+  "ven",
+];
+const DEFAULT_FASCE: FasciaDisponibilita[] = ["14-16", "16-18"];
 import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
 
@@ -74,10 +88,16 @@ export default async function EducatoriPage({
         attivita[0]?.recordId ||
         "";
   const attivitaSel = attivita.find((a) => a.recordId === attivitaId);
-  const fasceVisibili: FasciaDisponibilita[] =
-    attivitaSel && attivitaSel.fasceOrarie.length > 0
+  const giorniAttiviList: import("@/lib/config").GiornoSettimana[] | undefined = !attivitaSel
+    ? undefined
+    : attivitaSel.giorniSettimana.length > 0
+      ? attivitaSel.giorniSettimana
+      : DEFAULT_GIORNI;
+  const fasceVisibili: FasciaDisponibilita[] = !attivitaSel
+    ? [...FASCE_DISPONIBILITA]
+    : attivitaSel.fasceOrarie.length > 0
       ? FASCE_DISPONIBILITA.filter((f) => attivitaSel.fasceOrarie.includes(f))
-      : [...FASCE_DISPONIBILITA];
+      : DEFAULT_FASCE;
 
   const oreByEducatore = aggregaOreEduMese(dispMese);
 
@@ -309,7 +329,7 @@ export default async function EducatoriPage({
                     educatoreId={selected.recordId}
                     meseAnno={meseAnno}
                     disponibilita={selectedDisp}
-                    giorniAmmessi={attivitaSel?.giorniSettimana}
+                    giorniAmmessi={giorniAttiviList}
                     fasce={fasceVisibili}
                   />
                 </CardContent>

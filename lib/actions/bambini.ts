@@ -29,7 +29,7 @@ function parseContattiFromFormData(formData: FormData): ContattoAggiuntivoInput[
   const sorted = Array.from(indexes).sort((a, b) => a - b);
   return sorted
     .map((i) => ({
-      recordId: String(formData.get(`contatti.${i}.recordId`) ?? "") || undefined,
+      recordId: String(formData.get(`contatti.${i}.recordId`) ?? ""),
       ruolo: String(formData.get(`contatti.${i}.ruolo`) ?? "altro") as ContattoAggiuntivoInput["ruolo"],
       nome: String(formData.get(`contatti.${i}.nome`) ?? ""),
       cognome: String(formData.get(`contatti.${i}.cognome`) ?? ""),

@@ -1,13 +1,6 @@
 import { z } from "zod";
 import { CONTATTO_RUOLI } from "@/lib/config";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
-const optionalEmail = z
-  .string()
-  .trim()
-  .email("Email non valida")
-  .optional()
-  .or(z.literal(""));
+import { optionalString, optionalEmail } from "./utils";
 
 export const contattoAggiuntivoSchema = z.object({
   recordId: optionalString,

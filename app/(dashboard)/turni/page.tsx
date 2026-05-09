@@ -37,6 +37,15 @@ const DOW_TO_GIORNO: Record<number, GiornoSettimana> = {
   6: "sab",
 };
 
+/**
+ * Default operativi quando un'attività esiste ma non ha ancora `giorniSettimana`
+ * o `fasceOrarie` configurate. Allineati al prototipo Claude Design (lun-ven,
+ * doposcuola 14-18 spezzato in due fasce). Vengono sostituiti dai valori reali
+ * appena l'utente configura l'attività dall'editor inline.
+ */
+const DEFAULT_GIORNI: GiornoSettimana[] = ["lun", "mar", "mer", "gio", "ven"];
+const DEFAULT_FASCE: FasciaDisponibilita[] = ["14-16", "16-18"];
+
 type Vista = "settimana" | "mese";
 
 function isVista(v: string | undefined): v is Vista {
@@ -197,20 +206,27 @@ export default async function TurniPage({
   }));
 
   const giorniBase = vista === "settimana" ? daysOfWeek(base) : daysOfMonthGrid(base);
-  const giorniAttivita = new Set(attivitaSel?.giorniSettimana ?? []);
-  // Manteniamo il layout 7 colonne (settimana e mese): segniamo come
-  // "disabled" i giorni che non appartengono all'attività selezionata.
+  // Risoluzione giorni/fasce attivi:
+  // 1. Se nessuna attività è selezionata ("Tutte"): nessun filtro (7×3).
+  // 2. Se l'attività ha configurazione esplicita: usa quella.
+  // 3. Se l'attività esiste ma è vuota: usa i default operativi (lun-ven, 14-16/16-18).
+  const giorniAttiviList: GiornoSettimana[] | null = !attivitaSel
+    ? null
+    : attivitaSel.giorniSettimana.length > 0
+      ? attivitaSel.giorniSettimana
+      : DEFAULT_GIORNI;
+  const giorniAttiviSet = giorniAttiviList ? new Set(giorniAttiviList) : null;
   const giorni = giorniBase.map((g) => ({
     ...g,
     disabled:
-      Boolean(attivitaSel) &&
-      giorniAttivita.size > 0 &&
-      !giorniAttivita.has(DOW_TO_GIORNO[g.dow]),
+      giorniAttiviSet !== null && !giorniAttiviSet.has(DOW_TO_GIORNO[g.dow]),
   }));
-  const fasceVisibili: FasciaDisponibilita[] =
-    attivitaSel && attivitaSel.fasceOrarie.length > 0
+  const fasceListResolved: FasciaDisponibilita[] = !attivitaSel
+    ? [...FASCE_DISPONIBILITA]
+    : attivitaSel.fasceOrarie.length > 0
       ? FASCE_DISPONIBILITA.filter((f) => attivitaSel.fasceOrarie.includes(f))
-      : [...FASCE_DISPONIBILITA];
+      : DEFAULT_FASCE;
+  const fasceVisibili = fasceListResolved;
 
   // Stats periodo
   let orePianificate = 0;

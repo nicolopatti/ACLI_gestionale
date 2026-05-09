@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { TIPI_UNITA } from "@/lib/config";
-
-const optionalString = z.string().trim().optional().or(z.literal(""));
+import { optionalString } from "./utils";
 
 export const sessioneSchema = z.object({
   attivitaId: z.string().trim().min(1, "Attività obbligatoria"),
