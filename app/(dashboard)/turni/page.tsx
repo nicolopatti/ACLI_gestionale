@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TurniGrid } from "@/components/turni/turni-grid";
+import { AttivitaConfigInline } from "@/components/attivita/config-inline";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { FASCE_DISPONIBILITA, type FasciaDisponibilita, type GiornoSettimana } from "@/lib/config";
@@ -393,24 +394,13 @@ export default async function TurniPage({
         <Mini label="Educatori attivi" value={educatoriAttivi.size.toString()} />
       </div>
 
-      {attivitaSel &&
-      attivitaSel.giorniSettimana.length === 0 &&
-      attivitaSel.fasceOrarie.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 p-3.5">
-            <p className="text-[12.5px] text-[var(--muted-foreground)]">
-              <strong className="text-[var(--ink)]">{attivitaSel.nome}</strong> non
-              ha ancora giorni o fasce configurate. Senza configurazione la
-              griglia mostra l&apos;intera settimana e tutte le fasce.
-            </p>
-            <Link
-              href={`/attivita/${attivitaSel.recordId}`}
-              className="inline-flex items-center px-3 h-8 text-[12.5px] rounded-md border border-[var(--border)] hover:bg-[var(--surface-2)] no-underline"
-            >
-              Configura
-            </Link>
-          </CardContent>
-        </Card>
+      {attivitaSel ? (
+        <AttivitaConfigInline
+          attivitaId={attivitaSel.recordId}
+          attivitaNome={attivitaSel.nome}
+          giorniIniziali={attivitaSel.giorniSettimana}
+          fasceIniziali={attivitaSel.fasceOrarie}
+        />
       ) : null}
 
       <Card>

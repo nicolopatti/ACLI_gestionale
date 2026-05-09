@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";
+import { AttivitaConfigInline } from "@/components/attivita/config-inline";
 import { cn } from "@/lib/utils";
 import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
@@ -168,21 +169,13 @@ export default async function EducatoriPage({
         </div>
       )}
 
-      {attivitaSel &&
-      attivitaSel.giorniSettimana.length === 0 &&
-      attivitaSel.fasceOrarie.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 p-3.5">
-            <p className="text-[12.5px] text-[var(--muted-foreground)]">
-              <strong className="text-[var(--ink)]">{attivitaSel.nome}</strong> non
-              ha ancora giorni o fasce configurate. Senza configurazione il
-              calendario mostra l&apos;intera settimana.
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/attivita/${attivitaSel.recordId}`}>Configura</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {attivitaSel ? (
+        <AttivitaConfigInline
+          attivitaId={attivitaSel.recordId}
+          attivitaNome={attivitaSel.nome}
+          giorniIniziali={attivitaSel.giorniSettimana}
+          fasceIniziali={attivitaSel.fasceOrarie}
+        />
       ) : null}
 
       {educatoriSorted.length === 0 ? (

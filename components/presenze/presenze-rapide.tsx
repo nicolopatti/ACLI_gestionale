@@ -130,7 +130,6 @@ export function PresenzeRapide({ data, candidati }: Props) {
 
   function salvaOrari(candidato: PresenzaRapidaCandidato) {
     const corrente = stati[candidato.bambinoId];
-    if (!corrente.presente) return;
     if (!corrente.oraIngresso || !corrente.oraUscita) {
       toast.error("Imposta sia ingresso che uscita");
       return;
@@ -139,16 +138,19 @@ export function PresenzeRapide({ data, candidati }: Props) {
       toast.error("L'uscita deve essere successiva all'ingresso");
       return;
     }
-    patch(candidato.bambinoId, { pending: true });
+    // Compilare gli orari personalizzati implica "presente": se non era ancora
+    // segnato, lo segna ora.
+    const rigaDaSalvare: RigaState = { ...corrente, presente: true, pending: true };
+    patch(candidato.bambinoId, rigaDaSalvare);
     startTransition(async () => {
-      const res = await persist(candidato, corrente);
+      const res = await persist(candidato, rigaDaSalvare);
       if (res?.error) {
         toast.error(res.error);
+        patch(candidato.bambinoId, { ...corrente, pending: false });
       } else {
-        toast.success(`${candidato.nomeCompleto}: orari aggiornati`);
-        patch(candidato.bambinoId, { expanded: false });
+        toast.success(`${candidato.nomeCompleto}: presente · ${rigaDaSalvare.oraIngresso}–${rigaDaSalvare.oraUscita}`);
+        patch(candidato.bambinoId, { expanded: false, pending: false });
       }
-      patch(candidato.bambinoId, { pending: false });
     });
   }
 
@@ -200,25 +202,36 @@ export function PresenzeRapide({ data, candidati }: Props) {
                 )}
                 <span className="text-[12.5px] font-medium">Presente</span>
               </label>
-              {riga.presente ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    patch(c.bambinoId, { expanded: !riga.expanded })
-                  }
-                  className="inline-flex items-center gap-1 text-[11.5px] text-[var(--muted-foreground)] hover:text-[var(--ink)] no-underline"
-                  title={riga.expanded ? "Annulla" : "Modifica orari"}
-                >
-                  {riga.expanded ? (
-                    <X className="w-3.5 h-3.5" />
-                  ) : (
-                    <Pencil className="w-3.5 h-3.5" />
-                  )}
-                  {haOverride && !riga.expanded ? "Modificato" : "Orario"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => patch(c.bambinoId, { expanded: !riga.expanded })}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border text-[12px] transition-colors",
+                  haOverride
+                    ? "border-[var(--accent-solid)]/40 bg-[var(--accent-soft)] text-[var(--accent-soft-ink)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)] hover:text-[var(--ink)] hover:border-[var(--border-strong)]",
+                )}
+                title={
+                  riga.expanded
+                    ? "Chiudi"
+                    : haOverride
+                      ? "Orari diversi dal previsto"
+                      : "Modifica orari"
+                }
+              >
+                {riga.expanded ? (
+                  <X className="w-3.5 h-3.5" />
+                ) : (
+                  <Pencil className="w-3.5 h-3.5" />
+                )}
+                {riga.expanded
+                  ? "Chiudi"
+                  : haOverride
+                    ? "Orari modificati"
+                    : "Modifica orari"}
+              </button>
             </div>
-            {riga.presente && riga.expanded ? (
+            {riga.expanded ? (
               <div className="mt-2.5 ml-[44px] flex flex-wrap items-end gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-2)]/40 p-2.5">
                 <label className="space-y-1">
                   <span className="block text-[10.5px] uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -255,7 +268,7 @@ export function PresenzeRapide({ data, candidati }: Props) {
                   {riga.pending ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : null}
-                  Salva
+                  Salva orari
                 </Button>
                 <button
                   type="button"

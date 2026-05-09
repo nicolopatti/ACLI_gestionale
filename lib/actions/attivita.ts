@@ -4,7 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { attivitaSchema } from "@/lib/validations/attivita";
-import { etichettaMese, generaMesiAnnoScolastico, annoScolasticoCorrente } from "@/lib/config";
+import {
+  etichettaMese,
+  generaMesiAnnoScolastico,
+  annoScolasticoCorrente,
+  FASCE_DISPONIBILITA,
+  GIORNI_SETTIMANA,
+  type FasciaDisponibilita,
+  type GiornoSettimana,
+} from "@/lib/config";
 import {
   createAttivita,
   deleteAttivita,
@@ -16,6 +24,14 @@ import { primoEUltimoGiornoDelMese } from "@/lib/sessioni-utils";
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+}
+
+async function requireEduOrAdmin() {
+  const session = await auth();
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new Error("Non autorizzato");
+  }
 }
 
 function parseAttivitaForm(formData: FormData) {
@@ -101,6 +117,48 @@ export async function updateAttivitaAction(
   revalidatePath("/attivita");
   revalidatePath(`/attivita/${recordId}`);
   return { ok: true };
+}
+
+/**
+ * Aggiorna solo i campi `giorni_settimana` e `fasce_orarie` di un'attività.
+ * Usata dall'editor inline su /turni e /educatori per ridurre l'attrito di
+ * configurazione (no full form). Apre l'accesso anche a
+ * `coordinatore_educativo` perché è l'utente che pianifica i turni.
+ */
+export async function aggiornaConfigAttivitaAction(input: {
+  recordId: string;
+  giorniSettimana: string[];
+  fasceOrarie: string[];
+}): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  if (!input.recordId) return { error: "recordId mancante" };
+
+  const giorniValidi = (GIORNI_SETTIMANA as readonly string[]).slice();
+  const fasceValide = (FASCE_DISPONIBILITA as readonly string[]).slice();
+  const giorni = input.giorniSettimana.filter(
+    (g): g is GiornoSettimana => giorniValidi.includes(g),
+  );
+  const fasce = input.fasceOrarie.filter(
+    (f): f is FasciaDisponibilita => fasceValide.includes(f),
+  );
+
+  try {
+    await updateAttivita(input.recordId, {
+      giorni_settimana: giorni,
+      fasce_orarie: fasce,
+    });
+    revalidatePath("/attivita");
+    revalidatePath(`/attivita/${input.recordId}`);
+    revalidatePath("/turni");
+    revalidatePath("/educatori");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 export async function deleteAttivitaAction(recordId: string) {
