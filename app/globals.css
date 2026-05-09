@@ -1,72 +1,172 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
+/* =============================================================
+   Design tokens — palette "warm" del prototipo Claude Design
+   (vedi design-prototype/DESIGN_TOKENS.md e prototype/styles.css)
+   ============================================================= */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.5rem;
+  /* Background & superficie */
+  --bg: oklch(0.985 0.008 85);
+  --bg-elev: oklch(0.995 0.005 85);
+  --surface: #ffffff;
+  --surface-2: oklch(0.97 0.01 85);
+  --border: oklch(0.91 0.012 85);
+  --border-strong: oklch(0.84 0.014 85);
+
+  /* Inchiostro */
+  --ink: oklch(0.22 0.018 75);
+  --ink-2: oklch(0.38 0.015 75);
+  --muted-text: oklch(0.55 0.012 75);
+  --muted-2: oklch(0.7 0.01 75);
+
+  /* Primary (verde oliva) */
+  --primary: oklch(0.4 0.07 150);
+  --primary-ink: oklch(0.99 0.005 85);
+  --primary-soft: oklch(0.94 0.03 150);
+  --primary-soft-ink: oklch(0.32 0.06 150);
+
+  /* Accent gold (solido + soft) — il solido è usato per pip/badge tono "gold" */
+  --accent-solid: oklch(0.72 0.13 75);
+  --accent-soft: oklch(0.94 0.04 75);
+  --accent-soft-ink: oklch(0.42 0.1 70);
+
+  /* Stati */
+  --danger: oklch(0.55 0.18 25);
+  --danger-soft: oklch(0.94 0.04 25);
+  --danger-soft-ink: oklch(0.42 0.14 25);
+  --success: oklch(0.55 0.12 150);
+  --success-soft: oklch(0.93 0.04 150);
+  --success-soft-ink: oklch(0.36 0.09 150);
+  --warning: oklch(0.7 0.14 75);
+  --warning-soft: oklch(0.93 0.05 80);
+  --warning-soft-ink: oklch(0.42 0.1 70);
+  --info: oklch(0.55 0.13 240);
+  --info-soft: oklch(0.93 0.04 240);
+  --info-soft-ink: oklch(0.38 0.1 240);
+
+  /* Spacing density */
+  --row-h: 52px;
+  --gap-page: 32px;
+  --pad-card: 24px;
+
+  /* Radii */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(38, 30, 18, 0.04);
+  --shadow-md: 0 6px 24px -8px rgba(38, 30, 18, 0.12), 0 2px 6px rgba(38, 30, 18, 0.04);
+  --shadow-lg: 0 20px 48px -12px rgba(38, 30, 18, 0.18), 0 4px 12px rgba(38, 30, 18, 0.06);
+
+  /* Area accents (default = amm). Settati anche su [data-area] per esplicitezza. */
+  --area-color: oklch(0.4 0.08 250);
+  --area-soft: oklch(0.94 0.03 250);
+  --area-soft-ink: oklch(0.32 0.1 250);
+
+  /* =================================================
+     Alias shadcn-compatibili — mappati sui token sopra.
+     Vanno mantenuti perché componenti/ui/* li consumano.
+     ================================================= */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--bg-elev);
+  --card-foreground: var(--ink);
+  --popover: var(--bg-elev);
+  --popover-foreground: var(--ink);
+  --primary-foreground: var(--primary-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--muted-text);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--primary-ink);
+  --input: var(--border);
+  --ring: var(--primary);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+/* Area accents: navy per amministrazione, terracotta per attività educative */
+:root[data-area="amm"] {
+  --area-color: oklch(0.4 0.08 250);
+  --area-soft: oklch(0.94 0.03 250);
+  --area-soft-ink: oklch(0.32 0.1 250);
+}
+:root[data-area="edu"] {
+  --area-color: oklch(0.55 0.16 45);
+  --area-soft: oklch(0.94 0.05 50);
+  --area-soft-ink: oklch(0.42 0.13 45);
 }
 
+/* Density */
+:root[data-density="comfortable"] {
+  --row-h: 52px;
+  --pad-card: 24px;
+  --gap-page: 32px;
+}
+:root[data-density="compact"] {
+  --row-h: 38px;
+  --pad-card: 16px;
+  --gap-page: 20px;
+}
+
+/* Dark mode (toggle via data-theme="dark" su <html>) */
+:root[data-theme="dark"] {
+  --bg: oklch(0.16 0.012 75);
+  --bg-elev: oklch(0.2 0.012 75);
+  --surface: oklch(0.22 0.012 75);
+  --surface-2: oklch(0.24 0.012 75);
+  --border: oklch(0.3 0.012 75);
+  --border-strong: oklch(0.4 0.012 75);
+  --ink: oklch(0.97 0.008 85);
+  --ink-2: oklch(0.85 0.008 85);
+  --muted-text: oklch(0.65 0.01 75);
+  --muted-2: oklch(0.5 0.01 75);
+  --primary: oklch(0.78 0.1 145);
+  --primary-ink: oklch(0.18 0.02 75);
+  --primary-soft: oklch(0.3 0.05 150);
+  --primary-soft-ink: oklch(0.86 0.08 145);
+  --accent-solid: oklch(0.78 0.13 75);
+  --accent-soft: oklch(0.3 0.05 75);
+  --accent-soft-ink: oklch(0.85 0.1 75);
+  --danger-soft: oklch(0.3 0.08 25);
+  --danger-soft-ink: oklch(0.82 0.14 25);
+  --success-soft: oklch(0.3 0.06 150);
+  --success-soft-ink: oklch(0.82 0.1 150);
+  --warning-soft: oklch(0.3 0.08 80);
+  --warning-soft-ink: oklch(0.85 0.13 80);
+  --info-soft: oklch(0.3 0.07 240);
+  --info-soft-ink: oklch(0.82 0.12 240);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 24px -8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 48px -12px rgba(0, 0, 0, 0.55);
+}
+
+/* Espone i token come classi Tailwind v4 (`bg-primary`, `text-foreground`, ecc.) */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-card: var(--bg-elev);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--bg-elev);
+  --color-popover-foreground: var(--ink);
   --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+  --color-primary-foreground: var(--primary-ink);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted-text);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--primary-ink);
   --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -75,11 +175,405 @@
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   body {
-    background: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    min-height: 100vh;
   }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--accent-soft-ink);
+  }
+}
+
+/* =============================================================
+   Layout shell — chrome classes (sidebar, topbar, area-pill, ecc.)
+   Adattate dal prototipo: i riferimenti a `var(--muted)` come testo
+   sono stati tradotti a `var(--muted-foreground)` per non collidere
+   con la convenzione shadcn (dove `--muted` è un bg).
+   ============================================================= */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w, 280px) 1fr;
+  min-height: 100vh;
+}
+.app[data-collapsed="true"] {
+  --sidebar-w: 76px;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+.sidebar-brand {
+  padding: 20px 18px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #fff;
+  padding: 2px;
+  border: 1px solid var(--border);
+}
+.sidebar-brand .brand-text {
+  min-width: 0;
+}
+.sidebar-brand .name {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.sidebar-brand .sub {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav {
+  padding: 14px 10px;
+  flex: 1;
+  overflow-y: auto;
+}
+.nav-section {
+  padding: 10px 8px 6px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.nav-section:last-of-type {
+  border-bottom: none;
+}
+.nav-section[data-area="amm"] {
+  background: linear-gradient(180deg, oklch(0.97 0.01 250 / 0.4), transparent 80%);
+}
+.nav-section[data-area="edu"] {
+  background: linear-gradient(180deg, oklch(0.96 0.025 60 / 0.5), transparent 80%);
+}
+.nav-section-head {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  align-items: center;
+  color: var(--muted-foreground);
+}
+.nav-section[data-area="amm"] .nav-section-head {
+  color: oklch(0.4 0.08 250);
+}
+.nav-section[data-area="edu"] .nav-section-head {
+  color: oklch(0.45 0.12 50);
+}
+.nav-section-titles {
+  min-width: 0;
+}
+.nav-section-label {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 500;
+  font-size: 13px;
+  color: inherit;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.nav-section-sub {
+  font-size: 10.5px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.03em;
+  margin-top: 1px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background 0.12s ease, color 0.12s ease;
+  text-decoration: none;
+}
+.nav-item:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.nav-item[data-active="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+  font-weight: 600;
+}
+.nav-item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 0 3px 3px 0;
+}
+.nav-item .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke-width: 1.6;
+}
+.nav-item .nav-badge {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-foot {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-foot .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+/* ---- Main column ---- */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.topbar {
+  height: 60px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: blur(6px);
+}
+.topbar[data-area="amm"] {
+  box-shadow: inset 0 -2px 0 0 color-mix(in oklch, var(--area-color) 25%, transparent);
+}
+.topbar[data-area="edu"] {
+  box-shadow: inset 0 -2px 0 0 color-mix(in oklch, var(--area-color) 35%, transparent);
+}
+
+.area-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: var(--area-soft);
+  color: var(--area-soft-ink);
+  border: 1px solid color-mix(in oklch, var(--area-color) 25%, transparent);
+}
+.area-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 6px;
+  background: var(--area-color);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.crumb b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.crumb-sep {
+  color: var(--muted-2);
+}
+
+.search {
+  flex: 1;
+  max-width: 420px;
+  margin-left: auto;
+  position: relative;
+  min-width: 200px;
+}
+.search input {
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 0 12px 0 36px;
+  font-size: 13px;
+  color: var(--ink);
+  font-family: inherit;
+  outline: none;
+  transition: border 0.12s ease, background 0.12s ease;
+}
+.search input:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+.search .search-icon {
+  position: absolute;
+  left: 11px;
+  top: 9px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+}
+.search kbd {
+  position: absolute;
+  right: 8px;
+  top: 7px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+}
+@media (max-width: 1100px) {
+  .search kbd {
+    display: none;
+  }
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.icon-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.user-pill:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.user-pill:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.user-pill .who {
+  font-size: 12.5px;
+  line-height: 1.1;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.user-pill .who small {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 10.5px;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-ink);
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.avatar.lg {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+.avatar.sm {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+/* ---- Content ---- */
+.content {
+  padding: var(--gap-page) calc(var(--gap-page) + 8px) calc(var(--gap-page) * 2);
+  max-width: 1480px;
+  width: 100%;
+  margin: 0 auto;
 }

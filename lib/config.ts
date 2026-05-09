@@ -10,8 +10,18 @@ export type GiornoSettimana = (typeof GIORNI_SETTIMANA)[number];
 export const MEZZI_PAGAMENTO = ["Cassa", "BCC", "Sumup"] as const;
 export type MezzoPagamento = (typeof MEZZI_PAGAMENTO)[number];
 
-export const RUOLI = ["admin", "volontario_cassa"] as const;
+export const RUOLI = ["admin", "volontario_cassa", "coordinatore_educativo"] as const;
 export type Ruolo = (typeof RUOLI)[number];
+
+const ETICHETTE_RUOLO: Record<Ruolo, string> = {
+  admin: "Admin",
+  volontario_cassa: "Volontario",
+  coordinatore_educativo: "Coordinatore",
+};
+
+export function etichettaRuolo(ruolo: Ruolo): string {
+  return ETICHETTE_RUOLO[ruolo];
+}
 
 export const STATO_PAGAMENTO = ["non_pagato", "parziale", "pagato"] as const;
 export type StatoPagamento = (typeof STATO_PAGAMENTO)[number];

@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import type { Ruolo } from "@/lib/config";
 
 /**
  * Config edge-safe di Auth.js: nessun import che dipende da Node-only
@@ -76,7 +77,7 @@ export const authConfig = {
     session({ session, token }) {
       if (session.user) {
         session.user.recordId = token.userId as string;
-        session.user.ruolo = token.ruolo as "admin" | "volontario_cassa";
+        session.user.ruolo = token.ruolo as Ruolo;
         session.user.nome = token.nome as string;
         session.user.email = token.email as string;
         session.user.telegramUserId = token.telegramUserId as string | undefined;

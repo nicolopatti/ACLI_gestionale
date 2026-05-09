@@ -1,12 +1,14 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-09** — onboarding utenti volontari completo e verificato in produzione. Flusso end-to-end: admin crea utente / fa reset → utente target al login successivo viene mandato su `/primo-accesso` → imposta nuova password → `signOut → /login` → `/dashboard`. Componenti: flag `must_change_password` su Airtable Utenti (gating nel proxy), pagina `/primo-accesso` (route `(auth)`, no chrome dashboard), dialog admin "Reset password" su `/utenti` con generatore di password casuale a 12 caratteri leggibili. Fix collaterale (anch'esso verificato): bottone "Esci" del menu utente non partiva (Radix chiudeva il dropdown smontando il `<form>` prima del submit) — risolto con `onSelect=preventDefault`.
+> Ultimo aggiornamento: **2026-05-09** (sera) — adattamento del guscio dashboard al prototipo Claude Design: PR [#13](https://github.com/nicolopatti/ACLI_gestionale/pull/13) aperta su branch `claude/adapt-design-prototype-7pttg`, build verde, preview Vercel ready. Solo chrome (sidebar a 2 sezioni amm/edu, topbar con area-pill + theme toggle persistito, design tokens `oklch` warm, font DM Sans + Newsreader, dark mode, logo ACLI). Pagine esistenti renderizzano col loro contenuto attuale ma ereditano il nuovo look. Tipo `Ruolo` esteso con `coordinatore_educativo` (tipo TS + `ROLE_ACCESS`, nessun utente reale). Cartella `design-prototype/` (handoff package: tokens, page specs, JSX di riferimento) ora versionata nel repo.
+>
+> Sessione precedente (mattina): onboarding utenti volontari completo e verificato in produzione. Flusso end-to-end: admin crea utente / fa reset → utente target al login successivo viene mandato su `/primo-accesso` → imposta nuova password → `signOut → /login` → `/dashboard`. Componenti: flag `must_change_password` su Airtable Utenti (gating nel proxy), pagina `/primo-accesso` (route `(auth)`, no chrome dashboard), dialog admin "Reset password" su `/utenti` con generatore di password casuale a 12 caratteri leggibili. Fix collaterale (anch'esso verificato): bottone "Esci" del menu utente non partiva (Radix chiudeva il dropdown smontando il `<form>` prima del submit) — risolto con `onSelect=preventDefault`.
 
 ## Cosa funziona
 
 - **Deploy production**: <https://acli-gestionale.vercel.app> — branch `claude/n8n-association-management-Q4pBM` (con il modello nuovo Attività → Modalità + Sessione → Iscrizione → Rate).
-- **Login** Auth.js v5 (Credentials + JWT) con bcrypt e gating ruoli (`admin` / `volontario_cassa`).
+- **Login** Auth.js v5 (Credentials + JWT) con bcrypt e gating ruoli. Tipo `Ruolo` su `lib/config.ts` ora include `admin` / `volontario_cassa` / `coordinatore_educativo` (l'ultimo è solo definito a livello di tipo + `ROLE_ACCESS` della sidebar; nessun utente reale lo usa, il proxy gating non lo conosce ancora).
 - **Airtable** base `Acli Gestionale` (`appvWIKKkoSeydbL7`): tabelle aggiornate al nuovo modello (vedi sotto).
 - **Pagine dashboard**: `/dashboard`, `/bambini`, `/attivita`, `/iscrizioni`, `/educatori`, `/presenze`, `/cassa`, `/utenti`, `/profilo`.
 - **Server Actions** per tutte le mutazioni; type-check, lint e build puliti.
@@ -54,6 +56,10 @@
   personale prima di poter usare l'app. Settato automaticamente da
   `createUser` e da reset password (admin UI + script).
 
+## In review
+
+- **Chrome adaptation** — PR [#13](https://github.com/nicolopatti/ACLI_gestionale/pull/13) (`claude/adapt-design-prototype-7pttg` → `claude/n8n-association-management-Q4pBM`). Solo guscio + design tokens, niente contenuti pagina. CI verde, preview Vercel deployata. Test plan da percorrere a mano (theme toggle, switch area amm/edu, logout dal nuovo user-pill).
+
 ## Aperti (debiti / TODO)
 
 | # | Cosa | Priorità | Note |
@@ -62,13 +68,19 @@
 | 2 | Categorie iniziali su Airtable | 🟡 bassa | Verificare che `pnpm seed:categorie` sia stato eseguito. |
 | 3 | Rinomina TS `MeseIscrizione` → `Rata` | 🟢 cleanup | Tabella Airtable resta `MesiIscrizione`. |
 | 4 | Performance: i `.filter()` lato server caricano l'intera tabella | 🟢 nice-to-have | Volume attuale basso, OK. Se cresce, valutare campi formula `RECORD_ID()` su Airtable per riabilitare `filterByFormula`. |
+| 5 | Adattamento contenuti pagine al prototipo (KPI cards serif, page-head 32px, drawer dettaglio bambino, tabelle con `--row-h`) | 🟢 design follow-up | Da pianificare PR pagina per pagina dopo merge di #13. |
+| 6 | Restyling login a 2 colonne (art panel + form) come da prototipo | 🟢 design follow-up | Out of scope del PR #13, da farsi separatamente. |
+| 7 | Sidebar collapsable funzionante (76px icone-only) | 🟢 nice-to-have | Bottone già presente nel topbar di #13 ma stub. Richiede state condiviso sidebar↔topbar. |
+| 8 | Nuove rotte del prototipo (`eventi`, `edu-home`, `adm-home`, `turni`, `spese-edu`, `cassa-edu`) + split `/cassa` in `cassa` (amm) / `cassa-edu` (edu) | 🟢 product | Voci nascoste dalla nav in #13 finché non hanno una pagina vera. Ognuna è un PR a sé. |
+| 9 | Proxy gating per `coordinatore_educativo` | 🟢 nice-to-have | Il tipo esiste, ma `lib/auth/auth.config.ts` ancora gate-a admin-only sulle rotte `edu`. Da estendere quando creiamo un utente reale. |
 
 ## Reference rapida
 
 - **Repo GitHub**: <https://github.com/nicolopatti/ACLI_gestionale>
 - **Vercel project**: `acli-gestionale` (team `nicolopattis-projects`)
 - **Branch production di Vercel**: `claude/n8n-association-management-Q4pBM`
-- **Branch di lavoro corrente**: `claude/volunteer-onboarding-setup-vt7dn`
+- **Branch di lavoro corrente**: `claude/adapt-design-prototype-7pttg` (PR #13 in review)
+- **Bundle prototipo Claude Design**: `design-prototype/` (handoff package — design tokens, page specs, JSX di riferimento; non codice di produzione)
 - **Airtable base**: `appvWIKKkoSeydbL7` (Acli Gestionale)
 - **Workflow n8n bootstrap schema**: `BphNmCM5qehqdKot` ([link](https://eurita.app.n8n.cloud/workflow/BphNmCM5qehqdKot))
 - **Workflow n8n sync Movimenti**: `cmMaMjtv6xEzdZQC` ([link](https://eurita.app.n8n.cloud/workflow/cmMaMjtv6xEzdZQC)) — Google Sheet `Cassa_Associazione_Template` (id `1NZ9G7Vv8C6yYMb-oA3czSNq4d1vVC961iIMOXtAnrqE`) → Airtable Movimenti, schedule ogni 5 min.

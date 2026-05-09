@@ -8,19 +8,19 @@
  */
 import { hashPassword } from "../lib/auth/password";
 import { createUser, getUserByEmail } from "../lib/airtable/users";
-import type { Ruolo } from "../lib/config";
+import { RUOLI, type Ruolo } from "../lib/config";
 
 async function main() {
   const [, , email, password, nome, ruoloArg] = process.argv;
   if (!email || !password || !nome) {
     console.error(
-      'Uso: pnpm seed:admin -- <email> <password> "<nome completo>" [admin|volontario_cassa]',
+      `Uso: pnpm seed:admin -- <email> <password> "<nome completo>" [${RUOLI.join("|")}]`,
     );
     process.exit(1);
   }
   const ruolo: Ruolo = (ruoloArg as Ruolo) || "admin";
-  if (ruolo !== "admin" && ruolo !== "volontario_cassa") {
-    console.error("Ruolo non valido. Usa 'admin' o 'volontario_cassa'.");
+  if (!RUOLI.includes(ruolo)) {
+    console.error(`Ruolo non valido. Usa uno di: ${RUOLI.join(", ")}.`);
     process.exit(1);
   }
   const existing = await getUserByEmail(email);

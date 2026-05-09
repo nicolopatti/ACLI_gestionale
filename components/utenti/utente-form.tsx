@@ -6,7 +6,7 @@ import { createUtenteAction } from "@/lib/actions/utenti";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RUOLI } from "@/lib/config";
+import { RUOLI, etichettaRuolo } from "@/lib/config";
 
 export function UtenteForm() {
   const [state, action, pending] = useActionState<
@@ -40,7 +40,7 @@ export function UtenteForm() {
           >
             {RUOLI.map((r) => (
               <option key={r} value={r}>
-                {r === "admin" ? "Admin" : "Volontario cassa"}
+                {etichettaRuolo(r)}
               </option>
             ))}
           </select>

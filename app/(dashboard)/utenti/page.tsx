@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { toggleAttivoAction } from "@/lib/actions/utenti";
 import { ResetPasswordDialog } from "@/components/utenti/reset-password-dialog";
 import { formatDate } from "@/lib/utils";
+import { etichettaRuolo } from "@/lib/config";
 
 export default async function UtentiPage() {
   const users = await listUsers();
@@ -57,7 +58,7 @@ export default async function UtentiPage() {
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
                       <Badge variant={u.ruolo === "admin" ? "default" : "secondary"}>
-                        {u.ruolo === "admin" ? "Admin" : "Volontario"}
+                        {etichettaRuolo(u.ruolo)}
                       </Badge>
                     </TableCell>
                     <TableCell>{u.telegramUserId ?? "—"}</TableCell>
