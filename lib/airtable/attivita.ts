@@ -1,6 +1,6 @@
 import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { Attivita } from "./types";
-import type { TipoAttivita } from "@/lib/config";
+import type { FasciaOraria, GiornoSettimana, TipoAttivita } from "@/lib/config";
 
 function mapAttivita(record: { id: string; fields: Record<string, unknown> }): Attivita {
   const f = record.fields;
@@ -12,6 +12,8 @@ function mapAttivita(record: { id: string; fields: Record<string, unknown> }): A
     dataFine: (f.data_fine as string) ?? undefined,
     attivo: Boolean(f.attivo),
     note: (f.note as string) ?? undefined,
+    giorniSettimana: ((f.giorni_settimana as GiornoSettimana[]) ?? []) as GiornoSettimana[],
+    fasceOrarie: ((f.fasce_orarie as FasciaOraria[]) ?? []) as FasciaOraria[],
     sessioniIds: ((f.Sessioni as string[]) ?? []) as string[],
     iscrizioniIds: ((f.Iscrizioni as string[]) ?? []) as string[],
     modalitaIds: ((f.ModalitaIscrizione as string[]) ?? []) as string[],
@@ -55,20 +57,27 @@ export async function createAttivita(input: {
   dataFine?: string;
   attivo?: boolean;
   note?: string;
+  giorniSettimana?: GiornoSettimana[];
+  fasceOrarie?: FasciaOraria[];
 }): Promise<Attivita> {
   if (!base) throw new Error("Airtable client non configurato");
-  const created = await base(TABLE_NAMES.attivita).create([
-    {
-      fields: {
-        nome: input.nome,
-        tipo: input.tipo,
-        attivo: input.attivo ?? true,
-        ...(input.dataInizio ? { data_inizio: input.dataInizio } : {}),
-        ...(input.dataFine ? { data_fine: input.dataFine } : {}),
-        ...(input.note ? { note: input.note } : {}),
+  const created = await base(TABLE_NAMES.attivita).create(
+    [
+      {
+        fields: {
+          nome: input.nome,
+          tipo: input.tipo,
+          attivo: input.attivo ?? true,
+          ...(input.dataInizio ? { data_inizio: input.dataInizio } : {}),
+          ...(input.dataFine ? { data_fine: input.dataFine } : {}),
+          ...(input.note ? { note: input.note } : {}),
+          ...(input.giorniSettimana ? { giorni_settimana: input.giorniSettimana } : {}),
+          ...(input.fasceOrarie ? { fasce_orarie: input.fasceOrarie } : {}),
+        },
       },
-    },
-  ]);
+    ],
+    { typecast: true },
+  );
   return mapAttivita({ id: created[0].id, fields: created[0].fields });
 }
 
@@ -81,10 +90,14 @@ export async function updateAttivita(
     data_fine: string;
     attivo: boolean;
     note: string;
+    giorni_settimana: GiornoSettimana[];
+    fasce_orarie: FasciaOraria[];
   }>,
 ): Promise<Attivita> {
   if (!base) throw new Error("Airtable client non configurato");
-  const updated = await base(TABLE_NAMES.attivita).update([{ id: recordId, fields }]);
+  const updated = await base(TABLE_NAMES.attivita).update([{ id: recordId, fields }], {
+    typecast: true,
+  });
   return mapAttivita({ id: updated[0].id, fields: updated[0].fields });
 }
 

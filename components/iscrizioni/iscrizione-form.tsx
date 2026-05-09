@@ -7,8 +7,7 @@ import {
   updateIscrizioneAction,
 } from "@/lib/actions/iscrizioni";
 import {
-  FASCE_ORARIE,
-  GIORNI_SETTIMANA,
+  GIORNI_LABEL,
   type FasciaOraria,
   type GiornoSettimana,
 } from "@/lib/config";
@@ -28,14 +27,6 @@ import type {
 
 const SELECT_CLASS =
   "flex h-9 w-full rounded-md border border-[var(--border)] bg-transparent px-3 text-sm shadow-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-
-const GIORNI_LABEL: Record<GiornoSettimana, string> = {
-  lun: "Lunedì",
-  mar: "Martedì",
-  mer: "Mercoledì",
-  gio: "Giovedì",
-  ven: "Venerdì",
-};
 
 interface Props {
   iscrizione?: Iscrizione;
@@ -91,6 +82,10 @@ export function IscrizioneForm({
   );
   const modalitaSelezionata = modalitaDisponibili.find((m) => m.recordId === modalitaId);
   const isDoposcuola = attivitaSelezionata?.tipo === "doposcuola";
+  // Le fasce/giorni offerti dipendono dall'Attività selezionata (campi
+  // dichiarati su `Attivita.fasce_orarie` e `Attivita.giorni_settimana`).
+  const fasceOfferte = attivitaSelezionata?.fasceOrarie ?? [];
+  const giorniOfferti = attivitaSelezionata?.giorniSettimana ?? [];
 
   const totale = useMemo(() => {
     if (!modalitaSelezionata) return 0;
@@ -241,48 +236,62 @@ export function IscrizioneForm({
           <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
             Doposcuola
           </h2>
-          <div>
-            <Label className="mb-2 block">Giorni frequentati</Label>
-            <div className="flex flex-wrap gap-3">
-              {GIORNI_SETTIMANA.map((g) => (
-                <label
-                  key={g}
-                  className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    name="giorniSettimana"
-                    value={g}
-                    checked={giorni.has(g)}
-                    onChange={() => setGiorni((prev) => toggleSet(prev, g))}
-                    className="h-4 w-4"
-                  />
-                  {GIORNI_LABEL[g]}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <Label className="mb-2 block">Fasce orarie</Label>
-            <div className="flex flex-wrap gap-3">
-              {FASCE_ORARIE.map((f) => (
-                <label
-                  key={f}
-                  className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    name="fasceOrarie"
-                    value={f}
-                    checked={fasce.has(f)}
-                    onChange={() => setFasce((prev) => toggleSet(prev, f))}
-                    className="h-4 w-4"
-                  />
-                  {f.replace("-", "—")}
-                </label>
-              ))}
-            </div>
-          </div>
+          {giorniOfferti.length === 0 || fasceOfferte.length === 0 ? (
+            <p className="text-sm text-[var(--destructive)]">
+              L&apos;attività selezionata non ha giorni o fasce orarie
+              dichiarati. Apri la scheda Attività e completa i campi
+              <strong> Giorni della settimana</strong> e
+              <strong> Fasce orarie</strong> prima di iscrivere bambini.
+            </p>
+          ) : (
+            <>
+              <div>
+                <Label className="mb-2 block">Giorni frequentati</Label>
+                <div className="flex flex-wrap gap-3">
+                  {giorniOfferti.map((g) => (
+                    <label
+                      key={g}
+                      className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        name="giorniSettimana"
+                        value={g}
+                        checked={giorni.has(g)}
+                        onChange={() => setGiorni((prev) => toggleSet(prev, g))}
+                        className="h-4 w-4"
+                      />
+                      {GIORNI_LABEL[g]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label className="mb-2 block">Fasce orarie</Label>
+                <div className="flex flex-wrap gap-3">
+                  {fasceOfferte.map((f) => (
+                    <label
+                      key={f}
+                      className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        name="fasceOrarie"
+                        value={f}
+                        checked={fasce.has(f)}
+                        onChange={() => setFasce((prev) => toggleSet(prev, f))}
+                        className="h-4 w-4"
+                      />
+                      {f}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)] mt-2">
+                  Per il pacchetto 14-18 spunta sia <code>14-16</code> sia <code>16-18</code>.
+                </p>
+              </div>
+            </>
+          )}
         </section>
       )}
 

@@ -1,7 +1,9 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-09** (notte) — allineamento contenuti pagine al prototipo Claude Design **mergeato in produzione**: PR [#14](https://github.com/nicolopatti/ACLI_gestionale/pull/14) (`claude/align-design-code-Lmqps` → `claude/n8n-association-management-Q4pBM`, merge commit `ff4541d`). 14 commit atomici: componenti UI base (Tabs/Sheet/Avatar/Progress/FilterBar), restyling di tutte le pagine esistenti (`/bambini`, `/iscrizioni`, `/cassa`, `/attivita`, `/educatori`, `/presenze`, `/utenti`, `/dashboard`), tabs nel detail bambino (5 sezioni), 2 nuove rotte (`/spese-edu` form rapido educatori e `/turni` con vista settimana/mese e click-su-cella), gating proxy esteso a `coordinatore_educativo`, login restyled a 2 colonne con pannello brand. Modello dati: aggiunti 2 campi opzionali `ora_ingresso`/`ora_uscita` su `Disponibilita` per il consuntivo turni. Pianificazione + decisioni di scope in `design-prototype/GAP_ANALYSIS.md`.
+> Ultimo aggiornamento: **2026-05-10** — fix strutturale fasce/giorni e modello turni (branch `claude/fix-educator-display-tL4EF`, in review). Eliminato hardcoding di fasce/giorni in `lib/config.ts`: rimosse `FASCE_DISPONIBILITA` (con la fascia ridondante `14-18`) e `FASCE_ORARIE`; `FasciaOraria` è ora `string` runtime-checked. Le fasce e i giorni "offerti" si leggono dai due campi già presenti su `Attivita` (campi `fasce_orarie` e `giorni_settimana`, orfani fino a oggi). Aggiunto campo `fascia_oraria` a `Sessioni` (singleSelect, choice `14-16`/`16-18`) per laboratorio/locomotiva. Nuovo helper `lib/airtable/turni.ts` con `listAttivitaAttiveInRange`, `unionFasceOfferte`, `unionGiorniOfferti`, `calcolaCelleAttive` (espande sessioni laboratorio/locomotiva su celle `(data, fascia)`). `/turni` e `/educatori/[id]` mostrano **empty state** quando non c'è alcuna attività attiva nel periodo, e la griglia accetta solo celle effettivamente offerte da almeno un'attività attiva (controllo client + server in `salvaTurnoCellaAction`/`salvaDisponibilitaAction`). Form crea/modifica attività riceve checkbox per giorni (lun-dom, esteso da 5 a 7) e fasce con suggerimenti `14-16`/`16-18` + possibilità di aggiungere fasce custom (es. `10-12`). Form iscrizione doposcuola legge fasce/giorni dall'attività selezionata invece di costanti. Rimosso `ORE_PER_FASCIA` hardcoded da dashboard, /turni, /educatori; le ore pianificate si calcolano runtime con `durataFasciaOre()` parsando la fascia. Pagina /presenze: filtro fascia pillole derivato dalle fasce dichiarate sull'attività selezionata. Build, lint, typecheck puliti.
+>
+> Sessione precedente (2026-05-09 notte): allineamento contenuti pagine al prototipo Claude Design **mergeato in produzione**: PR [#14](https://github.com/nicolopatti/ACLI_gestionale/pull/14) (`claude/align-design-code-Lmqps` → `claude/n8n-association-management-Q4pBM`, merge commit `ff4541d`). 14 commit atomici: componenti UI base (Tabs/Sheet/Avatar/Progress/FilterBar), restyling di tutte le pagine esistenti (`/bambini`, `/iscrizioni`, `/cassa`, `/attivita`, `/educatori`, `/presenze`, `/utenti`, `/dashboard`), tabs nel detail bambino (5 sezioni), 2 nuove rotte (`/spese-edu` form rapido educatori e `/turni` con vista settimana/mese e click-su-cella), gating proxy esteso a `coordinatore_educativo`, login restyled a 2 colonne con pannello brand. Modello dati: aggiunti 2 campi opzionali `ora_ingresso`/`ora_uscita` su `Disponibilita` per il consuntivo turni. Pianificazione + decisioni di scope in `design-prototype/GAP_ANALYSIS.md`.
 >
 > Stessa sessione, fix sync Movimenti n8n: scoperti 741 record duplicati su Airtable (`id` sempre vuoto). Causa: il nodo Airtable v2.2 di n8n **strippa i `matchingColumns` dal payload di scrittura**, anche con `defineBelow` e mapping esplicito — il match key viene trattato come "già noto" e non scritto. Fix: spostata la match key da `id` a `timestamp` (univoco per costruzione del bot Telegram, ms-precision), `mappingMode: defineBelow` con espressione esplicita per ogni campo. **Ottimizzazione architetturale** in coda: workflow ora event-driven via `Google Sheets Trigger` con `event: rowAdded` (poll ogni minuto, fa partire il workflow solo su nuova riga in coda al Sheet) invece dello schedule ogni 5 min che riprocessava tutto. Tabella ricostruita pulita: 19 record con `id` valorizzato.
 >
@@ -30,19 +32,28 @@
 ## Modello dati corrente
 
 - **Attività → Modalità di iscrizione + Sessione → Iscrizione → Rate**.
-- `Attivita` (`tipo`: doposcuola | laboratorio | locomotiva, `attivo`). I campi
-  `importo_default` e `anno_scolastico` sono orfani su Airtable (non più usati
-  dal codice).
+- `Attivita` (`tipo`: doposcuola | laboratorio | locomotiva, `attivo`,
+  `giorni_settimana` multi `lun..dom`, `fasce_orarie` multi free-form es.
+  `14-16`/`16-18`/`10-12`). I campi `giorni_settimana` e `fasce_orarie`
+  dichiarano "quando l'attività ha luogo" e sono **fonte di verità** per
+  griglia turni e calendario disponibilità educatore. I campi `importo_default`
+  e `anno_scolastico` sono orfani su Airtable (non più usati dal codice).
 - `ModalitaIscrizione` (link a Attivita): `nome`, `importo` (per sessione),
   `descrizione`, `attivo`. Una stessa attività può avere più modalità a prezzi
   diversi (es. "Mensile 14-16 (3 giorni)" vs "Mensile 14-18 (5 giorni)").
-- `Sessioni` (`tipo_unita`: mese | giornata | settimana, `chiave`, `etichetta`).
-  Chiave ed etichetta sono derivate server-side da `tipo_unita` + `data_inizio`.
-  Il campo `importo` su Airtable è orfano (rimosso dal codice il "override
-  sessione"; l'importo della rata viene sempre dalla modalità).
+- `Sessioni` (`tipo_unita`: mese | giornata | settimana, `chiave`, `etichetta`,
+  `fascia_oraria`). Chiave ed etichetta sono derivate server-side da
+  `tipo_unita` + `data_inizio`. `fascia_oraria` (singleSelect) è richiesta
+  per laboratorio/locomotiva (definisce in quale cella della griglia turni
+  cade la sessione); per doposcuola è lasciata vuota perché le fasce vengono
+  dalle iscrizioni dei bambini. Il campo `importo` su Airtable è orfano
+  (rimosso dal codice il "override sessione"; l'importo della rata viene
+  sempre dalla modalità).
 - `Iscrizioni` con `attivita`, `modalita_iscrizione`, `sessioni_scelte` (multi),
-  `fasce_orarie` (`14-16` / `14-18`, multi, solo doposcuola), `giorni_settimana`
-  (solo doposcuola). Il campo `anno_scolastico` è orfano.
+  `fasce_orarie` (multi, solo doposcuola, sottoinsieme di `Attivita.fasce_orarie`),
+  `giorni_settimana` (solo doposcuola, sottoinsieme di `Attivita.giorni_settimana`).
+  La fascia legacy `14-18` è stata eliminata: chi vuole 14-18 spunta `14-16` +
+  `16-18`. Il campo `anno_scolastico` è orfano.
 - `MesiIscrizione` (significato evoluto: "Rata") con `sessione`, `tipo_unita`,
   `chiave_periodo`. `mese_anno` popolato solo per rate di tipo `mese` (legacy/cache).
   L'importo è snapshot di `modalita.importo` al momento della creazione della rata.
@@ -52,11 +63,16 @@
 - `Presenze`: `ora_ingresso`, `ora_uscita` (entrambi vuoti = assente), link
   opzionale `sessione`.
 - `Educatori` (anagrafica: `nome`, `cognome`, `email`, `telefono`, `attivo`).
-- `Disponibilita` (link a Educatori): `data`, `fascia_oraria` (14-16 / 14-18 /
-  16-18), `note`, `ora_ingresso`, `ora_uscita`. Funge da pianificazione (riga
-  esistente senza ore = turno previsto) **e da consuntivo** (ore valorizzate
-  = turno effettivamente svolto, base dati per il calcolo compensi). Vista
-  combinata su `/turni`.
+- `Disponibilita` (link a Educatori): `data`, `fascia_oraria` (singleSelect:
+  `14-16` / `16-18`; il legacy `14-18` resta come choice morto su Airtable
+  fino a rimozione manuale ma il codice non lo userà mai), `note`,
+  `ora_ingresso`, `ora_uscita`. Funge da pianificazione (riga esistente
+  senza ore = turno previsto) **e da consuntivo** (ore valorizzate = turno
+  effettivamente svolto, base dati per il calcolo compensi). Vista
+  combinata su `/turni`. La griglia turni accetta solo celle `(data, fascia)`
+  effettivamente offerte da almeno un'`Attivita.attivo:true` nel periodo —
+  controllo runtime in `lib/airtable/turni.ts` + validazione in
+  `salvaTurnoCellaAction`.
 - `Movimenti` (sync da Google Sheet via n8n): `id` (text, primary), `timestamp`
   (datetime, **match key** dell'upsert n8n), `data_movimento`, `tipo`,
   `importo`, `conto` (Cassa/BCC/Sumup), `categoria` (link), `descrizione`,
@@ -73,13 +89,15 @@
 
 ## In review
 
-Niente. PR #13 (chrome) e PR #14 (allineamento contenuti pagine + nuove rotte) entrambe mergeate in produzione.
+- Branch `claude/fix-educator-display-tL4EF` con il fix strutturale fasce/giorni
+  e modello turni dinamico (vedi nota in cima).
 
 ## Aperti (debiti / TODO)
 
 | # | Cosa | Priorità | Note |
 |---|------|----------|------|
 | 1 | Tabelle residue su Airtable (`Genitori`, `Table 1`) | 🟡 bassa | Da eliminare manualmente da Airtable UI (l'API non supporta delete table). Il campo `importo` su Sessioni è anch'esso orfano. |
+| 1b | Choice `14-18` su Airtable (`Iscrizioni.fasce_orarie`, `Attivita.fasce_orarie`, `Disponibilita.fascia_oraria`) | 🟡 bassa | Il codice non la userà più ma resta come choice morto. Da rimuovere manualmente da UI Airtable quando comodo (DB pulito al momento, nessun record con quella choice). |
 | 2 | Categorie iniziali su Airtable | 🟡 bassa | Verificare che `pnpm seed:categorie` sia stato eseguito. |
 | 3 | Rinomina TS `MeseIscrizione` → `Rata` | 🟢 cleanup | Tabella Airtable resta `MesiIscrizione`. |
 | 4 | Performance: i `.filter()` lato server caricano l'intera tabella | 🟢 nice-to-have | Volume attuale basso, OK. Se cresce, valutare campi formula `RECORD_ID()` su Airtable per riabilitare `filterByFormula`. |

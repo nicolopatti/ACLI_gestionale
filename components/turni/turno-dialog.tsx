@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import type { FasciaOraria } from "@/lib/config";
 
 export interface EducatoreLight {
   recordId: string;
@@ -34,9 +34,10 @@ export interface TurnoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: string; // YYYY-MM-DD
-  fascia: FasciaDisponibilita;
+  fascia: FasciaOraria;
   educatori: EducatoreLight[];
   initialRows: TurnoRowState[];
+  contextLabel?: string;
 }
 
 function formatDataLabel(data: string): string {
@@ -56,6 +57,7 @@ export function TurnoDialog({
   fascia,
   educatori,
   initialRows,
+  contextLabel,
 }: TurnoDialogProps) {
   const [rows, setRows] = useState<TurnoRowState[]>(initialRows);
   const [pending, startTransition] = useTransition();
@@ -114,6 +116,7 @@ export function TurnoDialog({
             Turno · {formatDataLabel(data)} · {fascia}
           </DialogTitle>
           <DialogDescription>
+            {contextLabel ? <span className="block mb-1">{contextLabel}</span> : null}
             Seleziona gli educatori in turno. Compila le ore solo a consuntivo
             (dopo la data).
           </DialogDescription>

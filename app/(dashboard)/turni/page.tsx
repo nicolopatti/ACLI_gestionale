@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { listEducatori } from "@/lib/airtable/educatori";
 import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
+import { listSessioniByRange } from "@/lib/airtable/sessioni";
+import {
+  listAttivitaAttiveInRange,
+  unionFasceOfferte,
+  unionGiorniOfferti,
+  calcolaCelleAttive,
+} from "@/lib/airtable/turni";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -16,14 +23,8 @@ import {
 import { TurniGrid } from "@/components/turni/turni-grid";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import { durataFasciaOre } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
-
-const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
-  "14-16": 2,
-  "14-18": 4,
-  "16-18": 2,
-};
 
 type Vista = "settimana" | "mese";
 
@@ -129,7 +130,7 @@ function periodoLabel(base: Date, vista: Vista): string {
 }
 
 function calcolaOre(d: Disponibilita): { pianificate: number; consuntivate: number } {
-  const pianificate = ORE_PER_FASCIA[d.fasciaOraria] ?? 0;
+  const pianificate = durataFasciaOre(d.fasciaOraria);
   if (!d.oraIngresso || !d.oraUscita) {
     return { pianificate, consuntivate: 0 };
   }
@@ -158,10 +159,14 @@ export default async function TurniPage({
   const vista: Vista = isVista(sp.vista) ? sp.vista : "settimana";
   const base = parseIsoOrToday(sp.d);
   const { start, end } = rangeForVista(base, vista);
+  const startIso = isoDate(start);
+  const endIso = isoDate(end);
 
-  const [educatori, disponibilita] = await Promise.all([
+  const [educatori, disponibilita, attiveInRange, sessioniInRange] = await Promise.all([
     listEducatori(),
-    listDisponibilitaByRange(isoDate(start), isoDate(end)),
+    listDisponibilitaByRange(startIso, endIso),
+    listAttivitaAttiveInRange(startIso, endIso),
+    listSessioniByRange(startIso, endIso),
   ]);
 
   const educatoreLight = educatori.map((e) => ({
@@ -171,6 +176,12 @@ export default async function TurniPage({
   }));
 
   const giorni = vista === "settimana" ? daysOfWeek(base) : daysOfMonthGrid(base);
+  const fasceOfferte = unionFasceOfferte(attiveInRange);
+  const giorniOfferti = unionGiorniOfferti(attiveInRange);
+  const celleAttive = calcolaCelleAttive(attiveInRange, sessioniInRange, startIso, endIso);
+
+  // Empty state quando non c'è alcuna attività attiva nel periodo
+  const noAttiveAttivita = attiveInRange.length === 0 || fasceOfferte.length === 0;
 
   // Stats periodo
   let orePianificate = 0;
@@ -297,12 +308,39 @@ export default async function TurniPage({
 
       <Card>
         <CardContent className="p-4 overflow-x-auto">
-          <TurniGrid
-            vista={vista}
-            giorni={giorni}
-            educatori={educatoreLight}
-            disponibilita={disponibilita}
-          />
+          {noAttiveAttivita ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-2)]">
+                <Calendar className="h-6 w-6 text-[var(--muted-foreground)]" />
+              </div>
+              <div>
+                <p className="font-medium text-[var(--ink)]">
+                  Nessuna attività attiva nel periodo
+                </p>
+                <p className="text-[13px] text-[var(--muted-foreground)] mt-1 max-w-md">
+                  Non si possono pianificare turni finché non ci sono attività
+                  con fasce orarie e giorni dichiarati. Crea o riattiva
+                  un&apos;attività per iniziare.
+                </p>
+              </div>
+              <Link
+                href="/attivita/nuova"
+                className="inline-flex items-center px-4 h-9 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-[13px] font-medium hover:bg-[var(--primary)]/90 no-underline"
+              >
+                Crea attività
+              </Link>
+            </div>
+          ) : (
+            <TurniGrid
+              vista={vista}
+              giorni={giorni}
+              educatori={educatoreLight}
+              disponibilita={disponibilita}
+              fasceOfferte={fasceOfferte}
+              giorniOfferti={giorniOfferti}
+              celleAttive={celleAttive}
+            />
+          )}
         </CardContent>
       </Card>
 

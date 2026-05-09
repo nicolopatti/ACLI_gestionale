@@ -32,6 +32,8 @@ function parseAttivitaForm(formData: FormData) {
     autoGeneraSessioniMensili:
       formData.get("autoGeneraSessioniMensili") === "on" ||
       formData.get("autoGeneraSessioniMensili") === "true",
+    giorniSettimana: formData.getAll("giorniSettimana"),
+    fasceOrarie: formData.getAll("fasceOrarie"),
   };
 }
 
@@ -49,6 +51,8 @@ export async function createAttivitaAction(_prev: unknown, formData: FormData) {
     dataFine: d.dataFine || undefined,
     attivo: d.attivo,
     note: d.note || undefined,
+    giorniSettimana: d.giorniSettimana,
+    fasceOrarie: d.fasceOrarie,
   });
 
   if (d.tipo === "doposcuola" && d.autoGeneraSessioniMensili) {
@@ -91,6 +95,8 @@ export async function updateAttivitaAction(
     data_fine: d.dataFine || "",
     attivo: d.attivo,
     note: d.note || "",
+    giorni_settimana: d.giorniSettimana,
+    fasce_orarie: d.fasceOrarie,
   });
   revalidatePath("/attivita");
   revalidatePath(`/attivita/${recordId}`);

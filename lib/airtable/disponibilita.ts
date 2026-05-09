@@ -1,7 +1,7 @@
 import type Airtable from "airtable";
 import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { Disponibilita } from "./types";
-import type { FasciaDisponibilita } from "@/lib/config";
+import type { FasciaOraria } from "@/lib/config";
 
 type Fields = Partial<Airtable.FieldSet>;
 
@@ -15,7 +15,7 @@ function mapDisponibilita(record: {
     recordId: record.id,
     educatoreId: eduLink[0] ?? "",
     data: (f.data as string) ?? "",
-    fasciaOraria: (f.fascia_oraria as FasciaDisponibilita) ?? "14-16",
+    fasciaOraria: (f.fascia_oraria as FasciaOraria) ?? "",
     oraIngresso: (f.ora_ingresso as string) || undefined,
     oraUscita: (f.ora_uscita as string) || undefined,
     note: (f.note as string) ?? undefined,
@@ -74,7 +74,7 @@ export async function listDisponibilitaByEducatore(
 
 export async function listDisponibilitaByDataEFascia(
   data: string,
-  fascia: FasciaDisponibilita,
+  fascia: FasciaOraria,
 ): Promise<Disponibilita[]> {
   if (!base) return [];
   const records = await base(TABLE_NAMES.disponibilita)
@@ -87,7 +87,7 @@ export async function listDisponibilitaByDataEFascia(
 
 export type DisponibilitaSlot = {
   data: string;
-  fasciaOraria: FasciaDisponibilita;
+  fasciaOraria: FasciaOraria;
 };
 
 export type TurnoCellaRow = {
@@ -105,7 +105,7 @@ export type TurnoCellaRow = {
  */
 export async function replaceTurnoCella(
   data: string,
-  fascia: FasciaDisponibilita,
+  fascia: FasciaOraria,
   rows: TurnoCellaRow[],
 ): Promise<void> {
   if (!base) throw new Error("Airtable client non configurato");
