@@ -9,7 +9,23 @@ import {
   deleteBambino as deleteBambinoAt,
   updateBambino as updateBambinoAt,
 } from "@/lib/airtable/bambini";
-import { replaceContattiForBambino } from "@/lib/airtable/contatti-aggiuntivi";
+import {
+  deleteContattiByBambino,
+  listContattiByBambino,
+  replaceContattiForBambino,
+} from "@/lib/airtable/contatti-aggiuntivi";
+import {
+  deleteIscrizioniByIds,
+  listIscrizioni,
+} from "@/lib/airtable/iscrizioni";
+import {
+  deleteMesiByIscrizione,
+  listMesiByIscrizione,
+} from "@/lib/airtable/mesi";
+import {
+  deletePresenzeByBambino,
+  listPresenzeByBambino,
+} from "@/lib/airtable/presenze";
 
 async function requireAdmin() {
   const session = await auth();
@@ -139,8 +155,45 @@ export async function updateBambinoAction(
   return { ok: true };
 }
 
+/**
+ * Conta i record collegati che verranno cascadeati cancellando un bambino.
+ */
+export async function getDeleteBambinoImpactAction(
+  recordId: string,
+): Promise<{ iscrizioni: number; rate: number; presenze: number; contatti: number }> {
+  await requireAdmin();
+  const [iscrizioni, presenze, contatti] = await Promise.all([
+    listIscrizioni({ bambinoId: recordId }),
+    listPresenzeByBambino(recordId),
+    listContattiByBambino(recordId),
+  ]);
+  // Le rate dipendono dalle iscrizioni: per ognuna, conto le rate.
+  let rate = 0;
+  for (const i of iscrizioni) {
+    const r = await listMesiByIscrizione(i.recordId);
+    rate += r.length;
+  }
+  return {
+    iscrizioni: iscrizioni.length,
+    rate,
+    presenze: presenze.length,
+    contatti: contatti.length,
+  };
+}
+
 export async function deleteBambinoAction(recordId: string) {
   await requireAdmin();
+  // Cascade order: prima i nipoti (rate), poi i figli (iscrizioni/presenze/
+  // contatti), infine il bambino. Se uno step fallisce, gli step già fatti
+  // restano (Airtable non ha transazioni). L'ordine sopra minimizza il danno
+  // perché cancella prima le foglie.
+  const iscrizioni = await listIscrizioni({ bambinoId: recordId });
+  for (const i of iscrizioni) {
+    await deleteMesiByIscrizione(i.recordId);
+  }
+  await deleteIscrizioniByIds(iscrizioni.map((i) => i.recordId));
+  await deletePresenzeByBambino(recordId);
+  await deleteContattiByBambino(recordId);
   await deleteBambinoAt(recordId);
   revalidatePath("/bambini");
   redirect("/bambini");

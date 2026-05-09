@@ -117,6 +117,23 @@ export async function upsertPresenze(input: PresenzaInput[]): Promise<void> {
   }
 }
 
+/**
+ * Cancella in bulk tutte le presenze di un bambino (cascade da delete bambino).
+ * Ritorna il numero di presenze cancellate.
+ */
+export async function deletePresenzeByBambino(bambinoId: string): Promise<number> {
+  if (!base) return 0;
+  const all = await base(TABLE_NAMES.presenze).select({}).all();
+  const ids = all
+    .map((r) => mapPresenza({ id: r.id, fields: r.fields }))
+    .filter((p) => p.bambinoId === bambinoId)
+    .map((p) => p.recordId);
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.presenze).destroy(ids.slice(i, i + 10));
+  }
+  return ids.length;
+}
+
 export async function countPresenzeOggi(): Promise<number> {
   if (!base) return 0;
   const oggi = new Date().toISOString().slice(0, 10);

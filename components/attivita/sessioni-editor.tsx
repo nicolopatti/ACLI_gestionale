@@ -2,19 +2,19 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { TIPI_UNITA, type TipoUnita } from "@/lib/config";
 import {
   createSessioneAction,
   deleteSessioneAction,
+  getDeleteSessioneImpactAction,
 } from "@/lib/actions/sessioni";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 import { ActionButton } from "@/components/ui/action-button";
-import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { formatDate } from "@/lib/utils";
 import type { Sessione } from "@/lib/airtable/types";
 
@@ -37,11 +37,6 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
     FormData
   >(createSessioneAction, undefined);
   const [success, setSuccess] = useState(false);
-  const fbDelete = useActionFeedback({
-    successToast: "Sessione eliminata",
-    onSuccess: () => router.refresh(),
-  });
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const hasError = !!state?.error;
 
   const previewEtichetta = dataInizio
@@ -62,19 +57,6 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
   }, [state, defaultTipoUnita]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const onDelete = (id: string) => {
-    setPendingDeleteId(id);
-    fbDelete.run(async () => {
-      try {
-        const res = await deleteSessioneAction(id, attivitaId);
-        if (res && "error" in res) return { error: res.error };
-        return { ok: true };
-      } finally {
-        setPendingDeleteId((curr) => (curr === id ? null : curr));
-      }
-    });
-  };
-
   return (
     <div className="space-y-4">
       {sessioni.length === 0 ? (
@@ -94,18 +76,34 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
                   {s.dataFine && s.dataFine !== s.dataInizio ? `–${formatDate(s.dataFine)}` : ""}
                 </span>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => onDelete(s.recordId)}
-                aria-label="Elimina sessione"
-                disabled={fbDelete.pending}
-                className="btn-tactile"
-                data-saved={pendingDeleteId === s.recordId && fbDelete.success ? "true" : undefined}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <DeleteConfirmDialog
+                triggerVariant="ghost"
+                triggerIconOnly
+                triggerLabel="Elimina sessione"
+                title={`Elimina sessione "${s.etichetta}"`}
+                description="Le rate non pagate collegate verranno eliminate. Se ci sono rate pagate o parziali, l'eliminazione sarà rifiutata."
+                successToast="Sessione eliminata"
+                loadImpact={async () => {
+                  const i = await getDeleteSessioneImpactAction(s.recordId);
+                  if (i.bloccatoDaPagate) {
+                    return [
+                      {
+                        label: "Rate pagate/parziali (bloccano la delete)",
+                        count: 1,
+                      },
+                    ];
+                  }
+                  return [
+                    { label: "Rate non pagate", count: i.rateNonPagate },
+                  ];
+                }}
+                onConfirm={async () => {
+                  const res = await deleteSessioneAction(s.recordId, attivitaId);
+                  if (res && "error" in res) return { error: res.error };
+                  router.refresh();
+                  return { ok: true };
+                }}
+              />
             </li>
           ))}
         </ul>

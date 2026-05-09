@@ -96,3 +96,14 @@ export async function deleteSessione(recordId: string): Promise<void> {
   if (!base) throw new Error("Airtable client non configurato");
   await base(TABLE_NAMES.sessioni).destroy([recordId]);
 }
+
+/**
+ * Cancella in bulk un set di sessioni per id. Usato dal cascade delete
+ * di attività. Le rate vanno cancellate prima dal chiamante.
+ */
+export async function deleteSessioniByIds(ids: string[]): Promise<void> {
+  if (!base || ids.length === 0) return;
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.sessioni).destroy(ids.slice(i, i + 10));
+  }
+}

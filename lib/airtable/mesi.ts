@@ -174,3 +174,39 @@ export async function hasAnyRataPagataForSessione(
     .map((r) => mapMese({ id: r.id, fields: r.fields }))
     .some((m) => m.sessioneId === sessioneId);
 }
+
+/**
+ * Cancella in bulk tutte le rate associate a una iscrizione (qualsiasi stato).
+ * Usato dal cascade delete dell'iscrizione e indirettamente dell'attività.
+ * Ritorna il numero di rate cancellate per logging/feedback.
+ */
+export async function deleteMesiByIscrizione(iscrizioneId: string): Promise<number> {
+  if (!base) return 0;
+  const all = await base(TABLE_NAMES.mesi).select({}).all();
+  const ids = all
+    .map((r) => mapMese({ id: r.id, fields: r.fields }))
+    .filter((m) => m.iscrizioneId === iscrizioneId)
+    .map((m) => m.recordId);
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.mesi).destroy(ids.slice(i, i + 10));
+  }
+  return ids.length;
+}
+
+/**
+ * Cancella in bulk tutte le rate associate a una sessione. Usato dal cascade
+ * delete della sessione (dopo che si è verificato che nessuna rata pagata sia
+ * presente). Ritorna il numero di rate cancellate.
+ */
+export async function deleteMesiBySessione(sessioneId: string): Promise<number> {
+  if (!base) return 0;
+  const all = await base(TABLE_NAMES.mesi).select({}).all();
+  const ids = all
+    .map((r) => mapMese({ id: r.id, fields: r.fields }))
+    .filter((m) => m.sessioneId === sessioneId)
+    .map((m) => m.recordId);
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.mesi).destroy(ids.slice(i, i + 10));
+  }
+  return ids.length;
+}

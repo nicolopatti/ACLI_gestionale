@@ -129,3 +129,27 @@ export async function deleteIscrizione(recordId: string): Promise<void> {
   if (!base) throw new Error("Airtable client non configurato");
   await base(TABLE_NAMES.iscrizioni).destroy([recordId]);
 }
+
+/**
+ * Cancella in bulk un set di iscrizioni per id. Usato dal cascade delete
+ * di bambino/attività/modalità. Le rate vanno cancellate prima dal chiamante
+ * (vedi `deleteMesiByIscrizione`), questa funzione si limita alle iscrizioni.
+ */
+export async function deleteIscrizioniByIds(ids: string[]): Promise<void> {
+  if (!base || ids.length === 0) return;
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.iscrizioni).destroy(ids.slice(i, i + 10));
+  }
+}
+
+/**
+ * Lista le iscrizioni che usano una specifica modalità. Necessario per
+ * sapere quali iscrizioni cascadeare quando si elimina una modalità.
+ */
+export async function listIscrizioniByModalita(modalitaId: string): Promise<Iscrizione[]> {
+  if (!base) return [];
+  const records = await base(TABLE_NAMES.iscrizioni).select({}).all();
+  return records
+    .map((r) => mapIscrizione({ id: r.id, fields: r.fields }))
+    .filter((i) => i.modalitaId === modalitaId);
+}

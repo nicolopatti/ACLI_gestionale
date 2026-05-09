@@ -8,6 +8,11 @@ import {
   deleteModalita,
   updateModalita,
 } from "@/lib/airtable/modalita-iscrizione";
+import {
+  deleteIscrizioniByIds,
+  listIscrizioniByModalita,
+} from "@/lib/airtable/iscrizioni";
+import { deleteMesiByIscrizione } from "@/lib/airtable/mesi";
 
 async function requireAdmin() {
   const session = await auth();
@@ -70,8 +75,29 @@ export async function updateModalitaAction(
   return { ok: true };
 }
 
+/**
+ * Conta iscrizioni che usano una specifica modalità. Cancellandola, anche
+ * loro vengono cascadeate (con le rate sotto), perché il link sarebbe rotto.
+ */
+export async function getDeleteModalitaImpactAction(
+  recordId: string,
+): Promise<{ iscrizioni: number }> {
+  await requireAdmin();
+  const iscr = await listIscrizioniByModalita(recordId);
+  return { iscrizioni: iscr.length };
+}
+
 export async function deleteModalitaAction(recordId: string, attivitaId: string) {
   await requireAdmin();
+  // Cascade: ogni iscrizione che usa questa modalità perderebbe il prezzo,
+  // quindi la cancello (con le sue rate sotto). Per non lasciare iscrizioni
+  // "stub" senza modalità definita.
+  const iscrizioni = await listIscrizioniByModalita(recordId);
+  for (const i of iscrizioni) {
+    await deleteMesiByIscrizione(i.recordId);
+  }
+  await deleteIscrizioniByIds(iscrizioni.map((i) => i.recordId));
   await deleteModalita(recordId);
   revalidatePath(`/attivita/${attivitaId}`);
+  revalidatePath("/iscrizioni");
 }

@@ -2,18 +2,18 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   createModalitaAction,
   deleteModalitaAction,
+  getDeleteModalitaImpactAction,
 } from "@/lib/actions/modalita-iscrizione";
 import { ActionButton } from "@/components/ui/action-button";
-import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { formatEur } from "@/lib/utils";
 import type { ModalitaIscrizione } from "@/lib/airtable/types";
 
@@ -30,11 +30,6 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
     FormData
   >(createModalitaAction, undefined);
   const [success, setSuccess] = useState(false);
-  const fbDelete = useActionFeedback({
-    successToast: "Modalità eliminata",
-    onSuccess: () => router.refresh(),
-  });
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const hasError = !!state?.error;
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -48,18 +43,6 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
     }
   }, [state]);
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  const onDelete = (id: string) => {
-    setPendingDeleteId(id);
-    fbDelete.run(async () => {
-      try {
-        await deleteModalitaAction(id, attivitaId);
-        return { ok: true };
-      } finally {
-        setPendingDeleteId((curr) => (curr === id ? null : curr));
-      }
-    });
-  };
 
   return (
     <div className="space-y-4">
@@ -91,18 +74,22 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{formatEur(m.importo)}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(m.recordId)}
-                  aria-label="Elimina modalità"
-                  disabled={fbDelete.pending}
-                  className="btn-tactile"
-                  data-saved={pendingDeleteId === m.recordId && fbDelete.success ? "true" : undefined}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <DeleteConfirmDialog
+                  triggerVariant="ghost"
+                  triggerIconOnly
+                  triggerLabel="Elimina modalità"
+                  title={`Elimina modalità "${m.nome}"`}
+                  description="Le iscrizioni che usano questa modalità (e le loro rate) verranno eliminate a cascata, perché senza modalità l'iscrizione resterebbe senza prezzo."
+                  successToast="Modalità eliminata"
+                  loadImpact={async () => {
+                    const i = await getDeleteModalitaImpactAction(m.recordId);
+                    return [{ label: "Iscrizioni che la usano", count: i.iscrizioni }];
+                  }}
+                  onConfirm={async () => {
+                    await deleteModalitaAction(m.recordId, attivitaId);
+                    router.refresh();
+                  }}
+                />
               </div>
             </li>
           ))}

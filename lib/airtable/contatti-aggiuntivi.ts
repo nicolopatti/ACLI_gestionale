@@ -92,3 +92,17 @@ export async function deleteContatto(recordId: string): Promise<void> {
   if (!base) throw new Error("Airtable client non configurato");
   await base(TABLE_NAMES.contattiAggiuntivi).destroy([recordId]);
 }
+
+/**
+ * Cancella in bulk tutti i contatti aggiuntivi di un bambino. Usato dal
+ * cascade delete del bambino. Ritorna il numero di contatti cancellati.
+ */
+export async function deleteContattiByBambino(bambinoId: string): Promise<number> {
+  if (!base) return 0;
+  const all = await listContattiByBambino(bambinoId);
+  const ids = all.map((c) => c.recordId);
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.contattiAggiuntivi).destroy(ids.slice(i, i + 10));
+  }
+  return ids.length;
+}

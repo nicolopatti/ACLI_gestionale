@@ -79,7 +79,7 @@
 
 | Branch | Ultimo commit | Stato | Cosa contiene |
 |---|---|---|---|
-| `claude/add-operation-animations-AhGJg` | (tip del branch) | **da mergeare** | (1) pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, 16 form convertiti); (2) rimossa fascia `14-18` da `FASCE_DISPONIBILITA` (era ridondante = 14-16 + 16-18); (3) **empty state su `/turni`**: se non esiste alcuna attività doposcuola attiva e non c'è alcuna disponibilità nel periodo corrente, la pagina mostra una CTA "Crea un'attività" invece della griglia hardcoded che sembrava un placeholder. **PR non ancora aperta**. |
+| `claude/add-operation-animations-AhGJg` | (tip del branch) | **PR aperta** [#17](https://github.com/nicolopatti/ACLI_gestionale/pull/17), da mergeare | (1) pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, 16 form convertiti); (2) rimossa fascia `14-18` da `FASCE_DISPONIBILITA` (era ridondante = 14-16 + 16-18); (3) empty state su `/turni`: se zero attività doposcuola attive e zero disponibilità nel periodo → CTA "Crea un'attività" invece della griglia; (4) **cascade delete + confirm dialog**: ogni delete (iscrizione, bambino, attività, modalità, sessione, educatore) ora cancella in cascata i record collegati su Airtable (rate, presenze, contatti, disponibilità) — niente più orfani che falsificano report e saldi. UI: nuovo `<DeleteConfirmDialog />` mostra il count di ogni dipendenza prima di confermare. |
 
 ## Aperti (debiti / TODO)
 

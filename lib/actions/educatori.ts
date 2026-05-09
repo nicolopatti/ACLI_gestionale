@@ -9,6 +9,10 @@ import {
   deleteEducatore,
   updateEducatore,
 } from "@/lib/airtable/educatori";
+import {
+  deleteDisponibilitaByEducatore,
+  listDisponibilitaByEducatore,
+} from "@/lib/airtable/disponibilita";
 
 async function requireAdmin() {
   const session = await auth();
@@ -72,9 +76,24 @@ export async function updateEducatoreAction(
   return { ok: true };
 }
 
+/**
+ * Conta le disponibilità collegate che verranno cascadeate cancellando
+ * l'educatore. Senza questa cascade i turni mostrano avatar "??" perché
+ * il link è rotto.
+ */
+export async function getDeleteEducatoreImpactAction(
+  recordId: string,
+): Promise<{ disponibilita: number }> {
+  await requireAdmin();
+  const dispo = await listDisponibilitaByEducatore(recordId);
+  return { disponibilita: dispo.length };
+}
+
 export async function deleteEducatoreAction(recordId: string) {
   await requireAdmin();
+  await deleteDisponibilitaByEducatore(recordId);
   await deleteEducatore(recordId);
   revalidatePath("/educatori");
+  revalidatePath("/turni");
   redirect("/educatori");
 }
