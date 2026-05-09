@@ -28,6 +28,16 @@ export const cambiaPasswordSchema = z
 
 export type CambiaPasswordInput = z.infer<typeof cambiaPasswordSchema>;
 
+export const aggiornaUtenteSchema = z.object({
+  recordId: z.string().min(1),
+  nome: z.string().trim().min(1, "Nome obbligatorio"),
+  ruolo: z.enum(RUOLI),
+  telegramUserId: z.string().trim().optional().or(z.literal("")),
+  attivo: z.coerce.boolean(),
+});
+
+export type AggiornaUtenteInput = z.infer<typeof aggiornaUtenteSchema>;
+
 export const resetPasswordSchema = z.object({
   recordId: z.string().min(1, "RecordId mancante"),
   passwordTemporanea: z.string().min(8, "Almeno 8 caratteri"),
