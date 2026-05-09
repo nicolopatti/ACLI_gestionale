@@ -1,7 +1,7 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-09** — modello nuovo deployato in production. Cambio password, blocco delete su rata pagata e flusso pagamento rate verificati end-to-end. Fix uniforme su tutte le query Airtable con linked record.
+> Ultimo aggiornamento: **2026-05-09** — modello nuovo deployato in production. Cambio password, blocco delete su rata pagata e flusso pagamento rate verificati end-to-end. Fix uniforme su tutte le query Airtable con linked record. Workflow n8n di sync Movimenti attivato e fixato (typing `telegram_user_id` come stringa); 19 movimenti già su Airtable, schedule ogni 5 minuti in produzione.
 
 ## Cosa funziona
 
@@ -15,6 +15,7 @@
 - **Blocco eliminazione sessione** se esiste almeno una rata `pagato` o `parziale` collegata (`hasAnyRataPagataForSessione`).
 - **Editor modalità e sessioni** (`/attivita/[id]`): pattern `useActionState` + `<form action>`, refetch automatico dei dati lato server dopo il submit.
 - **Pagamento rate** (`/iscrizioni/[id]`): tabella rate con bottone "Segna pagato" → dialog (importo, data, mezzo, note). Verificato end-to-end in produzione.
+- **Sync Movimenti** Google Sheet → Airtable (workflow n8n `Cassa Sheets → Airtable Sync`, id `cmMaMjtv6xEzdZQC`): schedule ogni 5 minuti, upsert by `id` con typecast on (linka le categorie per nome). Il nodo `Normalize for Airtable` forza `telegram_user_id` e `id_correzione` a stringa via `String(...)` perché il Sheet API restituisce gli ID Telegram come number e Airtable rifiuta il typecast su campi text molto lunghi. La pagina `/cassa` legge da Airtable Movimenti (filtro `stato != 'errato'`).
 - **Filtro affidabile per linked record** in tutte le query Airtable: il filterByFormula con `FIND...ARRAYJOIN` non matcha gli id dei linked record (Airtable serializza il display name); fix con filtro lato server in JS sui campi `*Id` dei mapper. Applicato a `modalita-iscrizione`, `sessioni`, `mesi`, `iscrizioni`, `presenze`, `disponibilita`, `contatti-aggiuntivi`.
 
 ## Modello dati corrente
@@ -53,18 +54,18 @@
 |---|------|----------|------|
 | 1 | Tabelle residue su Airtable (`Genitori`, `Table 1`) | 🟡 bassa | Da eliminare manualmente da Airtable UI (l'API non supporta delete table). Il campo `importo` su Sessioni è anch'esso orfano. |
 | 2 | Categorie iniziali su Airtable | 🟡 bassa | Verificare che `pnpm seed:categorie` sia stato eseguito. |
-| 3 | Workflow n8n di sync Google Sheet → Movimenti | 🟢 da verificare | Esiste, da confermare che sia attivo e collegato (la pagina `/cassa` mostra "Nessun movimento" se il sync non gira). |
-| 4 | Rinomina TS `MeseIscrizione` → `Rata` | 🟢 cleanup | Tabella Airtable resta `MesiIscrizione`. |
-| 5 | Performance: i `.filter()` lato server caricano l'intera tabella | 🟢 nice-to-have | Volume attuale basso, OK. Se cresce, valutare campi formula `RECORD_ID()` su Airtable per riabilitare `filterByFormula`. |
+| 3 | Rinomina TS `MeseIscrizione` → `Rata` | 🟢 cleanup | Tabella Airtable resta `MesiIscrizione`. |
+| 4 | Performance: i `.filter()` lato server caricano l'intera tabella | 🟢 nice-to-have | Volume attuale basso, OK. Se cresce, valutare campi formula `RECORD_ID()` su Airtable per riabilitare `filterByFormula`. |
 
 ## Reference rapida
 
 - **Repo GitHub**: <https://github.com/nicolopatti/ACLI_gestionale>
 - **Vercel project**: `acli-gestionale` (team `nicolopattis-projects`)
 - **Branch production di Vercel**: `claude/n8n-association-management-Q4pBM`
-- **Branch di lavoro corrente**: `claude/project-status-review-824Yv` (mergiato in production)
+- **Branch di lavoro corrente**: `claude/update-status-md-9c4DM`
 - **Airtable base**: `appvWIKKkoSeydbL7` (Acli Gestionale)
 - **Workflow n8n bootstrap schema**: `BphNmCM5qehqdKot` ([link](https://eurita.app.n8n.cloud/workflow/BphNmCM5qehqdKot))
+- **Workflow n8n sync Movimenti**: `cmMaMjtv6xEzdZQC` ([link](https://eurita.app.n8n.cloud/workflow/cmMaMjtv6xEzdZQC)) — Google Sheet `Cassa_Associazione_Template` (id `1NZ9G7Vv8C6yYMb-oA3czSNq4d1vVC961iIMOXtAnrqE`) → Airtable Movimenti, schedule ogni 5 min.
 - **Env vars necessarie su Vercel** (Production + Preview): `AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `AIRTABLE_API_KEY` (Personal Access Token con scope `data.records:read/write` sulla base), `AIRTABLE_BASE_ID`.
 
 ## Stack
