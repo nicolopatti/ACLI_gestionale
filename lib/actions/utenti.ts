@@ -8,6 +8,7 @@ import {
   cambiaPasswordSchema,
   nuovoUtenteSchema,
   primoAccessoSchema,
+  resetPasswordSchema,
 } from "@/lib/validations/utente";
 import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/airtable/users";
 
@@ -43,14 +44,21 @@ export async function toggleAttivoAction(recordId: string, attivo: boolean) {
   revalidatePath("/utenti");
 }
 
-export async function resetPasswordAction(recordId: string, nuova: string) {
+export async function resetPasswordAction(_prev: unknown, formData: FormData) {
   await requireAdmin();
-  if (nuova.length < 8) return { error: "Almeno 8 caratteri" };
-  const passwordHash = await hashPassword(nuova);
+  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+  }
+  const { recordId, passwordTemporanea } = parsed.data;
+  const target = await getUserById(recordId);
+  if (!target) return { error: "Utente non trovato" };
+  const passwordHash = await hashPassword(passwordTemporanea);
   await updateUser(recordId, {
     password_hash: passwordHash,
     must_change_password: true,
   });
+  revalidatePath("/utenti");
   return { ok: true };
 }
 

@@ -1,7 +1,7 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-09** — onboarding utenti volontari: cambio password obbligatorio al primo accesso. Nuovo flag `must_change_password` su Airtable Utenti (default `true` alla creazione e su reset admin), gating nel proxy verso `/primo-accesso`, action self-service che termina con `signOut → /login` per rigenerare il JWT senza il flag. Reset admin (server action `resetPasswordAction` + script `pnpm reset-password`) rialza il flag in modo coerente.
+> Ultimo aggiornamento: **2026-05-09** — onboarding utenti volontari completo. Cambio password obbligatorio al primo accesso (flag `must_change_password` su Airtable Utenti, gating nel proxy verso `/primo-accesso`, action che termina con `signOut → /login` per rigenerare il JWT senza il flag). Admin UI: dialog "Reset password" su `/utenti` con generatore di password casuale a 12 caratteri leggibili e copia visibile dopo il submit. Fix collaterale: bottone "Esci" del menu utente non partiva (Radix chiudeva il dropdown smontando il `<form>` prima del submit) — risolto con `onSelect=preventDefault`.
 
 ## Cosa funziona
 
@@ -13,6 +13,7 @@
 - **Try/catch anti-crash** su login: se Airtable cade o la PAT viene revocata, l'utente vede "Email o password non corretti" invece di un 500.
 - **Cambio password self-service** da UserMenu → "Cambia password" (`/profilo`): password attuale + nuova ≥ 8 caratteri + conferma. L'azione abbassa anche `must_change_password`.
 - **Primo accesso forzato** (`/primo-accesso`): quando admin crea l'utente o resetta la password, `must_change_password=true`. Il proxy edge intercetta tutte le route per gli utenti loggati con il flag alto e li reindirizza al form (solo nuova + conferma, no password attuale visto che hanno appena fatto login). A submit ok l'action chiama `signOut({ redirectTo: "/login" })` per forzare la rigenerazione del JWT senza il flag.
+- **Reset password admin** da `/utenti`: dialog "Reset password" per riga, con generatore di password casuale a 12 caratteri (alfabeto senza ambigui `0/O/1/l/I` per dettatura a voce). A submit ok la password temporanea resta visibile nel dialog finché non lo chiudi, così l'admin può copiarla e comunicarla. L'utente target verrà mandato su `/primo-accesso` al login successivo.
 - **Blocco eliminazione sessione** se esiste almeno una rata `pagato` o `parziale` collegata (`hasAnyRataPagataForSessione`).
 - **Editor modalità e sessioni** (`/attivita/[id]`): pattern `useActionState` + `<form action>`, refetch automatico dei dati lato server dopo il submit.
 - **Pagamento rate** (`/iscrizioni/[id]`): tabella rate con bottone "Segna pagato" → dialog (importo, data, mezzo, note). Verificato end-to-end in produzione.
