@@ -22,6 +22,7 @@ export interface User {
   nome: string;
   ruolo: Ruolo;
   attivo: boolean;
+  mustChangePassword: boolean;
   telegramUserId?: string;
   createdAt?: string;
   lastLogin?: string;

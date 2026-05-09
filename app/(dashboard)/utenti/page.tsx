@@ -62,11 +62,18 @@ export default async function UtentiPage() {
                     <TableCell>{u.telegramUserId ?? "—"}</TableCell>
                     <TableCell>{formatDate(u.lastLogin)}</TableCell>
                     <TableCell>
-                      {u.attivo ? (
-                        <Badge variant="success">Attivo</Badge>
-                      ) : (
-                        <Badge variant="outline">Disattivato</Badge>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1">
+                        {u.attivo ? (
+                          <Badge variant="success">Attivo</Badge>
+                        ) : (
+                          <Badge variant="outline">Disattivato</Badge>
+                        )}
+                        {u.mustChangePassword ? (
+                          <Badge variant="outline" title="Al prossimo login dovrà impostare una password personale">
+                            Primo accesso
+                          </Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <form
