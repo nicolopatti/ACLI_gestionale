@@ -4,8 +4,22 @@ export const MESI_ANNO_SCOLASTICO = [
   9, 10, 11, 12, 1, 2, 3, 4, 5, 6,
 ] as const;
 
-export const GIORNI_SETTIMANA = ["lun", "mar", "mer", "gio", "ven"] as const;
+export const GIORNI_SETTIMANA = [
+  "lun",
+  "mar",
+  "mer",
+  "gio",
+  "ven",
+  "sab",
+  "dom",
+] as const;
 export type GiornoSettimana = (typeof GIORNI_SETTIMANA)[number];
+
+/**
+ * Sottoinsieme dei giorni infrasettimanali — usato dal form di iscrizione al
+ * doposcuola dove sab/dom non sono mai opzioni valide.
+ */
+export const GIORNI_INFRASETTIMANALI = ["lun", "mar", "mer", "gio", "ven"] as const satisfies readonly GiornoSettimana[];
 
 export const MEZZI_PAGAMENTO = ["Cassa", "BCC", "Sumup"] as const;
 export type MezzoPagamento = (typeof MEZZI_PAGAMENTO)[number];

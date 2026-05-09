@@ -66,6 +66,17 @@ export interface Attivita {
   dataFine?: string;
   attivo: boolean;
   note?: string;
+  /**
+   * Giorni della settimana in cui l'attività si svolge (es. doposcuola
+   * mar/gio/ven). Vuoto = nessuna preferenza configurata: chi consuma il
+   * dato applica i propri default.
+   */
+  giorniSettimana: GiornoSettimana[];
+  /**
+   * Fasce orarie in cui l'attività si svolge. Stesso vocabolario di
+   * `Disponibilita.fasciaOraria` (`14-16` / `14-18` / `16-18`).
+   */
+  fasceOrarie: FasciaDisponibilita[];
   sessioniIds: string[];
   iscrizioniIds: string[];
   modalitaIds: string[];

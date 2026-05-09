@@ -5,14 +5,17 @@ import { auth } from "@/lib/auth/auth";
 import { upsertPresenze } from "@/lib/airtable/presenze";
 import { presenzeBatchSchema } from "@/lib/validations/presenza";
 
-async function requireAdmin() {
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  const ruolo = session?.user?.ruolo;
+  if (!session || (ruolo !== "admin" && ruolo !== "coordinatore_educativo")) {
+    throw new Error("Non autorizzato");
+  }
   return session;
 }
 
 export async function salvaPresenzeAction(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEduOrAdmin();
   const data = String(formData.get("data") ?? "");
   const attivitaId = String(formData.get("attivitaId") ?? "");
 
@@ -52,4 +55,62 @@ export async function salvaPresenzeAction(formData: FormData) {
   await upsertPresenze(input);
   revalidatePath("/presenze");
   return { ok: true };
+}
+
+const ORA_RE = /^(\d{2}):(\d{2})$/;
+
+/**
+ * Segna la presenza/assenza di un singolo bambino per una data specifica.
+ * Usata dal widget "Presenze rapide" del cruscotto. Quando `presente` è
+ * `false` rimuove il record (assenza implicita); altrimenti imposta gli
+ * orari passati o quelli di default `14:00-18:00`.
+ */
+export async function segnaPresenzaSingolaAction(input: {
+  bambinoId: string;
+  data: string;
+  sessioneId?: string;
+  presente: boolean;
+  oraIngresso?: string;
+  oraUscita?: string;
+}): Promise<{ ok?: boolean; error?: string }> {
+  let session;
+  try {
+    session = await requireEduOrAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  if (!input.bambinoId) return { error: "bambinoId mancante" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data)) return { error: "Data non valida" };
+
+  const ingresso =
+    input.presente
+      ? input.oraIngresso && ORA_RE.test(input.oraIngresso)
+        ? input.oraIngresso
+        : "14:00"
+      : undefined;
+  const uscita =
+    input.presente
+      ? input.oraUscita && ORA_RE.test(input.oraUscita)
+        ? input.oraUscita
+        : "18:00"
+      : undefined;
+
+  try {
+    await upsertPresenze([
+      {
+        bambinoId: input.bambinoId,
+        sessioneId: input.sessioneId,
+        data: input.data,
+        oraIngresso: ingresso,
+        oraUscita: uscita,
+        registratoDaId: session?.user?.recordId,
+      },
+    ]);
+    revalidatePath("/dashboard");
+    revalidatePath("/presenze");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }

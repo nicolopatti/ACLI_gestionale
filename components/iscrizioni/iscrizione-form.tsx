@@ -8,7 +8,7 @@ import {
 } from "@/lib/actions/iscrizioni";
 import {
   FASCE_ORARIE,
-  GIORNI_SETTIMANA,
+  GIORNI_INFRASETTIMANALI,
   type FasciaOraria,
   type GiornoSettimana,
 } from "@/lib/config";
@@ -35,6 +35,8 @@ const GIORNI_LABEL: Record<GiornoSettimana, string> = {
   mer: "Mercoledì",
   gio: "Giovedì",
   ven: "Venerdì",
+  sab: "Sabato",
+  dom: "Domenica",
 };
 
 interface Props {
@@ -244,7 +246,7 @@ export function IscrizioneForm({
           <div>
             <Label className="mb-2 block">Giorni frequentati</Label>
             <div className="flex flex-wrap gap-3">
-              {GIORNI_SETTIMANA.map((g) => (
+              {GIORNI_INFRASETTIMANALI.map((g) => (
                 <label
                   key={g}
                   className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"

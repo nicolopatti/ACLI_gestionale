@@ -9,9 +9,24 @@ import type { Disponibilita } from "@/lib/airtable/types";
 
 export interface TurniGridProps {
   vista: "settimana" | "mese";
-  giorni: { data: string; numero: number; dow: number; inMese?: boolean }[];
+  giorni: {
+    data: string;
+    numero: number;
+    dow: number;
+    inMese?: boolean;
+    /**
+     * `true` quando il giorno è fuori dai `giorniSettimana` dell'attività
+     * selezionata: la cella viene resa inerte (no click, opacità ridotta).
+     */
+    disabled?: boolean;
+  }[];
   educatori: EducatoreLight[];
   disponibilita: Disponibilita[];
+  /**
+   * Sottoinsieme di fasce da renderizzare. Se omesso, vengono mostrate tutte
+   * le fasce di {@link FASCE_DISPONIBILITA}.
+   */
+  fasce?: FasciaDisponibilita[];
 }
 
 const NOMI_GIORNI = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
@@ -25,6 +40,7 @@ export function TurniGrid({
   giorni,
   educatori,
   disponibilita,
+  fasce = FASCE_DISPONIBILITA as readonly FasciaDisponibilita[] as FasciaDisponibilita[],
 }: TurniGridProps) {
   const [openCell, setOpenCell] = useState<{
     data: string;
@@ -57,8 +73,19 @@ export function TurniGrid({
     }));
   }, [openCell, dispMap]);
 
-  function renderCell(data: string, fascia: FasciaDisponibilita) {
+  function renderCell(data: string, fascia: FasciaDisponibilita, disabled?: boolean) {
     const records = dispMap.get(dispKey(data, fascia)) ?? [];
+    if (disabled) {
+      return (
+        <div
+          aria-hidden
+          className={cn(
+            "w-full rounded-md border border-dashed border-[var(--border)]/60",
+            "px-2 py-1.5 min-h-[42px] bg-[var(--surface-2)]/40 opacity-50",
+          )}
+        />
+      );
+    }
     return (
       <button
         type="button"
@@ -119,13 +146,15 @@ export function TurniGrid({
               <div className="text-[14px] font-medium tabular-nums">{g.numero}</div>
             </div>
           ))}
-          {FASCE_DISPONIBILITA.map((fascia) => (
+          {fasce.map((fascia) => (
             <div key={fascia} className="contents">
               <div className="px-2 py-2 text-[12px] font-medium text-[var(--muted-foreground)] tabular-nums">
                 {fascia}
               </div>
               {giorni.map((g) => (
-                <div key={`${fascia}-${g.data}`}>{renderCell(g.data, fascia)}</div>
+                <div key={`${fascia}-${g.data}`}>
+                  {renderCell(g.data, fascia, g.disabled)}
+                </div>
               ))}
             </div>
           ))}
@@ -163,18 +192,19 @@ export function TurniGrid({
             className={cn(
               "border border-[var(--border)] rounded-md p-1.5 min-h-[140px] flex flex-col gap-1",
               !g.inMese && "opacity-40",
+              g.disabled && "opacity-50 bg-[var(--surface-2)]/40",
             )}
           >
             <div className="text-[11.5px] font-medium tabular-nums px-0.5">
               {g.numero}
             </div>
             <div className="flex-1 space-y-1">
-              {FASCE_DISPONIBILITA.map((fascia) => (
+              {fasce.map((fascia) => (
                 <div key={fascia} className="space-y-0.5">
                   <div className="text-[9.5px] text-[var(--muted-2)] tabular-nums px-0.5">
                     {fascia}
                   </div>
-                  {renderCell(g.data, fascia)}
+                  {renderCell(g.data, fascia, g.disabled)}
                 </div>
               ))}
             </div>

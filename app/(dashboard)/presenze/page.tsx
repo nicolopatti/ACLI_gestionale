@@ -9,23 +9,9 @@ import { GrigliaPresenze } from "@/components/presenze/griglia-presenze";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { presenzaAssente } from "@/lib/airtable/types";
-import { FASCE_ORARIE, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
+import { FASCE_ORARIE, type FasciaOraria } from "@/lib/config";
 import type { Sessione } from "@/lib/airtable/types";
-
-const GIORNO_DA_DATE: Record<number, GiornoSettimana | null> = {
-  0: null,
-  1: "lun",
-  2: "mar",
-  3: "mer",
-  4: "gio",
-  5: "ven",
-  6: null,
-};
-
-function dataInRange(data: string, sessione: Sessione): boolean {
-  if (!sessione.dataInizio || !sessione.dataFine) return false;
-  return data >= sessione.dataInizio && data <= sessione.dataFine;
-}
+import { calcolaCandidatiPresenza } from "@/lib/presenze-utils";
 
 function isFascia(v: string | undefined): v is FasciaOraria {
   return Boolean(v) && (FASCE_ORARIE as readonly string[]).includes(v as string);
@@ -49,8 +35,6 @@ export default async function PresenzePage({
     attivita[0]?.recordId ||
     "";
 
-  const attivitaSel = attivita.find((a) => a.recordId === attivitaId);
-
   const [bambini, iscrizioni, presenze, sessioniAttivita] = await Promise.all([
     listBambini({ soloAttivi: true }),
     attivitaId ? listIscrizioni({ attivitaId }) : Promise.resolve([]),
@@ -58,38 +42,13 @@ export default async function PresenzePage({
     attivitaId ? listSessioniByAttivita(attivitaId) : Promise.resolve([] as Sessione[]),
   ]);
 
-  const sessioniById = new Map(sessioniAttivita.map((s) => [s.recordId, s] as const));
-  const giorno = GIORNO_DA_DATE[new Date(data).getDay()];
-  const candidati = iscrizioni
-    .map((iscrizione) => {
-      const bambino = bambini.find((b) => b.recordId === iscrizione.bambinoId);
-      if (!bambino) return null;
-
-      // Trova la sessione che copre la data scelta
-      const sessioniIscrizione = iscrizione.sessioniSelteIds
-        .map((id) => sessioniById.get(id))
-        .filter((s): s is Sessione => Boolean(s));
-
-      let sessioneAttiva: Sessione | undefined;
-      if (attivitaSel?.tipo === "doposcuola") {
-        if (!giorno || !iscrizione.giorniSettimana.includes(giorno)) return null;
-        // sessione = quella del mese della data scelta
-        const meseData = data.slice(0, 7);
-        sessioneAttiva = sessioniIscrizione.find((s) => s.chiave === meseData);
-      } else {
-        sessioneAttiva = sessioniIscrizione.find((s) => dataInRange(data, s));
-      }
-      if (!sessioneAttiva) return null;
-
-      return {
-        bambino,
-        iscrizione,
-        sessioneId: sessioneAttiva.recordId,
-        sessioneEtichetta: sessioneAttiva.etichetta,
-      };
-    })
-    .filter((x): x is NonNullable<typeof x> => x != null)
-    .filter((c) => !fasciaSel || c.iscrizione.fasceOrarie.includes(fasciaSel));
+  const candidati = calcolaCandidatiPresenza({
+    data,
+    iscrizioni,
+    bambini,
+    attivita,
+    sessioni: sessioniAttivita,
+  }).filter((c) => !fasciaSel || c.iscrizione.fasceOrarie.includes(fasciaSel));
 
   // Stats: Totali / Presenti / Assenti
   const presenzeByBambino = new Map(presenze.map((p) => [p.bambinoId, p] as const));

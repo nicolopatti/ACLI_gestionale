@@ -1,6 +1,10 @@
 import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { Attivita } from "./types";
-import type { TipoAttivita } from "@/lib/config";
+import type {
+  FasciaDisponibilita,
+  GiornoSettimana,
+  TipoAttivita,
+} from "@/lib/config";
 
 function mapAttivita(record: { id: string; fields: Record<string, unknown> }): Attivita {
   const f = record.fields;
@@ -12,6 +16,8 @@ function mapAttivita(record: { id: string; fields: Record<string, unknown> }): A
     dataFine: (f.data_fine as string) ?? undefined,
     attivo: Boolean(f.attivo),
     note: (f.note as string) ?? undefined,
+    giorniSettimana: ((f.giorni_settimana as GiornoSettimana[]) ?? []) as GiornoSettimana[],
+    fasceOrarie: ((f.fasce_orarie as FasciaDisponibilita[]) ?? []) as FasciaDisponibilita[],
     sessioniIds: ((f.Sessioni as string[]) ?? []) as string[],
     iscrizioniIds: ((f.Iscrizioni as string[]) ?? []) as string[],
     modalitaIds: ((f.ModalitaIscrizione as string[]) ?? []) as string[],
@@ -55,6 +61,8 @@ export async function createAttivita(input: {
   dataFine?: string;
   attivo?: boolean;
   note?: string;
+  giorniSettimana?: GiornoSettimana[];
+  fasceOrarie?: FasciaDisponibilita[];
 }): Promise<Attivita> {
   if (!base) throw new Error("Airtable client non configurato");
   const created = await base(TABLE_NAMES.attivita).create([
@@ -66,6 +74,8 @@ export async function createAttivita(input: {
         ...(input.dataInizio ? { data_inizio: input.dataInizio } : {}),
         ...(input.dataFine ? { data_fine: input.dataFine } : {}),
         ...(input.note ? { note: input.note } : {}),
+        giorni_settimana: input.giorniSettimana ?? [],
+        fasce_orarie: input.fasceOrarie ?? [],
       },
     },
   ]);
@@ -81,6 +91,8 @@ export async function updateAttivita(
     data_fine: string;
     attivo: boolean;
     note: string;
+    giorni_settimana: GiornoSettimana[];
+    fasce_orarie: FasciaDisponibilita[];
   }>,
 ): Promise<Attivita> {
   if (!base) throw new Error("Airtable client non configurato");

@@ -20,7 +20,7 @@ import { listSessioni } from "@/lib/airtable/sessioni";
 import { listEducatori } from "@/lib/airtable/educatori";
 import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
 import { presenzaAssente } from "@/lib/airtable/types";
-import type { MeseIscrizione, Movimento } from "@/lib/airtable/types";
+import type { MeseIscrizione, Movimento, Presenza } from "@/lib/airtable/types";
 import { meseAnnoSCorrenteLabel } from "@/lib/utils-dashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,12 @@ import { Avatar } from "@/components/ui/avatar";
 import { formatDate, formatEur } from "@/lib/utils";
 import type { FasciaDisponibilita } from "@/lib/config";
 import { MEZZI_PAGAMENTO } from "@/lib/config";
+import { calcolaCandidatiPresenza } from "@/lib/presenze-utils";
+import {
+  PresenzeRapide,
+  type PresenzaRapidaCandidato,
+  type StatoPresenzaRapida,
+} from "@/components/presenze/presenze-rapide";
 
 const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
   "14-16": 2,
@@ -97,14 +103,27 @@ export default async function DashboardHomePage() {
 
 async function AdminBlock() {
   const currentMonth = meseAnnoCorrente();
+  const today = isoToday();
 
-  const [bambini, movimenti, iscrizioni, allRate, attivita] = await Promise.all([
-    listBambini({ soloAttivi: true }),
-    listMovimenti({ limit: 1000 }),
-    listIscrizioni(),
-    listAllMesi(),
-    listAttivita(),
-  ]);
+  const [bambini, movimenti, iscrizioni, allRate, attivita, presenzeOggi, sessioni] =
+    await Promise.all([
+      listBambini({ soloAttivi: true }),
+      listMovimenti({ limit: 1000 }),
+      listIscrizioni(),
+      listAllMesi(),
+      listAttivita(),
+      listPresenzeByData(today),
+      listSessioni(),
+    ]);
+
+  const candidatiOggi = buildCandidatiRapidi({
+    today,
+    iscrizioni,
+    bambini,
+    attivita,
+    sessioni,
+    presenze: presenzeOggi,
+  });
 
   const totali = aggregaPerConto(movimenti);
   const saldoTotale = MEZZI_PAGAMENTO.reduce((s, k) => s + totali[k].saldo, 0);
@@ -270,6 +289,16 @@ async function AdminBlock() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <SectionHead
+          title={`Presenze rapide · ${formatDate(today)}`}
+          cta={{ href: "/presenze", label: "Apri" }}
+        />
+        <CardContent className="p-0">
+          <PresenzeRapide data={today} candidati={candidatiOggi} />
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -310,6 +339,15 @@ async function EduBlock() {
     .filter((p) => !presenzaAssente(p))
     .sort((a, b) => (a.oraIngresso ?? "").localeCompare(b.oraIngresso ?? ""))
     .slice(0, 8);
+
+  const candidatiOggi = buildCandidatiRapidi({
+    today,
+    iscrizioni,
+    bambini,
+    attivita,
+    sessioni,
+    presenze: presenzeOggi,
+  });
 
   // Iscrizioni in ritardo
   const ritardiPerIscrizione = new Map<
@@ -465,6 +503,16 @@ async function EduBlock() {
 
       <Card>
         <SectionHead
+          title={`Presenze rapide · ${formatDate(today)}`}
+          cta={{ href: "/presenze", label: "Apri" }}
+        />
+        <CardContent className="p-0">
+          <PresenzeRapide data={today} candidati={candidatiOggi} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <SectionHead
           title="Turni della settimana"
           cta={{ href: "/turni", label: "Apri planning" }}
         />
@@ -484,6 +532,42 @@ async function EduBlock() {
       </Card>
     </>
   );
+}
+
+function buildCandidatiRapidi(input: {
+  today: string;
+  iscrizioni: import("@/lib/airtable/types").Iscrizione[];
+  bambini: import("@/lib/airtable/types").Bambino[];
+  attivita: import("@/lib/airtable/types").Attivita[];
+  sessioni: import("@/lib/airtable/types").Sessione[];
+  presenze: Presenza[];
+}): PresenzaRapidaCandidato[] {
+  const candidati = calcolaCandidatiPresenza({
+    data: input.today,
+    iscrizioni: input.iscrizioni,
+    bambini: input.bambini,
+    attivita: input.attivita,
+    sessioni: input.sessioni,
+  });
+  const presenzeByBambino = new Map(
+    input.presenze.map((p) => [p.bambinoId, p] as const),
+  );
+  return candidati
+    .map((c) => {
+      const p = presenzeByBambino.get(c.bambino.recordId);
+      let stato: StatoPresenzaRapida = null;
+      if (p) {
+        stato = presenzaAssente(p) ? "assente" : "presente";
+      }
+      return {
+        bambinoId: c.bambino.recordId,
+        nomeCompleto: `${c.bambino.cognome} ${c.bambino.nome}`,
+        sessioneId: c.sessioneId,
+        fasceOrarie: c.iscrizione.fasceOrarie,
+        statoIniziale: stato,
+      };
+    })
+    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, "it"));
 }
 
 function RiepilogoTurniSettimana({

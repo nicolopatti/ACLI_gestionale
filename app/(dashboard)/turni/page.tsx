@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { listEducatori } from "@/lib/airtable/educatori";
 import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
+import { listAttivita } from "@/lib/airtable/attivita";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -16,13 +17,23 @@ import {
 import { TurniGrid } from "@/components/turni/turni-grid";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import { FASCE_DISPONIBILITA, type FasciaDisponibilita, type GiornoSettimana } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
 
 const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
   "14-16": 2,
   "14-18": 4,
   "16-18": 2,
+};
+
+const DOW_TO_GIORNO: Record<number, GiornoSettimana> = {
+  0: "dom",
+  1: "lun",
+  2: "mar",
+  3: "mer",
+  4: "gio",
+  5: "ven",
+  6: "sab",
 };
 
 type Vista = "settimana" | "mese";
@@ -145,7 +156,7 @@ function calcolaOre(d: Disponibilita): { pianificate: number; consuntivate: numb
 export default async function TurniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; d?: string }>;
+  searchParams: Promise<{ vista?: string; d?: string; attivitaId?: string }>;
 }) {
   const session = await auth();
   const ruolo = session?.user?.ruolo;
@@ -159,10 +170,15 @@ export default async function TurniPage({
   const base = parseIsoOrToday(sp.d);
   const { start, end } = rangeForVista(base, vista);
 
-  const [educatori, disponibilita] = await Promise.all([
+  const [educatori, disponibilita, attivita] = await Promise.all([
     listEducatori(),
     listDisponibilitaByRange(isoDate(start), isoDate(end)),
+    listAttivita({ attivo: true }),
   ]);
+
+  const attivitaSel = sp.attivitaId
+    ? attivita.find((a) => a.recordId === sp.attivitaId)
+    : undefined;
 
   const educatoreLight = educatori.map((e) => ({
     recordId: e.recordId,
@@ -170,7 +186,21 @@ export default async function TurniPage({
     attivo: e.attivo,
   }));
 
-  const giorni = vista === "settimana" ? daysOfWeek(base) : daysOfMonthGrid(base);
+  const giorniBase = vista === "settimana" ? daysOfWeek(base) : daysOfMonthGrid(base);
+  const giorniAttivita = new Set(attivitaSel?.giorniSettimana ?? []);
+  // Manteniamo il layout 7 colonne (settimana e mese): segniamo come
+  // "disabled" i giorni che non appartengono all'attività selezionata.
+  const giorni = giorniBase.map((g) => ({
+    ...g,
+    disabled:
+      Boolean(attivitaSel) &&
+      giorniAttivita.size > 0 &&
+      !giorniAttivita.has(DOW_TO_GIORNO[g.dow]),
+  }));
+  const fasceVisibili: FasciaDisponibilita[] =
+    attivitaSel && attivitaSel.fasceOrarie.length > 0
+      ? FASCE_DISPONIBILITA.filter((f) => attivitaSel.fasceOrarie.includes(f))
+      : [...FASCE_DISPONIBILITA];
 
   // Stats periodo
   let orePianificate = 0;
@@ -217,37 +247,84 @@ export default async function TurniPage({
     .filter((r) => r.turni > 0 || r.educatore.attivo)
     .sort((a, b) => b.ore - a.ore || a.educatore.cognome.localeCompare(b.educatore.cognome, "it"));
 
-  function buildHref({ vista: nv, d }: { vista?: Vista; d?: string }): string {
+  function buildHref({
+    vista: nv,
+    d,
+    attivitaId,
+  }: {
+    vista?: Vista;
+    d?: string;
+    attivitaId?: string | null;
+  }): string {
     const next = new URLSearchParams();
     if (nv && nv !== "settimana") next.set("vista", nv);
     if (d) next.set("d", d);
+    const att = attivitaId === undefined ? attivitaSel?.recordId : attivitaId;
+    if (att) next.set("attivitaId", att);
     return `?${next.toString()}` || "/turni";
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Turni</h1>
           <p className="text-[13px] text-[var(--muted-foreground)] mt-0.5">
             Pianificazione disponibilità + consuntivo ore
           </p>
         </div>
-        <div className="flex items-center gap-1 p-0.5 bg-[var(--surface-2)] rounded-lg border border-[var(--border)]">
-          {(["settimana", "mese"] as const).map((v) => (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Link
-              key={v}
-              href={buildHref({ vista: v, d: isoDate(base) })}
+              href={buildHref({ vista, d: isoDate(base), attivitaId: null })}
               className={cn(
-                "px-3 py-1.5 text-[12.5px] font-medium rounded-md transition-colors capitalize no-underline",
-                vista === v
-                  ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--ink-2)]",
+                "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline",
+                !attivitaSel
+                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-soft-ink)]"
+                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--border-strong)]",
               )}
             >
-              {v}
+              Tutte le attività
             </Link>
-          ))}
+            {attivita.map((a) => {
+              const active = attivitaSel?.recordId === a.recordId;
+              return (
+                <Link
+                  key={a.recordId}
+                  href={buildHref({ vista, d: isoDate(base), attivitaId: a.recordId })}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline",
+                    active
+                      ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-soft-ink)]"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--border-strong)]",
+                  )}
+                  title={
+                    a.giorniSettimana.length > 0 || a.fasceOrarie.length > 0
+                      ? `${a.giorniSettimana.join(", ") || "tutti i giorni"} · ${a.fasceOrarie.join(", ") || "tutte le fasce"}`
+                      : "Nessun filtro configurato"
+                  }
+                >
+                  {a.nome}
+                </Link>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-1 p-0.5 bg-[var(--surface-2)] rounded-lg border border-[var(--border)]">
+            {(["settimana", "mese"] as const).map((v) => (
+              <Link
+                key={v}
+                href={buildHref({ vista: v, d: isoDate(base) })}
+                className={cn(
+                  "px-3 py-1.5 text-[12.5px] font-medium rounded-md transition-colors capitalize no-underline",
+                  vista === v
+                    ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm"
+                    : "text-[var(--muted-foreground)] hover:text-[var(--ink-2)]",
+                )}
+              >
+                {v}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -302,7 +379,16 @@ export default async function TurniPage({
             giorni={giorni}
             educatori={educatoreLight}
             disponibilita={disponibilita}
+            fasce={fasceVisibili}
           />
+          {attivitaSel &&
+          (attivitaSel.giorniSettimana.length === 0 &&
+            attivitaSel.fasceOrarie.length === 0) ? (
+            <p className="text-[12px] text-[var(--muted-foreground)] mt-3">
+              Per filtrare la griglia, configura giorni e fasce nella scheda
+              dell&apos;attività.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
