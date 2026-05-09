@@ -75,7 +75,11 @@
 
 ## In review
 
-Niente. PR #13 (chrome) e PR #14 (allineamento contenuti pagine + nuove rotte) entrambe mergeate in produzione.
+> **Convenzione**: ogni Claude/sviluppatore che apre una sessione DEVE leggere questa sezione prima di pianificare. Qui finisce ogni branch `claude/*` con commit pushati ma non ancora mergeati nel branch di produzione (`claude/n8n-association-management-Q4pBM`). Se trovi qui qualcosa che credevi "fatto in passato", il motivo è che quei commit non sono ancora arrivati in produzione: non ri-implementare, mergea o continua il lavoro pendente.
+
+| Branch | Ultimo commit | Stato | Cosa contiene |
+|---|---|---|---|
+| `claude/add-operation-animations-AhGJg` | `5c0014f` | **da mergeare** | (1) pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, 16 form convertiti); (2) rimossa fascia `14-18` da `FASCE_DISPONIBILITA`. **PR non ancora aperta**. **Attenzione — fix incompleta**: la rimozione di 14-18 era un fraintendimento; il vero problema utente è che la griglia `/turni` mostra le fasce *anche quando non c'è alcuna attività né disponibilità*. Va aggiunto uno stato vuoto data-driven prima di mergeare. |
 
 ## Aperti (debiti / TODO)
 
