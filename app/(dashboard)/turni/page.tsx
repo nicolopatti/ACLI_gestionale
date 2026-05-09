@@ -129,18 +129,15 @@ function periodoLabel(base: Date, vista: Vista): string {
   return base.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 }
 
-function calcolaOre(d: Disponibilita): { pianificate: number; consuntivate: number } {
+function calcolaOre(
+  d: Disponibilita,
+  todayIso: string,
+): { pianificate: number; consuntivate: number } {
   const pianificate = durataFasciaOre(d.fasciaOraria);
-  if (!d.oraIngresso || !d.oraUscita) {
-    return { pianificate, consuntivate: 0 };
-  }
-  const [hi, mi] = d.oraIngresso.split(":").map(Number);
-  const [hu, mu] = d.oraUscita.split(":").map(Number);
-  const diffMin = (hu * 60 + (mu || 0)) - (hi * 60 + (mi || 0));
-  return {
-    pianificate,
-    consuntivate: diffMin > 0 ? diffMin / 60 : 0,
-  };
+  // Le ore consuntivate vengono accumulate automaticamente quando la giornata
+  // è già passata (la fascia è considerata svolta in pieno).
+  const consuntivate = d.data < todayIso ? pianificate : 0;
+  return { pianificate, consuntivate };
 }
 
 export default async function TurniPage({
@@ -183,16 +180,7 @@ export default async function TurniPage({
   // Empty state quando non c'è alcuna attività attiva nel periodo
   const noAttiveAttivita = attiveInRange.length === 0 || fasceOfferte.length === 0;
 
-  // Stats periodo
-  let orePianificate = 0;
-  let oreConsuntivate = 0;
-  const educatoriAttivi = new Set<string>();
-  for (const d of disponibilita) {
-    const { pianificate, consuntivate } = calcolaOre(d);
-    orePianificate += pianificate;
-    oreConsuntivate += consuntivate;
-    educatoriAttivi.add(d.educatoreId);
-  }
+  const todayIso = isoDate(new Date());
 
   // Aggregato per educatore (tabella secondaria)
   const perEducatore = new Map<
@@ -207,7 +195,7 @@ export default async function TurniPage({
       turni: 0,
     };
     cur.giorni.add(d.data);
-    const { pianificate, consuntivate } = calcolaOre(d);
+    const { pianificate, consuntivate } = calcolaOre(d, todayIso);
     cur.ore += pianificate;
     cur.oreConsuntivate += consuntivate;
     cur.turni += 1;
@@ -291,19 +279,13 @@ export default async function TurniPage({
         <div className="flex items-center gap-4 text-[12px] text-[var(--muted-foreground)]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-full bg-[var(--primary-soft)]" />
-            consuntivato
+            consuntivato (giornata passata)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-full border border-dashed border-[var(--primary)]/60" />
             pianificato
           </span>
         </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <Mini label="Ore pianificate" value={`${orePianificate}h`} />
-        <Mini label="Ore consuntivate" value={`${oreConsuntivate.toFixed(1)}h`} />
-        <Mini label="Educatori attivi" value={educatoriAttivi.size.toString()} />
       </div>
 
       <Card>
@@ -339,6 +321,7 @@ export default async function TurniPage({
               fasceOfferte={fasceOfferte}
               giorniOfferti={giorniOfferti}
               celleAttive={celleAttive}
+              todayIso={todayIso}
             />
           )}
         </CardContent>
@@ -413,17 +396,3 @@ export default async function TurniPage({
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-[10.5px] text-[var(--muted-foreground)] uppercase tracking-[0.06em]">
-          {label}
-        </div>
-        <div className="font-serif text-[28px] font-medium tracking-tight tabular-nums mt-1">
-          {value}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

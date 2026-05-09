@@ -93,15 +93,13 @@ export type DisponibilitaSlot = {
 export type TurnoCellaRow = {
   educatoreId: string;
   educatoreNomeCompleto?: string;
-  oraIngresso?: string;
-  oraUscita?: string;
 };
 
 /**
  * Sostituisce i record di Disponibilita per una cella (data, fascia) con
- * la lista di educatori passata. Crea i record nuovi, aggiorna le ore di
- * quelli esistenti, e cancella i record degli educatori rimossi. Lascia
- * intatti i record di altri (data, fascia).
+ * la lista di educatori passata. Crea i record nuovi e cancella quelli
+ * degli educatori rimossi. Lascia intatti i record di altri (data, fascia).
+ * Il consuntivo non si scrive: è derivato dalla data (passata = consuntivata).
  */
 export async function replaceTurnoCella(
   data: string,
@@ -115,38 +113,19 @@ export async function replaceTurnoCella(
   const existingByEdu = new Map(existing.map((d) => [d.educatoreId, d] as const));
 
   const toCreate: Array<{ fields: Fields }> = [];
-  const toUpdate: Array<{ id: string; fields: Fields }> = [];
   const toDelete: string[] = [];
 
   for (const r of rows) {
-    const ex = existingByEdu.get(r.educatoreId);
-    if (!ex) {
-      const fields: Fields = {
-        educatore: [r.educatoreId],
-        data,
-        fascia_oraria: fascia,
-      };
-      if (r.educatoreNomeCompleto) {
-        fields.etichetta = `${r.educatoreNomeCompleto} · ${data} · ${fascia}`;
-      }
-      if (r.oraIngresso) fields.ora_ingresso = r.oraIngresso;
-      if (r.oraUscita) fields.ora_uscita = r.oraUscita;
-      toCreate.push({ fields });
-    } else {
-      const wantsIngresso = r.oraIngresso ?? "";
-      const wantsUscita = r.oraUscita ?? "";
-      const hasIngresso = ex.oraIngresso ?? "";
-      const hasUscita = ex.oraUscita ?? "";
-      if (wantsIngresso !== hasIngresso || wantsUscita !== hasUscita) {
-        toUpdate.push({
-          id: ex.recordId,
-          fields: {
-            ora_ingresso: wantsIngresso,
-            ora_uscita: wantsUscita,
-          },
-        });
-      }
+    if (existingByEdu.has(r.educatoreId)) continue;
+    const fields: Fields = {
+      educatore: [r.educatoreId],
+      data,
+      fascia_oraria: fascia,
+    };
+    if (r.educatoreNomeCompleto) {
+      fields.etichetta = `${r.educatoreNomeCompleto} · ${data} · ${fascia}`;
     }
+    toCreate.push({ fields });
   }
   for (const ex of existing) {
     if (!wantedByEdu.has(ex.educatoreId)) toDelete.push(ex.recordId);
@@ -154,9 +133,6 @@ export async function replaceTurnoCella(
 
   for (let i = 0; i < toCreate.length; i += 10) {
     await base(TABLE_NAMES.disponibilita).create(toCreate.slice(i, i + 10));
-  }
-  for (let i = 0; i < toUpdate.length; i += 10) {
-    await base(TABLE_NAMES.disponibilita).update(toUpdate.slice(i, i + 10));
   }
   for (let i = 0; i < toDelete.length; i += 10) {
     await base(TABLE_NAMES.disponibilita).destroy(toDelete.slice(i, i + 10));

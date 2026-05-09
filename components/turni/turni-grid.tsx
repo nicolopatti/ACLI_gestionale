@@ -16,6 +16,9 @@ export interface TurniGridProps {
   fasceOfferte: FasciaOraria[];
   giorniOfferti: GiornoSettimana[];
   celleAttive: CellaAttiva[];
+  /** Data di "oggi" in formato YYYY-MM-DD (calcolata server-side per evitare
+   * hydration mismatch). Le celle con `data < todayIso` sono consuntivate. */
+  todayIso: string;
 }
 
 const NOMI_GIORNI = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
@@ -36,6 +39,7 @@ export function TurniGrid({
   fasceOfferte,
   giorniOfferti,
   celleAttive,
+  todayIso,
 }: TurniGridProps) {
   const [openCell, setOpenCell] = useState<{
     data: string;
@@ -78,11 +82,7 @@ export function TurniGrid({
   const initialRows: TurnoRowState[] = useMemo(() => {
     if (!openCell) return [];
     const cellRecords = dispMap.get(dispKey(openCell.data, openCell.fascia)) ?? [];
-    return cellRecords.map((d) => ({
-      educatoreId: d.educatoreId,
-      oraIngresso: d.oraIngresso ?? "",
-      oraUscita: d.oraUscita ?? "",
-    }));
+    return cellRecords.map((d) => ({ educatoreId: d.educatoreId }));
   }, [openCell, dispMap]);
 
   const openCellInfo = openCell
@@ -147,13 +147,13 @@ export function TurniGrid({
           <div className="flex flex-wrap items-center gap-1">
             {records.map((d) => {
               const ed = educatoreById.get(d.educatoreId);
-              const consuntivato = Boolean(d.oraIngresso);
+              const consuntivato = d.data < todayIso;
               return (
                 <span
                   key={d.recordId}
                   title={
                     ed
-                      ? `${ed.nomeCompleto}${consuntivato ? ` · ${d.oraIngresso}–${d.oraUscita ?? "?"}` : " · pianificato"}`
+                      ? `${ed.nomeCompleto}${consuntivato ? " · consuntivato" : " · pianificato"}`
                       : ""
                   }
                   className={cn(

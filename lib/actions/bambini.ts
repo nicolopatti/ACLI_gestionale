@@ -40,19 +40,24 @@ function parseContattiFromFormData(formData: FormData): ContattoAggiuntivoInput[
 }
 
 function parseBambinoForm(formData: FormData) {
+  // I campi opzionali possono essere `null` quando l'input non viene reso
+  // (es. select `fratelloDiId` nascosto se non ci sono altri bambini).
+  // Normalizziamo a stringa vuota: lo schema Zod `optionalString` accetta
+  // `""` ma non `null`, e darebbe il messaggio default "Invalid input".
+  const s = (k: string) => String(formData.get(k) ?? "");
   return {
-    nome: formData.get("nome"),
-    cognome: formData.get("cognome"),
-    dataNascita: formData.get("dataNascita"),
-    scuola: formData.get("scuola"),
-    classe: formData.get("classe"),
-    nomeGenitore: formData.get("nomeGenitore"),
-    cognomeGenitore: formData.get("cognomeGenitore"),
-    telefonoGenitore: formData.get("telefonoGenitore"),
-    emailGenitore: formData.get("emailGenitore"),
-    cfGenitore: formData.get("cfGenitore"),
-    fratelloDiId: formData.get("fratelloDiId"),
-    note: formData.get("note"),
+    nome: s("nome"),
+    cognome: s("cognome"),
+    dataNascita: s("dataNascita"),
+    scuola: s("scuola"),
+    classe: s("classe"),
+    nomeGenitore: s("nomeGenitore"),
+    cognomeGenitore: s("cognomeGenitore"),
+    telefonoGenitore: s("telefonoGenitore"),
+    emailGenitore: s("emailGenitore"),
+    cfGenitore: s("cfGenitore"),
+    fratelloDiId: s("fratelloDiId"),
+    note: s("note"),
     attivo: formData.get("attivo") === "on" || formData.get("attivo") === "true",
     contatti: parseContattiFromFormData(formData),
   };

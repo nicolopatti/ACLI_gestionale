@@ -90,13 +90,12 @@ export async function salvaDisponibilitaAction(formData: FormData) {
   return { ok: true };
 }
 
-const ORA_RE = /^(\d{2}):(\d{2})$/;
-
 /**
- * Sostituisce gli educatori in turno per una cella (data, fascia) e
- * imposta le ore consuntivo opzionali. Riceve un payload JSON-friendly
- * tramite FormData come "rows" (JSON-encoded). Accessibile a admin e
- * coordinatore_educativo.
+ * Sostituisce gli educatori in turno per una cella (data, fascia). Riceve un
+ * payload JSON-friendly tramite FormData come "rows" (JSON-encoded array di
+ * `{ educatoreId }`). Le ore non sono più compilate manualmente: il consuntivo
+ * è derivato dalla data (passata = ore della fascia in conto consuntivo).
+ * Accessibile a admin e coordinatore_educativo.
  */
 export async function salvaTurnoCellaAction(
   _prev: { ok?: boolean; error?: string } | undefined,
@@ -133,18 +132,10 @@ export async function salvaTurnoCellaAction(
     const parsed = JSON.parse(rowsRaw) as unknown;
     if (!Array.isArray(parsed)) throw new Error();
     rows = parsed
-      .filter((r): r is { educatoreId: string; oraIngresso?: string; oraUscita?: string } => {
+      .filter((r): r is { educatoreId: string } => {
         return Boolean(r && typeof r === "object" && "educatoreId" in r);
       })
-      .map((r) => {
-        const ingresso = typeof r.oraIngresso === "string" ? r.oraIngresso.trim() : "";
-        const uscita = typeof r.oraUscita === "string" ? r.oraUscita.trim() : "";
-        return {
-          educatoreId: String(r.educatoreId),
-          oraIngresso: ingresso && ORA_RE.test(ingresso) ? ingresso : undefined,
-          oraUscita: uscita && ORA_RE.test(uscita) ? uscita : undefined,
-        };
-      });
+      .map((r) => ({ educatoreId: String(r.educatoreId) }));
   } catch {
     return { error: "Payload non valido" };
   }
