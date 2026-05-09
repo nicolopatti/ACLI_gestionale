@@ -100,10 +100,10 @@ Va **splittata** in `adm-home` (presidenza) e `edu-home` (coordinatore) — vedi
 | `Movimenti.conto` ∈ {Cassa, BCC, Sumup} | ✓ presente | Identico al prototipo. |
 | ~~`Movimenti.area`~~ | — | **Fuori scope** (cassa-edu eliminato). |
 | ~~`Eventi`~~ | — | **Fuori scope.** |
-| `AssegnazioniTurni` (data, fascia, educatore) | ✗ assente | Tabella nuova. Distinta da `Disponibilita` (che dichiara la disponibilità). Vedi §4.2. |
+| `Disponibilita` estesa con `oraIngresso`, `oraUscita`, `note` | parziale (mancano i 3 campi) | Estensione tabella esistente, non tabella nuova. Vedi §4.2. |
 | ~~`Presenze.stato` "giustificato"~~ | — | **Fuori scope.** Resta lo stato implicito presente/assente da `oraIngresso/oraUscita`. |
 | `Iscrizioni.stato` ∈ {attiva, in_ritardo, completata} | ✗ — derivabile da rate | Calcolabile lato server. |
-| `coordinatore_educativo` come ruolo reale | tipo + nav, ma nessun utente | Va creato + esteso il proxy gating per `/turni`, `/spese-edu`, `/edu-home`. |
+| `coordinatore_educativo` come ruolo reale | tipo + nav, ma nessun utente | Va creato + esteso il proxy gating per `/turni`, `/spese-edu`, `/dashboard` (sezione edu). |
 
 ---
 
@@ -115,21 +115,38 @@ Non si introduce la tabella né la route. Se in futuro servirà, si parte dall'a
 
 ---
 
-### 4.2 Turni — come da prototipo (drag-drop su tabella nuova)
+### 4.2 Turni — pianificazione + consuntivo
 
-**Da fare**:
+**Scopo della pagina** (chiarito dall'utente): non assegna turni "vincolanti" né calcola coperture. Serve due cose:
+1. **Preventivo**: tenere traccia di chi sarà presente quando, per pianificare con preavviso.
+2. **Consuntivo**: dopo che il giorno è passato, registrare ore effettive di ogni educatore — la base dati per il calcolo compensi (che il responsabile fa a parte, fuori dal software).
 
-- Nuova tabella Airtable `AssegnazioniTurni` con campi: `data` (date), `fascia` (single select: 14-16 / 14-18 / 16-18), `educatore` (link a Educatori), `note` (text). Una assegnazione per coppia (fascia × educatore × giorno). Più educatori per stessa fascia/giorno → più record.
-- Mapper + server actions `assegnaTurno` / `rimuoviTurno`.
-- UI griglia `giorni × slot` con celle che mostrano gli avatar degli educatori assegnati. Cella vuota → badge `SCOPERTO` rosso.
-- Sidebar destra "Educatori disponibili nel periodo": lista degli educatori che hanno una `Disponibilita` matching su quella fascia/data.
-- Drag-drop dalla sidebar sulle celle. Implementazione: `@dnd-kit` (libreria standard React, ~10kb gz).
-- Validation soft: se trascini un educatore su una fascia in cui **non** ha disponibilità, mostra warning ma consenti override.
+**Niente** stato "coperto/scoperto", niente soglia di copertura. La valutazione "abbiamo abbastanza educatori oggi?" è soggettiva e resta al responsabile, che la fa incrociando con presenze bambini e altri fattori esterni al gestionale.
 
-**Punti aperti** (decideremo in fase di PR):
-- Scope temporale: settimana o mese? Il prototipo mostra settimana.
-- Stato cella oltre a "scoperto": "ok 2 educatori", "completo 3 educatori"? Soglia copertura va decisa.
-- Assegnazione massiva (es. "copia turni della settimana scorsa")? Probabilmente fuori scope dell'MVP.
+**Modello dati** (semplificazione importante rispetto alla bozza precedente):
+
+- **Niente nuova tabella.** Si estende la `Disponibilita` esistente:
+  - `data`, `fascia`, `educatore` (esistenti)
+  - `oraIngresso` (time, opzionale) — compilato a consuntivo
+  - `oraUscita` (time, opzionale) — compilato a consuntivo
+  - `note` (text, opzionale)
+- Stato derivato (non un campo Airtable): record con `oraIngresso` valorizzato = consuntivato, altrimenti pianificato.
+
+**UI**:
+
+- Vista **settimanale di default**, toggle a vista **mensile** in alto. Il toggle deve essere immediato per consentire pianificazione delle settimane successive.
+- Griglia `giorni × slot` con celle che contengono gli avatar degli educatori "in turno" (cioè con record `Disponibilita` matching).
+- **Niente badge "SCOPERTO"** sulle celle vuote. Cella vuota = cella vuota.
+- Differenziazione visiva pianificato vs consuntivato (es. avatar pieno vs avatar con bordo tratteggiato, o fascia colore di sfondo diversa).
+- Click sull'avatar → dialog modifica/rimozione + inserimento ore effettive.
+- Aggiunta: **click sulla cella vuota → dialog multi-select educatori** (alternativa più semplice al drag-drop del prototipo) **oppure drag-drop dalla sidebar** (da decidere — entrambe creano record `Disponibilita`).
+- Stats utili (header pagina): ore pianificate nel periodo, ore consuntivate, totale educatori che hanno fatto almeno un turno. **Niente "turni coperti / da coprire"**.
+
+**Tabella secondaria** (sotto la griglia): per ogni educatore attivo nel periodo, riassunto giorni/sett, ore pianificate, ore consuntivate. Questa è la base dati che il responsabile esporta/copia per calcolare i compensi.
+
+**Punti aperti** (PR-time):
+- Drag-drop o click-su-cella? (vedi sopra). Drag-drop = `@dnd-kit` (~10kb), più "fluido" su desktop ma più costoso. Click-multi-select = nessuna libreria, funziona ovunque.
+- Bulk action "copia settimana precedente" → fuori scope MVP, ma da segnare come follow-up.
 
 ---
 
@@ -199,7 +216,7 @@ Ipotesi: ogni PR è atomica, mergeabile, deployabile in preview. Ordine pensato 
 | 7 | **`/educatori` split-view** (lista sx + detail dx) + KPI ore/compenso | 🟡 | #1 |
 | 8 | **Gating proxy esteso a `coordinatore_educativo`** + utente reale di test | ⚠️ | nessuna |
 | 9 | **`/spese-edu`** form rapido educatore | 🟡 + ⚠️ | #1, #8 |
-| 10 | **`/turni`** tabella `AssegnazioniTurni` + UI drag-drop | 🔴 + 🟡 + ⚠️ | #1, #8 |
+| 10 | **`/turni`** estende `Disponibilita` (consuntivo ore) + UI griglia settimana/mese | 🔴 (3 campi) + 🟡 + ⚠️ | #1, #8 |
 | 11 | **`/dashboard` rifinito**: split admin/edu con tabs interni | 🟡 | #1, #8 |
 | 12 | **Login 2-colonne** restyling | 🟢 | nessuna |
 | 13 | **Presenze** stat card + filtro fascia oraria visivo | 🟡 | #1 |
@@ -208,6 +225,6 @@ Ipotesi: ogni PR è atomica, mergeabile, deployabile in preview. Ordine pensato 
 **Critical path**: #1 → tutto il resto. #8 prima di #9, #10, #11.
 
 **PR che richiedono modifiche su Airtable**:
-- #10 → nuova tabella `AssegnazioniTurni`.
+- #10 → estensione tabella `Disponibilita` con 3 campi opzionali (`oraIngresso`, `oraUscita`, `note`). I record esistenti restano validi senza modifica.
 
 Tutte le altre PR sono codice puro (UI o logica server), nessuna migrazione dati richiesta.
