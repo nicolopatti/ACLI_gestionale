@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { TIPI_UNITA, type TipoUnita } from "@/lib/config";
 import {
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props) {
+  const router = useRouter();
   const [tipoUnita, setTipoUnita] = useState<TipoUnita>(defaultTipoUnita);
   const [dataInizio, setDataInizio] = useState("");
   const [dataFine, setDataFine] = useState("");
@@ -57,6 +59,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
       setDataInizio("");
       setDataFine("");
       setImporto("");
+      router.refresh();
     });
   };
 
@@ -66,7 +69,9 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
       const res = await deleteSessioneAction(id, attivitaId);
       if (res && "error" in res) {
         setError(res.error);
+        return;
       }
+      router.refresh();
     });
   };
 

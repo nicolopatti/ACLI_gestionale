@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { salvaPresenzeAction } from "@/lib/actions/presenze";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export function GrigliaPresenze({
   candidati,
   presenzeEsistenti,
 }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [date, setDate] = useState(data);
@@ -95,8 +97,12 @@ export function GrigliaPresenze({
         action={(formData) =>
           startTransition(async () => {
             const res = await salvaPresenzeAction(formData);
-            if (res?.error) setMessage(`Errore: ${res.error}`);
-            else setMessage("Presenze salvate.");
+            if (res?.error) {
+              setMessage(`Errore: ${res.error}`);
+            } else {
+              setMessage("Presenze salvate.");
+              router.refresh();
+            }
           })
         }
       >
