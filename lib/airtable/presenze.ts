@@ -15,6 +15,7 @@ function mapPresenza(record: { id: string; fields: Record<string, unknown> }): P
     bambinoId: bambinoLink[0] ?? "",
     sessioneId: sessLink[0],
     data: (f.data as string) ?? "",
+    presente: typeof f.presente === "boolean" ? (f.presente as boolean) : undefined,
     oraIngresso: (f.ora_ingresso as string) ?? undefined,
     oraUscita: (f.ora_uscita as string) ?? undefined,
     note: (f.note as string) ?? undefined,
@@ -62,6 +63,7 @@ export type PresenzaInput = {
   bambinoId: string;
   sessioneId?: string;
   data: string;
+  presente?: boolean;
   oraIngresso?: string;
   oraUscita?: string;
   registratoDaId?: string;
@@ -69,8 +71,53 @@ export type PresenzaInput = {
 };
 
 /**
- * Upsert delle presenze per una data. Se entrambi gli orari sono vuoti il record
- * esistente viene eliminato (assenza); se non esisteva, non viene creato.
+ * Upsert di una singola presenza (per data + bambino).
+ * - `presente=true` → record creato/aggiornato con `presente=true`. Le ore, se
+ *   passate, vengono scritte; altrimenti il record resta privo di ore.
+ * - `presente=false` → record creato/aggiornato con `presente=false` e ore vuote.
+ * - `presente=undefined` → fallback retrocompatibile: assenza = entrambe ore
+ *   vuote → record cancellato (vecchio comportamento).
+ */
+export async function setPresenza(input: PresenzaInput): Promise<void> {
+  if (!base) throw new Error("Airtable client non configurato");
+  const giornoRecords = await listPresenzeByData(input.data);
+  const existing = giornoRecords.find((p) => p.bambinoId === input.bambinoId);
+
+  // Caso retrocompat: nessun flag esplicito, ore vuote → assente → cancella.
+  if (
+    input.presente === undefined &&
+    !input.oraIngresso &&
+    !input.oraUscita
+  ) {
+    if (existing) {
+      await base(TABLE_NAMES.presenze).destroy([existing.recordId]);
+    }
+    return;
+  }
+
+  const fields: Fields = {
+    bambino: [input.bambinoId],
+    data: input.data,
+    ...(input.presente !== undefined ? { presente: input.presente } : {}),
+    ora_ingresso: input.oraIngresso ?? "",
+    ora_uscita: input.oraUscita ?? "",
+    ...(input.sessioneId ? { sessione: [input.sessioneId] } : {}),
+    ...(input.registratoDaId ? { registrato_da: [input.registratoDaId] } : {}),
+    ...(input.note ? { note: input.note } : {}),
+  };
+  if (existing) {
+    await base(TABLE_NAMES.presenze).update(
+      [{ id: existing.recordId, fields }],
+      { typecast: true },
+    );
+  } else {
+    await base(TABLE_NAMES.presenze).create([{ fields }], { typecast: true });
+  }
+}
+
+/**
+ * Upsert batch usato dal vecchio form "Salva presenze" (ancora compatibile).
+ * Rispetta la stessa convenzione di `setPresenza`.
  */
 export async function upsertPresenze(input: PresenzaInput[]): Promise<void> {
   if (!base || input.length === 0) return;
@@ -85,16 +132,18 @@ export async function upsertPresenze(input: PresenzaInput[]): Promise<void> {
 
   for (const item of input) {
     const existing = existingByBambino.get(item.bambinoId);
-    const assente = !item.oraIngresso && !item.oraUscita;
-    if (assente) {
+    const assenteImplicita =
+      item.presente === undefined && !item.oraIngresso && !item.oraUscita;
+    if (assenteImplicita) {
       if (existing) toDelete.push(existing.recordId);
       continue;
     }
     const fields: Fields = {
       bambino: [item.bambinoId],
       data: item.data,
-      ...(item.oraIngresso ? { ora_ingresso: item.oraIngresso } : { ora_ingresso: "" }),
-      ...(item.oraUscita ? { ora_uscita: item.oraUscita } : { ora_uscita: "" }),
+      ...(item.presente !== undefined ? { presente: item.presente } : {}),
+      ora_ingresso: item.oraIngresso ?? "",
+      ora_uscita: item.oraUscita ?? "",
       ...(item.sessioneId ? { sessione: [item.sessioneId] } : {}),
       ...(item.registratoDaId ? { registrato_da: [item.registratoDaId] } : {}),
       ...(item.note ? { note: item.note } : {}),
@@ -107,10 +156,14 @@ export async function upsertPresenze(input: PresenzaInput[]): Promise<void> {
   }
 
   for (let i = 0; i < toCreate.length; i += 10) {
-    await base(TABLE_NAMES.presenze).create(toCreate.slice(i, i + 10));
+    await base(TABLE_NAMES.presenze).create(toCreate.slice(i, i + 10), {
+      typecast: true,
+    });
   }
   for (let i = 0; i < toUpdate.length; i += 10) {
-    await base(TABLE_NAMES.presenze).update(toUpdate.slice(i, i + 10));
+    await base(TABLE_NAMES.presenze).update(toUpdate.slice(i, i + 10), {
+      typecast: true,
+    });
   }
   for (let i = 0; i < toDelete.length; i += 10) {
     await base(TABLE_NAMES.presenze).destroy(toDelete.slice(i, i + 10));
@@ -122,7 +175,7 @@ export async function countPresenzeOggi(): Promise<number> {
   const oggi = new Date().toISOString().slice(0, 10);
   const records = await base(TABLE_NAMES.presenze)
     .select({
-      filterByFormula: `AND({data} = '${oggi}', OR({ora_ingresso} != '', {ora_uscita} != ''))`,
+      filterByFormula: `AND({data} = '${oggi}', {presente} = TRUE())`,
       fields: ["data"],
     })
     .all();

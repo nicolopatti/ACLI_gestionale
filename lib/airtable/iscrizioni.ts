@@ -108,9 +108,13 @@ function iscrizioneFields(input: IscrizioneInput): Fields {
 
 export async function createIscrizione(input: IscrizioneInput): Promise<Iscrizione> {
   if (!base) throw new Error("Airtable client non configurato");
-  const created = await base(TABLE_NAMES.iscrizioni).create([
-    { fields: iscrizioneFields(input) },
-  ]);
+  // typecast: true → Airtable crea automaticamente le choice mancanti
+  // su `fasce_orarie` / `giorni_settimana` (sottoinsiemi dichiarati
+  // dinamicamente sull'Attivita).
+  const created = await base(TABLE_NAMES.iscrizioni).create(
+    [{ fields: iscrizioneFields(input) }],
+    { typecast: true },
+  );
   return mapIscrizione({ id: created[0].id, fields: created[0].fields });
 }
 
@@ -119,9 +123,10 @@ export async function updateIscrizione(
   input: IscrizioneInput,
 ): Promise<Iscrizione> {
   if (!base) throw new Error("Airtable client non configurato");
-  const updated = await base(TABLE_NAMES.iscrizioni).update([
-    { id: recordId, fields: iscrizioneFields(input) },
-  ]);
+  const updated = await base(TABLE_NAMES.iscrizioni).update(
+    [{ id: recordId, fields: iscrizioneFields(input) }],
+    { typecast: true },
+  );
   return mapIscrizione({ id: updated[0].id, fields: updated[0].fields });
 }
 

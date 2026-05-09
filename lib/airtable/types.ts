@@ -1,6 +1,5 @@
 import type {
   FasciaOraria,
-  FasciaDisponibilita,
   GiornoSettimana,
   MezzoPagamento,
   RuoloContatto,
@@ -66,6 +65,18 @@ export interface Attivita {
   dataFine?: string;
   attivo: boolean;
   note?: string;
+  /**
+   * Giorni della settimana in cui l'attività ha luogo. Per doposcuola tipicamente
+   * lun..ven; per laboratorio/locomotiva può includere weekend. Vuoto = nessun
+   * vincolo dichiarato (l'attività non comparirà nella griglia turni finché
+   * non vengono definiti).
+   */
+  giorniSettimana: GiornoSettimana[];
+  /**
+   * Fasce orarie offerte dall'attività. Stessa semantica di `Disponibilita.fasciaOraria`.
+   * Se vuoto, l'attività non popola la griglia turni.
+   */
+  fasceOrarie: FasciaOraria[];
   sessioniIds: string[];
   iscrizioniIds: string[];
   modalitaIds: string[];
@@ -80,6 +91,12 @@ export interface Sessione {
   dataInizio?: string;
   dataFine?: string;
   importo?: number;
+  /**
+   * Fascia oraria della sessione. Richiesta per laboratorio (tipo_unita "giornata")
+   * e locomotiva (tipo_unita "settimana"). Per doposcuola (tipo_unita "mese") è
+   * lasciata vuota: le fasce vengono dalle iscrizioni dei bambini.
+   */
+  fasciaOraria?: FasciaOraria;
 }
 
 export interface ModalitaIscrizione {
@@ -128,6 +145,7 @@ export interface Presenza {
   bambinoId: string;
   sessioneId?: string;
   data: string;
+  presente?: boolean;
   oraIngresso?: string;
   oraUscita?: string;
   note?: string;
@@ -136,6 +154,7 @@ export interface Presenza {
 }
 
 export function presenzaAssente(p: Presenza): boolean {
+  if (typeof p.presente === "boolean") return !p.presente;
   return !p.oraIngresso && !p.oraUscita;
 }
 
@@ -154,7 +173,7 @@ export interface Disponibilita {
   recordId: string;
   educatoreId: string;
   data: string;
-  fasciaOraria: FasciaDisponibilita;
+  fasciaOraria: FasciaOraria;
   oraIngresso?: string;
   oraUscita?: string;
   note?: string;

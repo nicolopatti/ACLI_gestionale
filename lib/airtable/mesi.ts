@@ -96,6 +96,7 @@ export async function createMesi(
           ...(m.meseAnno ? { mese_anno: m.meseAnno } : {}),
         },
       })),
+      { typecast: true },
     );
     for (const r of res) created.push(mapMese({ id: r.id, fields: r.fields }));
   }
@@ -115,7 +116,10 @@ export async function updateMese(
   }>,
 ): Promise<MeseIscrizione> {
   if (!base) throw new Error("Airtable client non configurato");
-  const updated = await base(TABLE_NAMES.mesi).update([{ id: recordId, fields }]);
+  const updated = await base(TABLE_NAMES.mesi).update(
+    [{ id: recordId, fields }],
+    { typecast: true },
+  );
   return mapMese({ id: updated[0].id, fields: updated[0].fields });
 }
 

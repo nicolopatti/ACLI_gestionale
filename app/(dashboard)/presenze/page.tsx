@@ -9,26 +9,12 @@ import { GrigliaPresenze } from "@/components/presenze/griglia-presenze";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { presenzaAssente } from "@/lib/airtable/types";
-import { FASCE_ORARIE, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
+import { dowToGiorno, type FasciaOraria } from "@/lib/config";
 import type { Sessione } from "@/lib/airtable/types";
-
-const GIORNO_DA_DATE: Record<number, GiornoSettimana | null> = {
-  0: null,
-  1: "lun",
-  2: "mar",
-  3: "mer",
-  4: "gio",
-  5: "ven",
-  6: null,
-};
 
 function dataInRange(data: string, sessione: Sessione): boolean {
   if (!sessione.dataInizio || !sessione.dataFine) return false;
   return data >= sessione.dataInizio && data <= sessione.dataFine;
-}
-
-function isFascia(v: string | undefined): v is FasciaOraria {
-  return Boolean(v) && (FASCE_ORARIE as readonly string[]).includes(v as string);
 }
 
 export default async function PresenzePage({
@@ -38,7 +24,6 @@ export default async function PresenzePage({
 }) {
   const sp = await searchParams;
   const data = sp.data || new Date().toISOString().slice(0, 10);
-  const fasciaSel: FasciaOraria | undefined = isFascia(sp.fascia) ? sp.fascia : undefined;
 
   const attivita = await listAttivita({ attivo: true });
 
@@ -50,6 +35,9 @@ export default async function PresenzePage({
     "";
 
   const attivitaSel = attivita.find((a) => a.recordId === attivitaId);
+  const fasceAttivita = attivitaSel?.fasceOrarie ?? [];
+  const fasciaSel: FasciaOraria | undefined =
+    sp.fascia && fasceAttivita.includes(sp.fascia) ? sp.fascia : undefined;
 
   const [bambini, iscrizioni, presenze, sessioniAttivita] = await Promise.all([
     listBambini({ soloAttivi: true }),
@@ -59,7 +47,8 @@ export default async function PresenzePage({
   ]);
 
   const sessioniById = new Map(sessioniAttivita.map((s) => [s.recordId, s] as const));
-  const giorno = GIORNO_DA_DATE[new Date(data).getDay()];
+  const giorno = dowToGiorno(new Date(`${data}T00:00:00`).getDay());
+  const giorniAttivita = attivitaSel?.giorniSettimana ?? [];
   const candidati = iscrizioni
     .map((iscrizione) => {
       const bambino = bambini.find((b) => b.recordId === iscrizione.bambinoId);
@@ -72,7 +61,8 @@ export default async function PresenzePage({
 
       let sessioneAttiva: Sessione | undefined;
       if (attivitaSel?.tipo === "doposcuola") {
-        if (!giorno || !iscrizione.giorniSettimana.includes(giorno)) return null;
+        if (!giorniAttivita.includes(giorno)) return null;
+        if (!iscrizione.giorniSettimana.includes(giorno)) return null;
         // sessione = quella del mese della data scelta
         const meseData = data.slice(0, 7);
         sessioneAttiva = sessioniIscrizione.find((s) => s.chiave === meseData);
@@ -143,28 +133,30 @@ export default async function PresenzePage({
         />
       </div>
 
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[12px] text-[var(--muted-foreground)] mr-1">
-          Fascia oraria:
-        </span>
-        {(["", ...FASCE_ORARIE] as const).map((f) => {
-          const active = (f === "" && !fasciaSel) || fasciaSel === f;
-          return (
-            <Link
-              key={f || "all"}
-              href={buildHref({ fascia: f === "" ? "" : (f as FasciaOraria) })}
-              className={
-                "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline " +
-                (active
-                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-soft-ink)]"
-                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--border-strong)]")
-              }
-            >
-              {f === "" ? "Tutte" : f}
-            </Link>
-          );
-        })}
-      </div>
+      {fasceAttivita.length > 0 ? (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[12px] text-[var(--muted-foreground)] mr-1">
+            Fascia oraria:
+          </span>
+          {(["", ...fasceAttivita] as const).map((f) => {
+            const active = (f === "" && !fasciaSel) || fasciaSel === f;
+            return (
+              <Link
+                key={f || "all"}
+                href={buildHref({ fascia: f === "" ? "" : (f as FasciaOraria) })}
+                className={
+                  "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors no-underline " +
+                  (active
+                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-soft-ink)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--border-strong)]")
+                }
+              >
+                {f === "" ? "Tutte" : f}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
 
       <GrigliaPresenze
         data={data}

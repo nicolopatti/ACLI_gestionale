@@ -1,6 +1,6 @@
-import { base, TABLE_NAMES } from "./client";
+import { base, escapeFormulaString, TABLE_NAMES } from "./client";
 import type { Sessione } from "./types";
-import type { TipoUnita } from "@/lib/config";
+import type { FasciaOraria, TipoUnita } from "@/lib/config";
 
 function mapSessione(record: { id: string; fields: Record<string, unknown> }): Sessione {
   const f = record.fields;
@@ -14,6 +14,7 @@ function mapSessione(record: { id: string; fields: Record<string, unknown> }): S
     dataInizio: (f.data_inizio as string) ?? undefined,
     dataFine: (f.data_fine as string) ?? undefined,
     importo: f.importo != null ? Number(f.importo as number) : undefined,
+    fasciaOraria: (f.fascia_oraria as FasciaOraria) || undefined,
   };
 }
 
@@ -57,6 +58,29 @@ export async function getSessione(recordId: string): Promise<Sessione | null> {
   }
 }
 
+export async function listSessioniByRange(
+  dataInizio: string,
+  dataFine: string,
+): Promise<Sessione[]> {
+  if (!base) return [];
+  // Una sessione interseca il range se [dataInizio, dataFine] della sessione
+  // overlap con [dataInizio, dataFine] richiesto, OR la chiave è in un mese/
+  // giornata/settimana che cade nel range. Per semplicità includiamo tutte le
+  // sessioni che hanno data_inizio o data_fine dentro il range, oppure che
+  // contengono il range.
+  const records = await base(TABLE_NAMES.sessioni)
+    .select({
+      filterByFormula: `OR(
+        AND({data_inizio} >= '${escapeFormulaString(dataInizio)}', {data_inizio} <= '${escapeFormulaString(dataFine)}'),
+        AND({data_fine} >= '${escapeFormulaString(dataInizio)}', {data_fine} <= '${escapeFormulaString(dataFine)}'),
+        AND({data_inizio} <= '${escapeFormulaString(dataInizio)}', {data_fine} >= '${escapeFormulaString(dataFine)}')
+      )`,
+      sort: [{ field: "data_inizio", direction: "asc" }],
+    })
+    .all();
+  return records.map((r) => mapSessione({ id: r.id, fields: r.fields }));
+}
+
 export async function createSessioniBatch(
   input: Array<{
     attivitaId: string;
@@ -66,6 +90,7 @@ export async function createSessioniBatch(
     dataInizio?: string;
     dataFine?: string;
     importo?: number;
+    fasciaOraria?: FasciaOraria;
   }>,
 ): Promise<Sessione[]> {
   if (!base) throw new Error("Airtable client non configurato");
@@ -84,12 +109,32 @@ export async function createSessioniBatch(
           ...(s.dataInizio ? { data_inizio: s.dataInizio } : {}),
           ...(s.dataFine ? { data_fine: s.dataFine } : {}),
           ...(s.importo !== undefined ? { importo: s.importo } : {}),
+          ...(s.fasciaOraria ? { fascia_oraria: s.fasciaOraria } : {}),
         },
       })),
+      { typecast: true },
     );
     for (const r of res) created.push(mapSessione({ id: r.id, fields: r.fields }));
   }
   return created;
+}
+
+export async function updateSessione(
+  recordId: string,
+  fields: Partial<{
+    chiave: string;
+    etichetta: string;
+    data_inizio: string;
+    data_fine: string;
+    importo: number;
+    fascia_oraria: FasciaOraria;
+  }>,
+): Promise<Sessione> {
+  if (!base) throw new Error("Airtable client non configurato");
+  const updated = await base(TABLE_NAMES.sessioni).update([{ id: recordId, fields }], {
+    typecast: true,
+  });
+  return mapSessione({ id: updated[0].id, fields: updated[0].fields });
 }
 
 export async function deleteSessione(recordId: string): Promise<void> {

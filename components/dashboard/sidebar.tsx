@@ -12,13 +12,13 @@ export function Sidebar({ ruolo }: { ruolo: Ruolo }) {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
+      <Link href="/cassa" className="sidebar-brand" aria-label="Vai a Cassa e finanze">
         <Image src="/logo-acli.png" alt="ACLI" width={40} height={40} priority />
         <div className="brand-text">
           <div className="name">Circolo ACLI</div>
           <div className="sub">Calvisano</div>
         </div>
-      </div>
+      </Link>
       <nav className="nav">
         {sections.map((s) => {
           const SectionIcon = s.icon;

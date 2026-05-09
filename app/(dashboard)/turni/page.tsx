@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { listEducatori } from "@/lib/airtable/educatori";
 import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
+import { listSessioniByRange } from "@/lib/airtable/sessioni";
+import {
+  listAttivitaAttiveInRange,
+  unionFasceOfferte,
+  unionGiorniOfferti,
+  calcolaCelleAttive,
+} from "@/lib/airtable/turni";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -16,14 +23,8 @@ import {
 import { TurniGrid } from "@/components/turni/turni-grid";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import { durataFasciaOre } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
-
-const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
-  "14-16": 2,
-  "14-18": 4,
-  "16-18": 2,
-};
 
 type Vista = "settimana" | "mese";
 
@@ -128,18 +129,15 @@ function periodoLabel(base: Date, vista: Vista): string {
   return base.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 }
 
-function calcolaOre(d: Disponibilita): { pianificate: number; consuntivate: number } {
-  const pianificate = ORE_PER_FASCIA[d.fasciaOraria] ?? 0;
-  if (!d.oraIngresso || !d.oraUscita) {
-    return { pianificate, consuntivate: 0 };
-  }
-  const [hi, mi] = d.oraIngresso.split(":").map(Number);
-  const [hu, mu] = d.oraUscita.split(":").map(Number);
-  const diffMin = (hu * 60 + (mu || 0)) - (hi * 60 + (mi || 0));
-  return {
-    pianificate,
-    consuntivate: diffMin > 0 ? diffMin / 60 : 0,
-  };
+function calcolaOre(
+  d: Disponibilita,
+  todayIso: string,
+): { pianificate: number; consuntivate: number } {
+  const pianificate = durataFasciaOre(d.fasciaOraria);
+  // Le ore consuntivate vengono accumulate automaticamente quando la giornata
+  // è già passata (la fascia è considerata svolta in pieno).
+  const consuntivate = d.data < todayIso ? pianificate : 0;
+  return { pianificate, consuntivate };
 }
 
 export default async function TurniPage({
@@ -158,10 +156,14 @@ export default async function TurniPage({
   const vista: Vista = isVista(sp.vista) ? sp.vista : "settimana";
   const base = parseIsoOrToday(sp.d);
   const { start, end } = rangeForVista(base, vista);
+  const startIso = isoDate(start);
+  const endIso = isoDate(end);
 
-  const [educatori, disponibilita] = await Promise.all([
+  const [educatori, disponibilita, attiveInRange, sessioniInRange] = await Promise.all([
     listEducatori(),
-    listDisponibilitaByRange(isoDate(start), isoDate(end)),
+    listDisponibilitaByRange(startIso, endIso),
+    listAttivitaAttiveInRange(startIso, endIso),
+    listSessioniByRange(startIso, endIso),
   ]);
 
   const educatoreLight = educatori.map((e) => ({
@@ -171,17 +173,14 @@ export default async function TurniPage({
   }));
 
   const giorni = vista === "settimana" ? daysOfWeek(base) : daysOfMonthGrid(base);
+  const fasceOfferte = unionFasceOfferte(attiveInRange);
+  const giorniOfferti = unionGiorniOfferti(attiveInRange);
+  const celleAttive = calcolaCelleAttive(attiveInRange, sessioniInRange, startIso, endIso);
 
-  // Stats periodo
-  let orePianificate = 0;
-  let oreConsuntivate = 0;
-  const educatoriAttivi = new Set<string>();
-  for (const d of disponibilita) {
-    const { pianificate, consuntivate } = calcolaOre(d);
-    orePianificate += pianificate;
-    oreConsuntivate += consuntivate;
-    educatoriAttivi.add(d.educatoreId);
-  }
+  // Empty state quando non c'è alcuna attività attiva nel periodo
+  const noAttiveAttivita = attiveInRange.length === 0 || fasceOfferte.length === 0;
+
+  const todayIso = isoDate(new Date());
 
   // Aggregato per educatore (tabella secondaria)
   const perEducatore = new Map<
@@ -196,7 +195,7 @@ export default async function TurniPage({
       turni: 0,
     };
     cur.giorni.add(d.data);
-    const { pianificate, consuntivate } = calcolaOre(d);
+    const { pianificate, consuntivate } = calcolaOre(d, todayIso);
     cur.ore += pianificate;
     cur.oreConsuntivate += consuntivate;
     cur.turni += 1;
@@ -280,7 +279,7 @@ export default async function TurniPage({
         <div className="flex items-center gap-4 text-[12px] text-[var(--muted-foreground)]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-full bg-[var(--primary-soft)]" />
-            consuntivato
+            consuntivato (giornata passata)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-full border border-dashed border-[var(--primary)]/60" />
@@ -289,20 +288,42 @@ export default async function TurniPage({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Mini label="Ore pianificate" value={`${orePianificate}h`} />
-        <Mini label="Ore consuntivate" value={`${oreConsuntivate.toFixed(1)}h`} />
-        <Mini label="Educatori attivi" value={educatoriAttivi.size.toString()} />
-      </div>
-
       <Card>
         <CardContent className="p-4 overflow-x-auto">
-          <TurniGrid
-            vista={vista}
-            giorni={giorni}
-            educatori={educatoreLight}
-            disponibilita={disponibilita}
-          />
+          {noAttiveAttivita ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-2)]">
+                <Calendar className="h-6 w-6 text-[var(--muted-foreground)]" />
+              </div>
+              <div>
+                <p className="font-medium text-[var(--ink)]">
+                  Nessuna attività attiva nel periodo
+                </p>
+                <p className="text-[13px] text-[var(--muted-foreground)] mt-1 max-w-md">
+                  Non si possono pianificare turni finché non ci sono attività
+                  con fasce orarie e giorni dichiarati. Crea o riattiva
+                  un&apos;attività per iniziare.
+                </p>
+              </div>
+              <Link
+                href="/attivita/nuova"
+                className="inline-flex items-center px-4 h-9 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-[13px] font-medium hover:bg-[var(--primary)]/90 no-underline"
+              >
+                Crea attività
+              </Link>
+            </div>
+          ) : (
+            <TurniGrid
+              vista={vista}
+              giorni={giorni}
+              educatori={educatoreLight}
+              disponibilita={disponibilita}
+              fasceOfferte={fasceOfferte}
+              giorniOfferti={giorniOfferti}
+              celleAttive={celleAttive}
+              todayIso={todayIso}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -375,17 +396,3 @@ export default async function TurniPage({
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-[10.5px] text-[var(--muted-foreground)] uppercase tracking-[0.06em]">
-          {label}
-        </div>
-        <div className="font-serif text-[28px] font-medium tracking-tight tabular-nums mt-1">
-          {value}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

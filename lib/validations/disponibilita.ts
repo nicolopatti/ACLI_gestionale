@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { FASCE_DISPONIBILITA } from "@/lib/config";
 
-const fasciaEnum = z.enum(FASCE_DISPONIBILITA);
-
+// Le fasce orarie ammesse vengono dalle Attività attive nel periodo, quindi
+// la validazione "fascia tra quelle offerte" è runtime-checked nei server
+// actions, non in Zod. Qui chiediamo solo una stringa non vuota.
 export const disponibilitaSlotSchema = z.object({
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data ISO obbligatoria"),
-  fasciaOraria: fasciaEnum,
+  fasciaOraria: z.string().trim().min(1, "Fascia oraria obbligatoria"),
 });
 
 export const disponibilitaBatchSchema = z.object({

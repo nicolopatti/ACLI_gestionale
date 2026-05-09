@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { FASCE_ORARIE, GIORNI_SETTIMANA } from "@/lib/config";
+import { GIORNI_SETTIMANA } from "@/lib/config";
 
 const giornoEnum = z.enum(GIORNI_SETTIMANA);
-const fasciaEnum = z.enum(FASCE_ORARIE);
 
+// Le fasce ammesse dipendono dall'Attività scelta: validazione "fascia tra
+// quelle offerte dall'attività" è runtime-checked nel server action, non qui.
 export const iscrizioneSchema = z.object({
   bambinoId: z.string().trim().min(1, "Bambino obbligatorio"),
   attivitaId: z.string().trim().min(1, "Attività obbligatoria"),
@@ -11,7 +12,7 @@ export const iscrizioneSchema = z.object({
   dataIscrizione: z.string().trim().optional().or(z.literal("")),
   sessioniSelteIds: z.array(z.string().min(1)).min(1, "Seleziona almeno una sessione"),
   giorniSettimana: z.array(giornoEnum).default([]),
-  fasceOrarie: z.array(fasciaEnum).default([]),
+  fasceOrarie: z.array(z.string().trim().min(1)).default([]),
   note: z.string().trim().optional().or(z.literal("")),
 });
 

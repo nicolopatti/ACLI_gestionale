@@ -8,14 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import { durataFasciaOre } from "@/lib/config";
+import {
+  listAttivitaAttiveInRange,
+  unionFasceOfferte,
+  unionGiorniOfferti,
+} from "@/lib/airtable/turni";
 import type { Disponibilita } from "@/lib/airtable/types";
-
-const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
-  "14-16": 2,
-  "14-18": 4,
-  "16-18": 2,
-};
 
 function meseCorrenteIso(): string {
   const d = new Date();
@@ -37,7 +36,7 @@ function aggregaOreEduMese(disp: Disponibilita[]): Map<
   const map = new Map<string, { ore: number; giorni: Set<string>; count: number }>();
   for (const d of disp) {
     const cur = map.get(d.educatoreId) ?? { ore: 0, giorni: new Set<string>(), count: 0 };
-    cur.ore += ORE_PER_FASCIA[d.fasciaOraria] ?? 0;
+    cur.ore += durataFasciaOre(d.fasciaOraria);
     cur.giorni.add(d.data);
     cur.count += 1;
     map.set(d.educatoreId, cur);
@@ -56,11 +55,19 @@ export default async function EducatoriPage({
 }) {
   const sp = await searchParams;
   const meseAnno = sp.mese && /^\d{4}-\d{2}$/.test(sp.mese) ? sp.mese : meseCorrenteIso();
+  const [yMese, mMese] = meseAnno.split("-").map(Number);
+  const startMese = `${meseAnno}-01`;
+  const ultimoGiornoMese = new Date(yMese, mMese, 0).getDate();
+  const endMese = `${meseAnno}-${String(ultimoGiornoMese).padStart(2, "0")}`;
 
-  const [educatori, dispMese] = await Promise.all([
+  const [educatori, dispMese, attiveMese] = await Promise.all([
     listEducatori(),
     listDisponibilitaByMese(meseAnno),
+    listAttivitaAttiveInRange(startMese, endMese),
   ]);
+
+  const fasceOfferte = unionFasceOfferte(attiveMese);
+  const giorniOfferti = unionGiorniOfferti(attiveMese);
 
   const oreByEducatore = aggregaOreEduMese(dispMese);
 
@@ -232,6 +239,8 @@ export default async function EducatoriPage({
                     educatoreId={selected.recordId}
                     meseAnno={meseAnno}
                     disponibilita={selectedDisp}
+                    fasceOfferte={fasceOfferte}
+                    giorniOfferti={giorniOfferti}
                   />
                 </CardContent>
               </Card>

@@ -1,9 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Calendar, Loader2 } from "lucide-react";
 import { salvaDisponibilitaAction } from "@/lib/actions/disponibilita";
-import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
+import {
+  dowToGiorno,
+  type FasciaOraria,
+  type GiornoSettimana,
+} from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +19,8 @@ interface Props {
   educatoreId: string;
   meseAnno: string;
   disponibilita: Disponibilita[];
+  fasceOfferte: FasciaOraria[];
+  giorniOfferti: GiornoSettimana[];
 }
 
 const NOMI_GIORNI = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
@@ -57,12 +64,16 @@ export function CalendarioDisponibilita({
   educatoreId,
   meseAnno,
   disponibilita,
+  fasceOfferte,
+  giorniOfferti,
 }: Props) {
+  const router = useRouter();
   const [meseSel, setMeseSel] = useState(meseAnno);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
   const giorni = useMemo(() => giorniDelMese(meseSel), [meseSel]);
+  const giorniSet = useMemo(() => new Set(giorniOfferti), [giorniOfferti]);
   const setIniziale = useMemo(
     () =>
       new Set(
@@ -74,7 +85,7 @@ export function CalendarioDisponibilita({
   );
   const [checked, setChecked] = useState<Set<string>>(setIniziale);
 
-  const toggle = (data: string, fascia: FasciaDisponibilita) => {
+  const toggle = (data: string, fascia: FasciaOraria) => {
     const key = `${data}__${fascia}`;
     setChecked((prev) => {
       const next = new Set(prev);
@@ -101,13 +112,20 @@ export function CalendarioDisponibilita({
     startTransition(async () => {
       setMessage(null);
       const res = await salvaDisponibilitaAction(fd);
-      if (res?.error) setMessage(`Errore: ${res.error}`);
-      else setMessage("Disponibilità salvate.");
+      if (res?.error) {
+        setMessage(`Errore: ${res.error}`);
+      } else {
+        setMessage("Disponibilità salvate.");
+        // Forza re-fetch dei dati server (calendario + viste collegate).
+        router.refresh();
+      }
     });
   };
 
   const [y, m] = meseSel.split("-").map((s) => parseInt(s, 10));
   const meseLabel = `${NOMI_MESI[m - 1]} ${y}`;
+
+  const noConfigForMonth = fasceOfferte.length === 0 || giorniOfferti.length === 0;
 
   return (
     <div className="space-y-4">
@@ -137,65 +155,92 @@ export function CalendarioDisponibilita({
 
       <h2 className="text-lg font-semibold capitalize">{meseLabel}</h2>
 
-      <form onSubmit={submit}>
+      {noConfigForMonth ? (
         <Card>
-          <CardContent className="p-0 overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--muted)]/50">
-                  <th className="text-left p-2 w-32">Giorno</th>
-                  {FASCE_DISPONIBILITA.map((f) => (
-                    <th key={f} className="p-2 text-center w-24">
-                      {f}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {giorni.map((g) => {
-                  const isWeekend = g.dow === 0 || g.dow === 6;
-                  return (
-                    <tr
-                      key={g.data}
-                      className={`border-b border-[var(--border)] ${isWeekend ? "bg-[var(--muted)]/30" : ""}`}
-                    >
-                      <td className="p-2">
-                        <span className="capitalize text-[var(--muted-foreground)]">
-                          {NOMI_GIORNI[g.dow]}
-                        </span>{" "}
-                        <span className="font-medium">{g.numero}</span>
-                      </td>
-                      {FASCE_DISPONIBILITA.map((f) => {
-                        const key = `${g.data}__${f}`;
-                        return (
-                          <td key={f} className="p-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={checked.has(key)}
-                              onChange={() => toggle(g.data, f)}
-                              className="h-4 w-4"
-                            />
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-2)]">
+              <Calendar className="h-6 w-6 text-[var(--muted-foreground)]" />
+            </div>
+            <div>
+              <p className="font-medium text-[var(--ink)]">
+                Nessuna attività attiva in questo mese
+              </p>
+              <p className="text-[13px] text-[var(--muted-foreground)] mt-1 max-w-md">
+                Le disponibilità si possono registrare solo per fasce orarie e
+                giorni dichiarati da almeno un&apos;attività attiva nel periodo.
+              </p>
+            </div>
           </CardContent>
         </Card>
-        <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Salva disponibilità
-          </Button>
-          {message && <p className="text-sm">{message}</p>}
-          <p className="text-xs text-[var(--muted-foreground)] ml-auto">
-            Spunta le caselle nelle fasce in cui sei disponibile per quel giorno.
-          </p>
-        </div>
-      </form>
+      ) : (
+        <form onSubmit={submit}>
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border)] bg-[var(--muted)]/50">
+                    <th className="text-left p-2 w-32">Giorno</th>
+                    {fasceOfferte.map((f) => (
+                      <th key={f} className="p-2 text-center w-24">
+                        {f}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {giorni.map((g) => {
+                    const giornoEnum = dowToGiorno(g.dow);
+                    const giornoOfferto = giorniSet.has(giornoEnum);
+                    return (
+                      <tr
+                        key={g.data}
+                        className={`border-b border-[var(--border)] ${
+                          !giornoOfferto ? "bg-[var(--surface-2)]/30 opacity-60" : ""
+                        }`}
+                      >
+                        <td className="p-2">
+                          <span className="capitalize text-[var(--muted-foreground)]">
+                            {NOMI_GIORNI[g.dow]}
+                          </span>{" "}
+                          <span className="font-medium">{g.numero}</span>
+                        </td>
+                        {fasceOfferte.map((f) => {
+                          const key = `${g.data}__${f}`;
+                          return (
+                            <td key={f} className="p-2 text-center">
+                              {giornoOfferto ? (
+                                <input
+                                  type="checkbox"
+                                  checked={checked.has(key)}
+                                  onChange={() => toggle(g.data, f)}
+                                  className="h-4 w-4"
+                                />
+                              ) : (
+                                <span className="text-[var(--muted-2)]/60 text-xs">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+          <div className="mt-4 flex items-center gap-3">
+            <Button type="submit" disabled={pending}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Salva disponibilità
+            </Button>
+            {message && <p className="text-sm">{message}</p>}
+            <p className="text-xs text-[var(--muted-foreground)] ml-auto">
+              Spunta le fasce/giorni in cui sei disponibile. Le righe oscurate
+              non sono offerte da nessuna attività.
+            </p>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

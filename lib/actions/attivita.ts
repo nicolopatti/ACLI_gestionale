@@ -32,6 +32,8 @@ function parseAttivitaForm(formData: FormData) {
     autoGeneraSessioniMensili:
       formData.get("autoGeneraSessioniMensili") === "on" ||
       formData.get("autoGeneraSessioniMensili") === "true",
+    giorniSettimana: formData.getAll("giorniSettimana"),
+    fasceOrarie: formData.getAll("fasceOrarie"),
   };
 }
 
@@ -42,35 +44,43 @@ export async function createAttivitaAction(_prev: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  const created = await createAttivita({
-    nome: d.nome,
-    tipo: d.tipo,
-    dataInizio: d.dataInizio || undefined,
-    dataFine: d.dataFine || undefined,
-    attivo: d.attivo,
-    note: d.note || undefined,
-  });
+  let createdId: string;
+  try {
+    const created = await createAttivita({
+      nome: d.nome,
+      tipo: d.tipo,
+      dataInizio: d.dataInizio || undefined,
+      dataFine: d.dataFine || undefined,
+      attivo: d.attivo,
+      note: d.note || undefined,
+      giorniSettimana: d.giorniSettimana,
+      fasceOrarie: d.fasceOrarie,
+    });
+    createdId = created.recordId;
 
-  if (d.tipo === "doposcuola" && d.autoGeneraSessioniMensili) {
-    const annoScolastico = annoScolasticoCorrente();
-    const mesi = generaMesiAnnoScolastico(annoScolastico);
-    await createSessioniBatch(
-      mesi.map((meseAnno) => {
-        const { dataInizio, dataFine } = primoEUltimoGiornoDelMese(meseAnno);
-        return {
-          attivitaId: created.recordId,
-          tipoUnita: "mese" as const,
-          chiave: meseAnno,
-          etichetta: etichettaMese(meseAnno),
-          dataInizio,
-          dataFine,
-        };
-      }),
-    );
+    if (d.tipo === "doposcuola" && d.autoGeneraSessioniMensili) {
+      const annoScolastico = annoScolasticoCorrente();
+      const mesi = generaMesiAnnoScolastico(annoScolastico);
+      await createSessioniBatch(
+        mesi.map((meseAnno) => {
+          const { dataInizio, dataFine } = primoEUltimoGiornoDelMese(meseAnno);
+          return {
+            attivitaId: created.recordId,
+            tipoUnita: "mese" as const,
+            chiave: meseAnno,
+            etichetta: etichettaMese(meseAnno),
+            dataInizio,
+            dataFine,
+          };
+        }),
+      );
+    }
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
   }
 
   revalidatePath("/attivita");
-  redirect(`/attivita/${created.recordId}`);
+  redirect(`/attivita/${createdId}`);
 }
 
 export async function updateAttivitaAction(
@@ -84,14 +94,20 @@ export async function updateAttivitaAction(
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  await updateAttivita(recordId, {
-    nome: d.nome,
-    tipo: d.tipo,
-    data_inizio: d.dataInizio || "",
-    data_fine: d.dataFine || "",
-    attivo: d.attivo,
-    note: d.note || "",
-  });
+  try {
+    await updateAttivita(recordId, {
+      nome: d.nome,
+      tipo: d.tipo,
+      data_inizio: d.dataInizio || "",
+      data_fine: d.dataFine || "",
+      attivo: d.attivo,
+      note: d.note || "",
+      giorni_settimana: d.giorniSettimana,
+      fasce_orarie: d.fasceOrarie,
+    });
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
+  }
   revalidatePath("/attivita");
   revalidatePath(`/attivita/${recordId}`);
   return { ok: true };
@@ -99,7 +115,11 @@ export async function updateAttivitaAction(
 
 export async function deleteAttivitaAction(recordId: string) {
   await requireAdmin();
-  await deleteAttivita(recordId);
+  try {
+    await deleteAttivita(recordId);
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante l'eliminazione" };
+  }
   revalidatePath("/attivita");
   redirect("/attivita");
 }

@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { getEducatore } from "@/lib/airtable/educatori";
 import { listDisponibilitaByEducatore } from "@/lib/airtable/disponibilita";
+import {
+  listAttivitaAttiveInRange,
+  unionFasceOfferte,
+  unionGiorniOfferti,
+} from "@/lib/airtable/turni";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EducatoreForm } from "@/components/educatori/educatore-form";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";
@@ -24,12 +29,18 @@ export default async function EducatoreDetailPage({
   const sp = await searchParams;
   const meseAnno =
     sp.mese && /^\d{4}-\d{2}$/.test(sp.mese) ? sp.mese : meseCorrenteIso();
+  const [yMese, mMese] = meseAnno.split("-").map(Number);
+  const startMese = `${meseAnno}-01`;
+  const endMese = `${meseAnno}-${String(new Date(yMese, mMese, 0).getDate()).padStart(2, "0")}`;
 
-  const [educatore, disponibilita] = await Promise.all([
+  const [educatore, disponibilita, attiveMese] = await Promise.all([
     getEducatore(id),
     listDisponibilitaByEducatore(id),
+    listAttivitaAttiveInRange(startMese, endMese),
   ]);
   if (!educatore) notFound();
+  const fasceOfferte = unionFasceOfferte(attiveMese);
+  const giorniOfferti = unionGiorniOfferti(attiveMese);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -62,6 +73,8 @@ export default async function EducatoreDetailPage({
             educatoreId={educatore.recordId}
             meseAnno={meseAnno}
             disponibilita={disponibilita}
+            fasceOfferte={fasceOfferte}
+            giorniOfferti={giorniOfferti}
           />
         </CardContent>
       </Card>
