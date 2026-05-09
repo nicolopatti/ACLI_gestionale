@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toggleAttivoAction } from "@/lib/actions/utenti";
+import { ResetPasswordDialog } from "@/components/utenti/reset-password-dialog";
 import { formatDate } from "@/lib/utils";
 
 export default async function UtentiPage() {
@@ -76,16 +77,23 @@ export default async function UtentiPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <form
-                        action={async () => {
-                          "use server";
-                          await toggleAttivoAction(u.recordId, !u.attivo);
-                        }}
-                      >
-                        <Button size="sm" variant="outline" type="submit">
-                          {u.attivo ? "Disattiva" : "Riattiva"}
-                        </Button>
-                      </form>
+                      <div className="flex items-center justify-end gap-2">
+                        <ResetPasswordDialog
+                          recordId={u.recordId}
+                          nome={u.nome}
+                          email={u.email}
+                        />
+                        <form
+                          action={async () => {
+                            "use server";
+                            await toggleAttivoAction(u.recordId, !u.attivo);
+                          }}
+                        >
+                          <Button size="sm" variant="outline" type="submit">
+                            {u.attivo ? "Disattiva" : "Riattiva"}
+                          </Button>
+                        </form>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
