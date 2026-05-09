@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ActionButton } from "@/components/ui/action-button";
 import { salvaPresenzeAction } from "@/lib/actions/presenze";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import type { Attivita, Bambino, Iscrizione, Presenza } from "@/lib/airtable/types";
 
 interface CandidatoPresenza {
@@ -42,8 +43,10 @@ export function GrigliaPresenze({
   presenzeEsistenti,
 }: Props) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
+  const fb = useActionFeedback({
+    successToast: "Presenze salvate",
+    onSuccess: () => router.refresh(),
+  });
   const [date, setDate] = useState(data);
   const [attivitaSel, setAttivitaSel] = useState(attivitaId);
 
@@ -95,14 +98,10 @@ export function GrigliaPresenze({
 
       <form
         action={(formData) =>
-          startTransition(async () => {
+          fb.run(async () => {
             const res = await salvaPresenzeAction(formData);
-            if (res?.error) {
-              setMessage(`Errore: ${res.error}`);
-            } else {
-              setMessage("Presenze salvate.");
-              router.refresh();
-            }
+            // L'action torna `{ error }` su errore o `undefined` su successo.
+            return res?.error ? { error: res.error } : { ok: true };
           })
         }
       >
@@ -181,11 +180,17 @@ export function GrigliaPresenze({
           </CardContent>
         </Card>
         <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" disabled={pending || candidati.length === 0}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <ActionButton
+            type="submit"
+            disabled={candidati.length === 0}
+            pending={fb.pending}
+            success={fb.success}
+            error={fb.error}
+            pendingText="Salvataggio…"
+            successText="Salvate ✓"
+          >
             Salva presenze
-          </Button>
-          {message && <p className="text-sm">{message}</p>}
+          </ActionButton>
           <p className="text-xs text-[var(--muted-foreground)] ml-auto">
             Lascia vuoti entrambi gli orari per registrare un&apos;assenza.
           </p>

@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
 import {
   createAttivitaAction,
   updateAttivitaAction,
 } from "@/lib/actions/attivita";
 import { TIPI_ATTIVITA, type TipoAttivita } from "@/lib/config";
-import { Button } from "@/components/ui/button";
+import { ActionButton, CheckIconAnimated } from "@/components/ui/action-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +28,18 @@ export function AttivitaForm({ attivita }: Props) {
     { error?: string; ok?: boolean } | undefined,
     FormData
   >(action, undefined);
+  const [success, setSuccess] = useState(false);
+  const hasError = !!state?.error;
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (state?.ok) {
+      setSuccess(true);
+      const id = setTimeout(() => setSuccess(false), 1400);
+      return () => clearTimeout(id);
+    }
+  }, [state]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const [tipo, setTipo] = useState<TipoAttivita>(attivita?.tipo ?? "doposcuola");
   const isDoposcuola = tipo === "doposcuola";
@@ -111,13 +122,24 @@ export function AttivitaForm({ attivita }: Props) {
         </p>
       )}
       {state?.error ? (
-        <p className="text-sm text-[var(--destructive)]">{state.error}</p>
+        <p className="text-sm text-[var(--destructive)] field-error" key={state.error}>
+          {state.error}
+        </p>
       ) : null}
-      {state?.ok ? <p className="text-sm text-emerald-700">Salvato.</p> : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      {state?.ok ? (
+        <p className="flex items-center gap-1.5 text-sm text-[var(--success-soft-ink)]">
+          <CheckIconAnimated /> Salvato.
+        </p>
+      ) : null}
+      <ActionButton
+        type="submit"
+        pending={pending}
+        success={success}
+        error={hasError && !pending}
+        pendingText="Salvataggio…"
+      >
         {attivita ? "Aggiorna" : "Crea attività"}
-      </Button>
+      </ActionButton>
     </form>
   );
 }

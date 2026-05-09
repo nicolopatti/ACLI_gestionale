@@ -1,17 +1,19 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { useTransition } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   createModalitaAction,
   deleteModalitaAction,
 } from "@/lib/actions/modalita-iscrizione";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { formatEur } from "@/lib/utils";
 import type { ModalitaIscrizione } from "@/lib/airtable/types";
 
@@ -27,16 +29,35 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
     { error?: string; ok?: boolean } | undefined,
     FormData
   >(createModalitaAction, undefined);
-  const [deletePending, startDelete] = useTransition();
+  const [success, setSuccess] = useState(false);
+  const fbDelete = useActionFeedback({
+    successToast: "Modalità eliminata",
+    onSuccess: () => router.refresh(),
+  });
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const hasError = !!state?.error;
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (state?.ok) {
+      formRef.current?.reset();
+      setSuccess(true);
+      toast.success("Modalità aggiunta");
+      const id = setTimeout(() => setSuccess(false), 1400);
+      return () => clearTimeout(id);
+    }
   }, [state]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const onDelete = (id: string) => {
-    startDelete(async () => {
-      await deleteModalitaAction(id, attivitaId);
-      router.refresh();
+    setPendingDeleteId(id);
+    fbDelete.run(async () => {
+      try {
+        await deleteModalitaAction(id, attivitaId);
+        return { ok: true };
+      } finally {
+        setPendingDeleteId((curr) => (curr === id ? null : curr));
+      }
     });
   };
 
@@ -76,7 +97,9 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
                   size="icon"
                   onClick={() => onDelete(m.recordId)}
                   aria-label="Elimina modalità"
-                  disabled={deletePending}
+                  disabled={fbDelete.pending}
+                  className="btn-tactile"
+                  data-saved={pendingDeleteId === m.recordId && fbDelete.success ? "true" : undefined}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -121,13 +144,26 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
           />
         </div>
         <div className="md:col-span-2 flex items-end">
-          <Button type="submit" disabled={pending} className="w-full">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <ActionButton
+            type="submit"
+            pending={pending}
+            success={success}
+            error={hasError && !pending}
+            pendingText="Aggiungo…"
+            successText="Aggiunta ✓"
+            idleIcon={<Plus className="h-4 w-4" />}
+            className="w-full"
+          >
             Aggiungi
-          </Button>
+          </ActionButton>
         </div>
         {state?.error && (
-          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{state.error}</p>
+          <p
+            className="md:col-span-12 text-sm text-[var(--destructive)] field-error"
+            key={state.error}
+          >
+            {state.error}
+          </p>
         )}
       </form>
 

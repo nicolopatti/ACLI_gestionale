@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { salvaDisponibilitaAction } from "@/lib/actions/disponibilita";
 import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import type { Disponibilita } from "@/lib/airtable/types";
 
 interface Props {
@@ -59,8 +60,7 @@ export function CalendarioDisponibilita({
   disponibilita,
 }: Props) {
   const [meseSel, setMeseSel] = useState(meseAnno);
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
+  const fb = useActionFeedback({ successToast: "Disponibilità salvate" });
 
   const giorni = useMemo(() => giorniDelMese(meseSel), [meseSel]);
   const setIniziale = useMemo(
@@ -98,11 +98,9 @@ export function CalendarioDisponibilita({
     for (const key of checked) {
       fd.set(`slot_${key}`, "on");
     }
-    startTransition(async () => {
-      setMessage(null);
+    fb.run(async () => {
       const res = await salvaDisponibilitaAction(fd);
-      if (res?.error) setMessage(`Errore: ${res.error}`);
-      else setMessage("Disponibilità salvate.");
+      return res?.error ? { error: res.error } : { ok: true };
     });
   };
 
@@ -186,11 +184,16 @@ export function CalendarioDisponibilita({
           </CardContent>
         </Card>
         <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <ActionButton
+            type="submit"
+            pending={fb.pending}
+            success={fb.success}
+            error={fb.error}
+            pendingText="Salvataggio…"
+            successText="Salvate ✓"
+          >
             Salva disponibilità
-          </Button>
-          {message && <p className="text-sm">{message}</p>}
+          </ActionButton>
           <p className="text-xs text-[var(--muted-foreground)] ml-auto">
             Spunta le caselle nelle fasce in cui sei disponibile per quel giorno.
           </p>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { creaMovimentoAction } from "@/lib/actions/movimenti";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { cn, formatEur } from "@/lib/utils";
 import { MEZZI_PAGAMENTO, type MezzoPagamento } from "@/lib/config";
 
@@ -41,32 +42,29 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
   const [descrizione, setDescrizione] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const fb = useActionFeedback({
+    successToast: "Movimento registrato",
+    onSuccess: () => {
+      setConfirmOpen(false);
+      formRef.current?.reset();
+      setImporto("");
+      setDescrizione("");
+      setNote("");
+      setCategoriaId("");
+      setData(new Date().toISOString().slice(0, 10));
+    },
+  });
 
   function handleConfirm() {
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("tipo", tipo);
-      fd.set("conto", conto);
-      fd.set("importo", importo);
-      fd.set("dataMovimento", data);
-      fd.set("categoriaId", categoriaId);
-      fd.set("descrizione", descrizione);
-      fd.set("note", note);
-      const res = await creaMovimentoAction(undefined, fd);
-      if (res?.ok) {
-        toast.success("Movimento registrato");
-        setConfirmOpen(false);
-        formRef.current?.reset();
-        setImporto("");
-        setDescrizione("");
-        setNote("");
-        setCategoriaId("");
-        setData(new Date().toISOString().slice(0, 10));
-      } else if (res?.error) {
-        toast.error(res.error);
-      }
-    });
+    const fd = new FormData();
+    fd.set("tipo", tipo);
+    fd.set("conto", conto);
+    fd.set("importo", importo);
+    fd.set("dataMovimento", data);
+    fd.set("categoriaId", categoriaId);
+    fd.set("descrizione", descrizione);
+    fd.set("note", note);
+    fb.run(() => creaMovimentoAction(undefined, fd));
   }
 
   const categorieFiltrate = categorie.filter((c) => c.tipo === tipo);
@@ -214,7 +212,7 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
         </div>
 
         <div className="flex justify-end pt-2">
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" className="btn-tactile" disabled={fb.pending}>
             Registra movimento
           </Button>
         </div>
@@ -251,13 +249,25 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
             {note ? <Riepilogo k="Note" v={note} /> : null}
           </dl>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={fb.pending}
+            >
               Annulla
             </Button>
-            <Button type="button" onClick={handleConfirm} disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <ActionButton
+              type="button"
+              onClick={handleConfirm}
+              pending={fb.pending}
+              success={fb.success}
+              error={fb.error}
+              pendingText="Salvataggio…"
+              successText="Registrato"
+            >
               Conferma e salva
-            </Button>
+            </ActionButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

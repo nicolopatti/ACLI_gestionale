@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 import { salvaTurnoCellaAction } from "@/lib/actions/disponibilita";
 import {
   Dialog,
@@ -12,9 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { cn } from "@/lib/utils";
 import type { FasciaDisponibilita } from "@/lib/config";
 
@@ -58,7 +58,10 @@ export function TurnoDialog({
   initialRows,
 }: TurnoDialogProps) {
   const [rows, setRows] = useState<TurnoRowState[]>(initialRows);
-  const [pending, startTransition] = useTransition();
+  const fb = useActionFeedback({
+    successToast: "Turno salvato",
+    onSuccess: () => onOpenChange(false),
+  });
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.educatoreId)), [rows]);
 
@@ -82,28 +85,20 @@ export function TurnoDialog({
   }
 
   function handleSave() {
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("data", data);
-      fd.set("fascia", fascia);
-      fd.set(
-        "rows",
-        JSON.stringify(
-          rows.map((r) => ({
-            educatoreId: r.educatoreId,
-            oraIngresso: r.oraIngresso || undefined,
-            oraUscita: r.oraUscita || undefined,
-          })),
-        ),
-      );
-      const res = await salvaTurnoCellaAction(undefined, fd);
-      if (res?.ok) {
-        toast.success("Turno salvato");
-        onOpenChange(false);
-      } else if (res?.error) {
-        toast.error(res.error);
-      }
-    });
+    const fd = new FormData();
+    fd.set("data", data);
+    fd.set("fascia", fascia);
+    fd.set(
+      "rows",
+      JSON.stringify(
+        rows.map((r) => ({
+          educatoreId: r.educatoreId,
+          oraIngresso: r.oraIngresso || undefined,
+          oraUscita: r.oraUscita || undefined,
+        })),
+      ),
+    );
+    fb.run(() => salvaTurnoCellaAction(undefined, fd));
   }
 
   return (
@@ -196,13 +191,24 @@ export function TurnoDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={fb.pending}
+          >
             Annulla
           </Button>
-          <Button type="button" onClick={handleSave} disabled={pending}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <ActionButton
+            type="button"
+            onClick={handleSave}
+            pending={fb.pending}
+            success={fb.success}
+            error={fb.error}
+            pendingText="Salvataggio…"
+          >
             Salva
-          </Button>
+          </ActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

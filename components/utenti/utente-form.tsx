@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Loader2 } from "lucide-react";
 import { createUtenteAction } from "@/lib/actions/utenti";
-import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RUOLI, etichettaRuolo } from "@/lib/config";
@@ -13,6 +12,7 @@ export function UtenteForm() {
     { error?: string } | undefined,
     FormData
   >(createUtenteAction, undefined);
+  const hasError = !!state?.error;
 
   return (
     <form action={action} className="space-y-4">
@@ -55,12 +55,18 @@ export function UtenteForm() {
         </div>
       </div>
       {state?.error ? (
-        <p className="text-sm text-[var(--destructive)]">{state.error}</p>
+        <p className="text-sm text-[var(--destructive)] field-error" key={state.error}>
+          {state.error}
+        </p>
       ) : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      <ActionButton
+        type="submit"
+        pending={pending}
+        error={hasError && !pending}
+        pendingText="Creazione…"
+      >
         Crea utente
-      </Button>
+      </ActionButton>
     </form>
   );
 }

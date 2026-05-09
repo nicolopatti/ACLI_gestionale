@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { segnaPagatoAction } from "@/lib/actions/mesi";
 import {
   Dialog,
@@ -12,9 +11,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { MEZZI_PAGAMENTO } from "@/lib/config";
 import { meseAnnoLabel } from "@/lib/utils";
 import type { MeseIscrizione } from "@/lib/airtable/types";
@@ -26,19 +27,25 @@ function periodoLabel(m: MeseIscrizione): string {
 
 export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState<
-    { error?: string; ok?: boolean } | undefined,
-    FormData
-  >(segnaPagatoAction, undefined);
+  const fb = useActionFeedback({
+    successToast: "Pagamento registrato",
+    onSuccess: () => {
+      // Tengo il dialog aperto per ~600ms così l'utente vede il flash
+      // verde sul bottone "Conferma pagamento" prima che si chiuda.
+      setTimeout(() => setOpen(false), 600);
+    },
+  });
 
-  if (state?.ok && open) {
-    setTimeout(() => setOpen(false), 200);
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    fb.run(() => segnaPagatoAction(undefined, fd));
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="btn-tactile">
           Segna pagato
         </Button>
       </DialogTrigger>
@@ -49,7 +56,7 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
             Importo dovuto: <strong>{mese.importoDovuto.toFixed(2)} €</strong>
           </DialogDescription>
         </DialogHeader>
-        <form action={action} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <input type="hidden" name="meseId" value={mese.recordId} />
           <div className="space-y-2">
             <Label htmlFor="importoPagato">Importo pagato (€)</Label>
@@ -93,14 +100,17 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
             <Label htmlFor="note">Note</Label>
             <Input id="note" name="note" />
           </div>
-          {state?.error ? (
-            <p className="text-sm text-[var(--destructive)]">{state.error}</p>
-          ) : null}
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <ActionButton
+              type="submit"
+              pending={fb.pending}
+              success={fb.success}
+              error={fb.error}
+              pendingText="Salvataggio…"
+              successText="Pagato ✓"
+            >
               Conferma pagamento
-            </Button>
+            </ActionButton>
           </DialogFooter>
         </form>
       </DialogContent>

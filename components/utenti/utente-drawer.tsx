@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Loader2, RefreshCw } from "lucide-react";
+import { Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   aggiornaUtenteAction,
@@ -19,9 +19,11 @@ import {
 } from "@/components/ui/sheet";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { RUOLI, etichettaRuolo, type Ruolo } from "@/lib/config";
 import { formatDate } from "@/lib/utils";
 import type { User } from "@/lib/airtable/types";
@@ -48,48 +50,45 @@ export function UtenteDrawer({ user, open, onOpenChange }: Props) {
   const [attivo, setAttivo] = useState<boolean>(user.attivo);
 
   const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [pendingSave, startSave] = useTransition();
-  const [pendingReset, startReset] = useTransition();
+  const fbSave = useActionFeedback({
+    successToast: "Utente aggiornato",
+    onSuccess: () => {
+      onOpenChange(false);
+      router.refresh();
+    },
+  });
+  const fbReset = useActionFeedback({
+    successToast: "Password rigenerata",
+    onSuccess: () => router.refresh(),
+  });
 
   const dirty =
     nome !== user.nome ||
     ruolo !== user.ruolo ||
     (telegramUserId || "") !== (user.telegramUserId ?? "") ||
     attivo !== user.attivo;
+  const pendingSave = fbSave.pending;
+  const pendingReset = fbReset.pending;
 
   function handleSave() {
-    startSave(async () => {
-      const fd = new FormData();
-      fd.set("recordId", user.recordId);
-      fd.set("nome", nome);
-      fd.set("ruolo", ruolo);
-      fd.set("telegramUserId", telegramUserId);
-      fd.set("attivo", attivo ? "true" : "false");
-      const res = await aggiornaUtenteAction(undefined, fd);
-      if (res?.ok) {
-        toast.success("Utente aggiornato");
-        onOpenChange(false);
-        router.refresh();
-      } else if (res?.error) {
-        toast.error(res.error);
-      }
-    });
+    const fd = new FormData();
+    fd.set("recordId", user.recordId);
+    fd.set("nome", nome);
+    fd.set("ruolo", ruolo);
+    fd.set("telegramUserId", telegramUserId);
+    fd.set("attivo", attivo ? "true" : "false");
+    fbSave.run(() => aggiornaUtenteAction(undefined, fd));
   }
 
   function handleResetPassword() {
     const password = generaPasswordCasuale();
-    startReset(async () => {
-      const fd = new FormData();
-      fd.set("recordId", user.recordId);
-      fd.set("passwordTemporanea", password);
+    const fd = new FormData();
+    fd.set("recordId", user.recordId);
+    fd.set("passwordTemporanea", password);
+    fbReset.run(async () => {
       const res = await resetPasswordAction(undefined, fd);
-      if (res?.ok) {
-        setTempPassword(password);
-        toast.success("Password rigenerata");
-        router.refresh();
-      } else if (res?.error) {
-        toast.error(res.error);
-      }
+      if (res?.ok) setTempPassword(password);
+      return res;
     });
   }
 
@@ -192,20 +191,20 @@ export function UtenteDrawer({ user, open, onOpenChange }: Props) {
                 primo accesso.
               </p>
             </div>
-            <Button
+            <ActionButton
               type="button"
               variant="outline"
               size="sm"
               onClick={handleResetPassword}
-              disabled={pendingReset}
+              pending={pendingReset}
+              success={fbReset.success}
+              error={fbReset.error}
+              pendingText="Generazione…"
+              successText="Generata"
+              idleIcon={<RefreshCw className="h-4 w-4" />}
             >
-              {pendingReset ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
               Reset password
-            </Button>
+            </ActionButton>
             {tempPassword ? (
               <div className="rounded-lg border border-[var(--success)]/40 bg-[var(--success-soft)] px-3 py-2.5 space-y-2">
                 <div className="text-[11.5px] uppercase tracking-wide text-[var(--success-soft-ink)]">
@@ -248,10 +247,16 @@ export function UtenteDrawer({ user, open, onOpenChange }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pendingSave}>
             Chiudi
           </Button>
-          <Button onClick={handleSave} disabled={!dirty || pendingSave}>
-            {pendingSave ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <ActionButton
+            onClick={handleSave}
+            disabled={!dirty}
+            pending={pendingSave}
+            success={fbSave.success}
+            error={fbSave.error}
+            pendingText="Salvataggio…"
+          >
             Salva modifiche
-          </Button>
+          </ActionButton>
         </SheetFooter>
       </SheetContent>
     </Sheet>

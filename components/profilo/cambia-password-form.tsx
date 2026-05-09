@@ -1,9 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { cambiaPasswordAction } from "@/lib/actions/utenti";
-import { Button } from "@/components/ui/button";
+import { ActionButton, CheckIconAnimated } from "@/components/ui/action-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -13,10 +12,23 @@ export function CambiaPasswordForm() {
     FormData
   >(cambiaPasswordAction, undefined);
   const formRef = useRef<HTMLFormElement>(null);
+  const [success, setSuccess] = useState(false);
 
+  // Quando l'azione torna ok, accendo "success" per ~1.4s così il bottone
+  // mostra il flash verde e l'utente vede chiaramente che il salvataggio è
+  // andato a buon fine. Reset del form a parte.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (state?.ok) {
+      formRef.current?.reset();
+      setSuccess(true);
+      const id = setTimeout(() => setSuccess(false), 1400);
+      return () => clearTimeout(id);
+    }
   }, [state]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const hasError = !!state?.error;
 
   return (
     <form ref={formRef} action={action} className="space-y-4">
@@ -53,15 +65,25 @@ export function CambiaPasswordForm() {
         />
       </div>
       {state?.error ? (
-        <p className="text-sm text-[var(--destructive)]">{state.error}</p>
+        <p className="text-sm text-[var(--destructive)] field-error" key={state.error}>
+          {state.error}
+        </p>
       ) : null}
       {state?.ok ? (
-        <p className="text-sm text-emerald-700">Password aggiornata.</p>
+        <p className="flex items-center gap-1.5 text-sm text-[var(--success-soft-ink)]">
+          <CheckIconAnimated /> Password aggiornata.
+        </p>
       ) : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      <ActionButton
+        type="submit"
+        pending={pending}
+        success={success}
+        error={hasError && !pending}
+        pendingText="Salvataggio…"
+        successText="Aggiornata ✓"
+      >
         Aggiorna password
-      </Button>
+      </ActionButton>
     </form>
   );
 }
