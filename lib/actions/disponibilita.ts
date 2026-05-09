@@ -80,13 +80,22 @@ export async function salvaDisponibilitaAction(formData: FormData) {
   const educatore = await getEducatore(educatoreId);
   if (!educatore) return { error: "Educatore non trovato" };
 
-  await replaceDisponibilita(
-    educatoreId,
-    educatore.nomeCompleto,
-    meseAnno,
-    parsed.data.slots,
-  );
+  try {
+    await replaceDisponibilita(
+      educatoreId,
+      educatore.nomeCompleto,
+      meseAnno,
+      parsed.data.slots,
+    );
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
+  }
+  // Rinfresca tutte le viste che dipendono dalla Disponibilita: scheda
+  // educatore, lista educatori (KPI ore mese), e griglia turni.
   revalidatePath(`/educatori/${educatoreId}`);
+  revalidatePath("/educatori");
+  revalidatePath("/turni");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

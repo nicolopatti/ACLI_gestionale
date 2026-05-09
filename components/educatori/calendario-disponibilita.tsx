@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, Loader2 } from "lucide-react";
 import { salvaDisponibilitaAction } from "@/lib/actions/disponibilita";
 import {
@@ -66,6 +67,7 @@ export function CalendarioDisponibilita({
   fasceOfferte,
   giorniOfferti,
 }: Props) {
+  const router = useRouter();
   const [meseSel, setMeseSel] = useState(meseAnno);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -110,8 +112,13 @@ export function CalendarioDisponibilita({
     startTransition(async () => {
       setMessage(null);
       const res = await salvaDisponibilitaAction(fd);
-      if (res?.error) setMessage(`Errore: ${res.error}`);
-      else setMessage("Disponibilità salvate.");
+      if (res?.error) {
+        setMessage(`Errore: ${res.error}`);
+      } else {
+        setMessage("Disponibilità salvate.");
+        // Forza re-fetch dei dati server (calendario + viste collegate).
+        router.refresh();
+      }
     });
   };
 

@@ -145,6 +145,7 @@ export interface Presenza {
   bambinoId: string;
   sessioneId?: string;
   data: string;
+  presente?: boolean;
   oraIngresso?: string;
   oraUscita?: string;
   note?: string;
@@ -153,6 +154,7 @@ export interface Presenza {
 }
 
 export function presenzaAssente(p: Presenza): boolean {
+  if (typeof p.presente === "boolean") return !p.presente;
   return !p.oraIngresso && !p.oraUscita;
 }
 
