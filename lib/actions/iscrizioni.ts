@@ -81,15 +81,14 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
     note: d.note || undefined,
   });
 
-  // Materializza una rata per ogni sessione scelta. Snapshot dell'importo:
-  // override sessione → fallback alla modalità.
+  // Materializza una rata per ogni sessione scelta. Snapshot dell'importo dalla modalità.
   await createMesi(
     sessioni.map((s) => ({
       iscrizioneId: iscr.recordId,
       sessioneId: s.recordId,
       tipoUnita: s.tipoUnita,
       chiavePeriodo: s.chiave,
-      importoDovuto: s.importo ?? modalita.importo,
+      importoDovuto: modalita.importo,
       meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
     })),
   );
@@ -174,7 +173,7 @@ export async function updateIscrizioneAction(
         sessioneId: s.recordId,
         tipoUnita: s.tipoUnita,
         chiavePeriodo: s.chiave,
-        importoDovuto: s.importo ?? modalita.importo,
+        importoDovuto: modalita.importo,
         meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
       })),
     );

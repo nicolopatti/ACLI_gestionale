@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { TIPI_UNITA, type TipoUnita } from "@/lib/config";
@@ -12,7 +12,7 @@ import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatDate, formatEur } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import type { Sessione } from "@/lib/airtable/types";
 
 const SELECT_CLASS =
@@ -26,49 +26,36 @@ interface Props {
 
 export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [tipoUnita, setTipoUnita] = useState<TipoUnita>(defaultTipoUnita);
   const [dataInizio, setDataInizio] = useState("");
-  const [dataFine, setDataFine] = useState("");
-  const [importo, setImporto] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [state, action, pending] = useActionState<
+    { error?: string; ok?: boolean } | undefined,
+    FormData
+  >(createSessioneAction, undefined);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePending, startDelete] = useTransition();
 
   const previewEtichetta = dataInizio
     ? deriveChiaveEtichetta(tipoUnita, dataInizio)?.etichetta
     : null;
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!dataInizio) {
-      setError("Inserisci la data di inizio.");
-      return;
-    }
-    const fd = new FormData();
-    fd.set("attivitaId", attivitaId);
-    fd.set("tipoUnita", tipoUnita);
-    fd.set("dataInizio", dataInizio);
-    fd.set("dataFine", dataFine);
-    if (importo) fd.set("importo", importo);
-    startTransition(async () => {
-      setError(null);
-      const res = await createSessioneAction(undefined, fd);
-      if (res?.error) {
-        setError(res.error);
-        return;
-      }
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (state?.ok) {
+      formRef.current?.reset();
       setDataInizio("");
-      setDataFine("");
-      setImporto("");
-      router.refresh();
-    });
-  };
+      setTipoUnita(defaultTipoUnita);
+    }
+  }, [state, defaultTipoUnita]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const onDelete = (id: string) => {
-    startTransition(async () => {
-      setError(null);
+    startDelete(async () => {
+      setDeleteError(null);
       const res = await deleteSessioneAction(id, attivitaId);
       if (res && "error" in res) {
-        setError(res.error);
+        setDeleteError(res.error);
         return;
       }
       router.refresh();
@@ -92,7 +79,6 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
                   {s.tipoUnita}
                   {s.dataInizio ? ` · ${formatDate(s.dataInizio)}` : ""}
                   {s.dataFine && s.dataFine !== s.dataInizio ? `–${formatDate(s.dataFine)}` : ""}
-                  {s.importo !== undefined ? ` · ${formatEur(s.importo)}` : ""}
                 </span>
               </div>
               <Button
@@ -101,7 +87,7 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
                 size="icon"
                 onClick={() => onDelete(s.recordId)}
                 aria-label="Elimina sessione"
-                disabled={isPending}
+                disabled={deletePending}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -110,13 +96,21 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
         </ul>
       )}
 
+      {deleteError && (
+        <p className="text-sm text-[var(--destructive)]">{deleteError}</p>
+      )}
+
       <form
-        onSubmit={submit}
+        ref={formRef}
+        action={action}
         className="grid gap-3 rounded-md border border-[var(--border)] p-3 md:grid-cols-12"
       >
-        <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs">Tipo</Label>
+        <input type="hidden" name="attivitaId" value={attivitaId} />
+        <div className="md:col-span-3 space-y-1">
+          <Label className="text-xs" htmlFor="sessione-tipo">Tipo</Label>
           <select
+            id="sessione-tipo"
+            name="tipoUnita"
             className={SELECT_CLASS}
             value={tipoUnita}
             onChange={(e) => setTipoUnita(e.target.value as TipoUnita)}
@@ -129,8 +123,10 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
           </select>
         </div>
         <div className="md:col-span-3 space-y-1">
-          <Label className="text-xs">Data inizio</Label>
+          <Label className="text-xs" htmlFor="sessione-inizio">Data inizio</Label>
           <Input
+            id="sessione-inizio"
+            name="dataInizio"
             type="date"
             value={dataInizio}
             onChange={(e) => setDataInizio(e.target.value)}
@@ -138,27 +134,16 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
           />
         </div>
         <div className="md:col-span-3 space-y-1">
-          <Label className="text-xs">Data fine</Label>
+          <Label className="text-xs" htmlFor="sessione-fine">Data fine</Label>
           <Input
+            id="sessione-fine"
+            name="dataFine"
             type="date"
-            value={dataFine}
-            onChange={(e) => setDataFine(e.target.value)}
           />
         </div>
-        <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs">Importo override (€)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={importo}
-            onChange={(e) => setImporto(e.target.value)}
-            placeholder="default"
-          />
-        </div>
-        <div className="md:col-span-2 flex items-end">
-          <Button type="submit" disabled={isPending} className="w-full">
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+        <div className="md:col-span-3 flex items-end">
+          <Button type="submit" disabled={pending} className="w-full">
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Aggiungi
           </Button>
         </div>
@@ -167,8 +152,8 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
             Verrà creata: <strong>{previewEtichetta}</strong>
           </p>
         )}
-        {error && (
-          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{error}</p>
+        {state?.error && (
+          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{state.error}</p>
         )}
       </form>
     </div>

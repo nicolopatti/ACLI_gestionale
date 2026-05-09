@@ -10,7 +10,6 @@ export const sessioneSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inizio obbligatoria"),
   dataFine: optionalString,
-  importo: z.coerce.number().nonnegative().optional(),
 });
 
 export type SessioneInput = z.infer<typeof sessioneSchema>;

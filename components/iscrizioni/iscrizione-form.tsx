@@ -94,14 +94,8 @@ export function IscrizioneForm({
 
   const totale = useMemo(() => {
     if (!modalitaSelezionata) return 0;
-    let sum = 0;
-    for (const id of sessioniSelte) {
-      const s = sessioniDisponibili.find((x) => x.recordId === id);
-      if (!s) continue;
-      sum += s.importo ?? modalitaSelezionata.importo;
-    }
-    return sum;
-  }, [sessioniSelte, sessioniDisponibili, modalitaSelezionata]);
+    return sessioniSelte.size * modalitaSelezionata.importo;
+  }, [sessioniSelte, modalitaSelezionata]);
 
   const toggleSet = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
@@ -210,7 +204,7 @@ export function IscrizioneForm({
             <div className="grid gap-2 md:grid-cols-2">
               {sessioniDisponibili.map((s) => {
                 const checked = sessioniSelte.has(s.recordId);
-                const importo = s.importo ?? modalitaSelezionata?.importo ?? 0;
+                const importo = modalitaSelezionata?.importo ?? 0;
                 return (
                   <label
                     key={s.recordId}

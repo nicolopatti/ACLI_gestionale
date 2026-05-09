@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import {
@@ -21,39 +22,19 @@ interface Props {
 
 export function ModalitaEditor({ attivitaId, modalita }: Props) {
   const router = useRouter();
-  const [nome, setNome] = useState("");
-  const [importo, setImporto] = useState("");
-  const [descrizione, setDescrizione] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, action, pending] = useActionState<
+    { error?: string; ok?: boolean } | undefined,
+    FormData
+  >(createModalitaAction, undefined);
+  const [deletePending, startDelete] = useTransition();
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!nome.trim() || !importo) {
-      setError("Nome e importo obbligatori.");
-      return;
-    }
-    const fd = new FormData();
-    fd.set("attivitaId", attivitaId);
-    fd.set("nome", nome.trim());
-    fd.set("importo", importo);
-    if (descrizione) fd.set("descrizione", descrizione);
-    startTransition(async () => {
-      setError(null);
-      const res = await createModalitaAction(undefined, fd);
-      if (res?.error) {
-        setError(res.error);
-        return;
-      }
-      setNome("");
-      setImporto("");
-      setDescrizione("");
-      router.refresh();
-    });
-  };
+  useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state]);
 
   const onDelete = (id: string) => {
-    startTransition(async () => {
+    startDelete(async () => {
       await deleteModalitaAction(id, attivitaId);
       router.refresh();
     });
@@ -95,7 +76,7 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
                   size="icon"
                   onClick={() => onDelete(m.recordId)}
                   aria-label="Elimina modalità"
-                  disabled={isPending}
+                  disabled={deletePending}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -106,49 +87,52 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
       )}
 
       <form
-        onSubmit={submit}
+        ref={formRef}
+        action={action}
         className="grid gap-3 rounded-md border border-[var(--border)] p-3 md:grid-cols-12"
       >
+        <input type="hidden" name="attivitaId" value={attivitaId} />
         <div className="md:col-span-5 space-y-1">
-          <Label className="text-xs">Nome modalità</Label>
+          <Label className="text-xs" htmlFor="modalita-nome">Nome modalità</Label>
           <Input
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
+            id="modalita-nome"
+            name="nome"
             placeholder='es. "Mensile 14-16 (3 giorni)"'
+            required
           />
         </div>
         <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs">Importo (€)</Label>
+          <Label className="text-xs" htmlFor="modalita-importo">Importo (€)</Label>
           <Input
+            id="modalita-importo"
+            name="importo"
             type="number"
             step="0.01"
             min="0"
-            value={importo}
-            onChange={(e) => setImporto(e.target.value)}
+            required
           />
         </div>
         <div className="md:col-span-3 space-y-1">
-          <Label className="text-xs">Descrizione</Label>
+          <Label className="text-xs" htmlFor="modalita-descrizione">Descrizione</Label>
           <Input
-            value={descrizione}
-            onChange={(e) => setDescrizione(e.target.value)}
+            id="modalita-descrizione"
+            name="descrizione"
             placeholder="opzionale"
           />
         </div>
         <div className="md:col-span-2 flex items-end">
-          <Button type="submit" disabled={isPending} className="w-full">
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <Button type="submit" disabled={pending} className="w-full">
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Aggiungi
           </Button>
         </div>
-        {error && (
-          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{error}</p>
+        {state?.error && (
+          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{state.error}</p>
         )}
       </form>
 
       <p className="text-xs text-[var(--muted-foreground)]">
         L&apos;importo è <strong>per sessione</strong> (es. 50€/mese per il doposcuola, 15€/giornata per i laboratori).
-        Eventuali sessioni con importo specifico hanno la precedenza sulla modalità.
       </p>
     </div>
   );
