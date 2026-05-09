@@ -49,7 +49,11 @@ export function UserMenu({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={logoutAction}>
-          <DropdownMenuItem asChild>
+          {/* onSelect=preventDefault: senza, Radix chiude il menu sul click
+              e smonta il <form> prima che il submit parta (il logout sembra
+              "non fare nulla"). Il redirect del server action gestisce poi
+              la navigazione. */}
+          <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
             <button type="submit" className="flex w-full items-center gap-2">
               <LogOut className="h-4 w-4" />
               Esci
