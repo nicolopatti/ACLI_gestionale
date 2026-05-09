@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { listEducatori } from "@/lib/airtable/educatori";
 import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
+import { listAttivita } from "@/lib/airtable/attivita";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -158,10 +160,19 @@ export default async function TurniPage({
   const base = parseIsoOrToday(sp.d);
   const { start, end } = rangeForVista(base, vista);
 
-  const [educatori, disponibilita] = await Promise.all([
+  const [educatori, disponibilita, attivitaDoposcuola] = await Promise.all([
     listEducatori(),
     listDisponibilitaByRange(isoDate(start), isoDate(end)),
+    listAttivita({ tipo: "doposcuola", attivo: true }),
   ]);
+
+  // Empty state: se non c'è alcuna attività doposcuola attiva e nessuna
+  // disponibilità nel periodo corrente, la griglia con le fasce orarie
+  // sarebbe solo un guscio vuoto. Mostriamo invece una CTA chiara verso
+  // /attivita così l'utente capisce che il punto di ingresso è quello,
+  // non i turni.
+  const showEmptyState =
+    attivitaDoposcuola.length === 0 && disponibilita.length === 0;
 
   const educatoreLight = educatori.map((e) => ({
     recordId: e.recordId,
@@ -221,6 +232,39 @@ export default async function TurniPage({
     if (nv && nv !== "settimana") next.set("vista", nv);
     if (d) next.set("d", d);
     return `?${next.toString()}` || "/turni";
+  }
+
+  if (showEmptyState) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Turni</h1>
+          <p className="text-[13px] text-[var(--muted-foreground)] mt-0.5">
+            Pianificazione disponibilità + consuntivo ore
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center text-center gap-3 py-14 px-6">
+            <div className="w-12 h-12 rounded-full bg-[var(--primary-soft)] text-[var(--primary-soft-ink)] grid place-items-center">
+              <CalendarPlus className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 max-w-sm">
+              <h2 className="font-serif text-[20px] font-medium tracking-tight">
+                Nessun turno da pianificare
+              </h2>
+              <p className="text-[13.5px] text-[var(--muted-foreground)]">
+                I turni educatori coprono le fasce orarie del doposcuola. Per
+                cominciare, crea prima un&apos;attività di tipo doposcuola.
+                Tornerai qui quando sarà ora di pianificare.
+              </p>
+            </div>
+            <Button asChild className="mt-2">
+              <Link href="/attivita/nuova">Crea un&apos;attività</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

@@ -79,7 +79,7 @@
 
 | Branch | Ultimo commit | Stato | Cosa contiene |
 |---|---|---|---|
-| `claude/add-operation-animations-AhGJg` | `5c0014f` | **da mergeare** | (1) pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, 16 form convertiti); (2) rimossa fascia `14-18` da `FASCE_DISPONIBILITA`. **PR non ancora aperta**. **Attenzione — fix incompleta**: la rimozione di 14-18 era un fraintendimento; il vero problema utente è che la griglia `/turni` mostra le fasce *anche quando non c'è alcuna attività né disponibilità*. Va aggiunto uno stato vuoto data-driven prima di mergeare. |
+| `claude/add-operation-animations-AhGJg` | (tip del branch) | **da mergeare** | (1) pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, 16 form convertiti); (2) rimossa fascia `14-18` da `FASCE_DISPONIBILITA` (era ridondante = 14-16 + 16-18); (3) **empty state su `/turni`**: se non esiste alcuna attività doposcuola attiva e non c'è alcuna disponibilità nel periodo corrente, la pagina mostra una CTA "Crea un'attività" invece della griglia hardcoded che sembrava un placeholder. **PR non ancora aperta**. |
 
 ## Aperti (debiti / TODO)
 
