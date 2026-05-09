@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { sessioneSchema } from "@/lib/validations/sessione";
 import { createSessioniBatch, deleteSessione } from "@/lib/airtable/sessioni";
+import { hasAnyRataPagataForSessione } from "@/lib/airtable/mesi";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 
 async function requireAdmin() {
@@ -46,8 +47,18 @@ export async function createSessioneAction(_prev: unknown, formData: FormData) {
   return { ok: true };
 }
 
-export async function deleteSessioneAction(sessioneId: string, attivitaId: string) {
+export async function deleteSessioneAction(
+  sessioneId: string,
+  attivitaId: string,
+): Promise<{ ok: true } | { error: string }> {
   await requireAdmin();
+  if (await hasAnyRataPagataForSessione(sessioneId)) {
+    return {
+      error:
+        "Impossibile eliminare: esistono rate pagate o parziali collegate a questa sessione.",
+    };
+  }
   await deleteSessione(sessioneId);
   revalidatePath(`/attivita/${attivitaId}`);
+  return { ok: true };
 }

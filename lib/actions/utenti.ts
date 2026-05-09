@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
-import { hashPassword } from "@/lib/auth/password";
-import { nuovoUtenteSchema } from "@/lib/validations/utente";
-import { createUser, getUserByEmail, updateUser } from "@/lib/airtable/users";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { cambiaPasswordSchema, nuovoUtenteSchema } from "@/lib/validations/utente";
+import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/airtable/users";
 
 async function requireAdmin() {
   const session = await auth();
@@ -43,6 +43,28 @@ export async function resetPasswordAction(recordId: string, nuova: string) {
   await requireAdmin();
   if (nuova.length < 8) return { error: "Almeno 8 caratteri" };
   const passwordHash = await hashPassword(nuova);
+  await updateUser(recordId, { password_hash: passwordHash });
+  return { ok: true };
+}
+
+export async function cambiaPasswordAction(_prev: unknown, formData: FormData) {
+  const session = await auth();
+  const recordId = session?.user?.recordId;
+  if (!recordId) return { error: "Sessione non valida" };
+
+  const parsed = cambiaPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+  }
+  const d = parsed.data;
+
+  const user = await getUserById(recordId);
+  if (!user) return { error: "Utente non trovato" };
+
+  const ok = await verifyPassword(d.passwordAttuale, user.passwordHash);
+  if (!ok) return { error: "Password attuale non corretta" };
+
+  const passwordHash = await hashPassword(d.passwordNuova);
   await updateUser(recordId, { password_hash: passwordHash });
   return { ok: true };
 }

@@ -62,7 +62,11 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
 
   const onDelete = (id: string) => {
     startTransition(async () => {
-      await deleteSessioneAction(id, attivitaId);
+      setError(null);
+      const res = await deleteSessioneAction(id, attivitaId);
+      if (res && "error" in res) {
+        setError(res.error);
+      }
     });
   };
 

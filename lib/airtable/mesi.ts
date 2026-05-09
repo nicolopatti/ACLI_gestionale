@@ -150,3 +150,17 @@ export async function hasRataPagataForSessione(
     .all();
   return records.length > 0;
 }
+
+export async function hasAnyRataPagataForSessione(
+  sessioneId: string,
+): Promise<boolean> {
+  if (!base) return false;
+  const records = await base(TABLE_NAMES.mesi)
+    .select({
+      filterByFormula: `AND(FIND('${sessioneId}', ARRAYJOIN({sessione})), OR({stato_pagamento} = 'pagato', {stato_pagamento} = 'parziale'))`,
+      fields: ["stato_pagamento"],
+      maxRecords: 1,
+    })
+    .all();
+  return records.length > 0;
+}

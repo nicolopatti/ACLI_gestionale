@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, User } from "lucide-react";
+import Link from "next/link";
+import { KeyRound, LogOut, User } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,13 @@ export function UserMenu({
             {ruolo === "admin" ? "Admin" : "Volontario"}
           </Badge>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/profilo" className="flex w-full items-center gap-2">
+            <KeyRound className="h-4 w-4" />
+            Cambia password
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={logoutAction}>
           <DropdownMenuItem asChild>
