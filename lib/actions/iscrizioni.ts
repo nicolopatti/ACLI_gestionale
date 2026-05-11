@@ -72,33 +72,39 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
     return { error: "Una o più sessioni non sono valide" };
   }
 
-  const iscr = await createIscrizione({
-    bambinoId: d.bambinoId,
-    attivitaId: d.attivitaId,
-    modalitaId: d.modalitaId,
-    dataIscrizione: d.dataIscrizione || undefined,
-    giorniSettimana: attivita.tipo === "doposcuola" ? d.giorniSettimana : [],
-    fasceOrarie: attivita.tipo === "doposcuola" ? d.fasceOrarie : [],
-    sessioniSelteIds: d.sessioniSelteIds,
-    note: d.note || undefined,
-  });
+  let iscrId: string;
+  try {
+    const iscr = await createIscrizione({
+      bambinoId: d.bambinoId,
+      attivitaId: d.attivitaId,
+      modalitaId: d.modalitaId,
+      dataIscrizione: d.dataIscrizione || undefined,
+      giorniSettimana: attivita.tipo === "doposcuola" ? d.giorniSettimana : [],
+      fasceOrarie: attivita.tipo === "doposcuola" ? d.fasceOrarie : [],
+      sessioniSelteIds: d.sessioniSelteIds,
+      note: d.note || undefined,
+    });
+    iscrId = iscr.recordId;
 
-  // Materializza una rata per ogni sessione scelta. Snapshot dell'importo dalla modalità.
-  await createMesi(
-    sessioni.map((s) => ({
-      iscrizioneId: iscr.recordId,
-      sessioneId: s.recordId,
-      tipoUnita: s.tipoUnita,
-      chiavePeriodo: s.chiave,
-      importoDovuto: modalita.importo,
-      meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
-    })),
-  );
+    // Materializza una rata per ogni sessione scelta. Snapshot dell'importo dalla modalità.
+    await createMesi(
+      sessioni.map((s) => ({
+        iscrizioneId: iscr.recordId,
+        sessioneId: s.recordId,
+        tipoUnita: s.tipoUnita,
+        chiavePeriodo: s.chiave,
+        importoDovuto: modalita.importo,
+        meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
+      })),
+    );
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
+  }
 
   revalidatePath("/iscrizioni");
   revalidatePath(`/bambini/${d.bambinoId}`);
   revalidatePath(`/attivita/${d.attivitaId}`);
-  redirect(`/iscrizioni/${iscr.recordId}`);
+  redirect(`/iscrizioni/${iscrId}`);
 }
 
 export async function updateIscrizioneAction(
@@ -150,35 +156,39 @@ export async function updateIscrizioneAction(
     }
   }
 
-  await updateIscrizione(recordId, {
-    bambinoId: d.bambinoId,
-    attivitaId: d.attivitaId,
-    modalitaId: d.modalitaId,
-    dataIscrizione: d.dataIscrizione || undefined,
-    giorniSettimana: attivita.tipo === "doposcuola" ? d.giorniSettimana : [],
-    fasceOrarie: attivita.tipo === "doposcuola" ? d.fasceOrarie : [],
-    sessioniSelteIds: d.sessioniSelteIds,
-    note: d.note || undefined,
-  });
+  try {
+    await updateIscrizione(recordId, {
+      bambinoId: d.bambinoId,
+      attivitaId: d.attivitaId,
+      modalitaId: d.modalitaId,
+      dataIscrizione: d.dataIscrizione || undefined,
+      giorniSettimana: attivita.tipo === "doposcuola" ? d.giorniSettimana : [],
+      fasceOrarie: attivita.tipo === "doposcuola" ? d.fasceOrarie : [],
+      sessioniSelteIds: d.sessioniSelteIds,
+      note: d.note || undefined,
+    });
 
-  // Cancella le rate per le sessioni rimosse (verificate non pagate).
-  for (const sessioneId of removed) {
-    await deleteRateBySessioneEIscrizione(recordId, sessioneId);
-  }
+    // Cancella le rate per le sessioni rimosse (verificate non pagate).
+    for (const sessioneId of removed) {
+      await deleteRateBySessioneEIscrizione(recordId, sessioneId);
+    }
 
-  // Crea le rate per le sessioni aggiunte.
-  if (added.length > 0) {
-    const sessioniAggiunte = await listSessioni({ recordIds: added });
-    await createMesi(
-      sessioniAggiunte.map((s) => ({
-        iscrizioneId: recordId,
-        sessioneId: s.recordId,
-        tipoUnita: s.tipoUnita,
-        chiavePeriodo: s.chiave,
-        importoDovuto: modalita.importo,
-        meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
-      })),
-    );
+    // Crea le rate per le sessioni aggiunte.
+    if (added.length > 0) {
+      const sessioniAggiunte = await listSessioni({ recordIds: added });
+      await createMesi(
+        sessioniAggiunte.map((s) => ({
+          iscrizioneId: recordId,
+          sessioneId: s.recordId,
+          tipoUnita: s.tipoUnita,
+          chiavePeriodo: s.chiave,
+          importoDovuto: modalita.importo,
+          meseAnno: s.tipoUnita === "mese" ? s.chiave : undefined,
+        })),
+      );
+    }
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
   }
 
   revalidatePath("/iscrizioni");
@@ -200,10 +210,14 @@ export async function getDeleteIscrizioneImpactAction(
 
 export async function deleteIscrizioneAction(recordId: string) {
   await requireAdmin();
-  // Cascade: prima cancella tutte le rate, poi l'iscrizione, così la
-  // tabella Rate non resta con record orfani che falsificano report e saldi.
-  await deleteMesiByIscrizione(recordId);
-  await deleteIscrizione(recordId);
+  try {
+    // Cascade: prima cancella tutte le rate, poi l'iscrizione, così la
+    // tabella Rate non resta con record orfani che falsificano report e saldi.
+    await deleteMesiByIscrizione(recordId);
+    await deleteIscrizione(recordId);
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante l'eliminazione" };
+  }
   revalidatePath("/iscrizioni");
   redirect("/iscrizioni");
 }

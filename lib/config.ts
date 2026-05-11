@@ -4,8 +4,54 @@ export const MESI_ANNO_SCOLASTICO = [
   9, 10, 11, 12, 1, 2, 3, 4, 5, 6,
 ] as const;
 
-export const GIORNI_SETTIMANA = ["lun", "mar", "mer", "gio", "ven"] as const;
+export const GIORNI_SETTIMANA = [
+  "lun",
+  "mar",
+  "mer",
+  "gio",
+  "ven",
+  "sab",
+  "dom",
+] as const;
 export type GiornoSettimana = (typeof GIORNI_SETTIMANA)[number];
+
+export const GIORNI_LABEL: Record<GiornoSettimana, string> = {
+  lun: "Lunedì",
+  mar: "Martedì",
+  mer: "Mercoledì",
+  gio: "Giovedì",
+  ven: "Venerdì",
+  sab: "Sabato",
+  dom: "Domenica",
+};
+
+const GIORNO_TO_DOW: Record<GiornoSettimana, number> = {
+  lun: 1,
+  mar: 2,
+  mer: 3,
+  gio: 4,
+  ven: 5,
+  sab: 6,
+  dom: 0,
+};
+
+const DOW_TO_GIORNO: GiornoSettimana[] = [
+  "dom",
+  "lun",
+  "mar",
+  "mer",
+  "gio",
+  "ven",
+  "sab",
+];
+
+export function dowToGiorno(dow: number): GiornoSettimana {
+  return DOW_TO_GIORNO[dow];
+}
+
+export function giornoToDow(g: GiornoSettimana): number {
+  return GIORNO_TO_DOW[g];
+}
 
 export const MEZZI_PAGAMENTO = ["Cassa", "BCC", "Sumup"] as const;
 export type MezzoPagamento = (typeof MEZZI_PAGAMENTO)[number];
@@ -38,15 +84,27 @@ export const TIPO_ATTIVITA_TO_UNITA: Record<TipoAttivita, TipoUnita> = {
   locomotiva: "settimana",
 };
 
-export const FASCE_ORARIE = ["14-16", "14-18"] as const;
-export type FasciaOraria = (typeof FASCE_ORARIE)[number];
+// Le fasce orarie sono dichiarate per Attività (campo `fasce_orarie` su Airtable):
+// la griglia turni e il calendario disponibilità derivano fasce/giorni offerti
+// dall'unione delle Attività attive nel periodo. Qui resta solo il tipo
+// stringa runtime + helper per parsare la durata in ore.
+export type FasciaOraria = string;
 
-// Fasce di turno per gli educatori: 14-16 e 16-18, due slot di 2h
-// non sovrapposti che coprono l'intero pomeriggio del doposcuola.
-// Niente 14-18 perché ridondante (= 14-16 + 16-18) e creava una colonna
-// "vuota" sempre presente che sembrava un placeholder.
-export const FASCE_DISPONIBILITA = ["14-16", "16-18"] as const;
-export type FasciaDisponibilita = (typeof FASCE_DISPONIBILITA)[number];
+/**
+ * Parsa una fascia oraria del tipo "14-16" / "14:00-16:30" in ore (decimali).
+ * Ritorna 0 se non riesce a parsare.
+ */
+export function durataFasciaOre(fascia: string): number {
+  const m = fascia.match(/^(\d{1,2})(?::(\d{2}))?\s*-\s*(\d{1,2})(?::(\d{2}))?$/);
+  if (!m) return 0;
+  const h1 = parseInt(m[1], 10);
+  const m1 = m[2] ? parseInt(m[2], 10) : 0;
+  const h2 = parseInt(m[3], 10);
+  const m2 = m[4] ? parseInt(m[4], 10) : 0;
+  const start = h1 * 60 + m1;
+  const end = h2 * 60 + m2;
+  return end > start ? (end - start) / 60 : 0;
+}
 
 export const CONTATTO_RUOLI = ["nonno", "nonna", "zio", "zia", "altro"] as const;
 export type RuoloContatto = (typeof CONTATTO_RUOLI)[number];

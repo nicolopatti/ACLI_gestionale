@@ -1,19 +1,28 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-10** — sessione "animazioni di feedback + integrità delete" (branch `claude/add-operation-animations-AhGJg`, PR [#17](https://github.com/nicolopatti/ACLI_gestionale/pull/17)). Quattro fix in una passata:
+> Ultimo aggiornamento: **2026-05-10** — due sessioni distinte mergeate in una PR. Aggiornamento atomico sopra il merge `claude/fix-educator-display-tL4EF` (5 commit, già in produzione) + sessione `claude/add-operation-animations-AhGJg` ([PR #17](https://github.com/nicolopatti/ACLI_gestionale/pull/17)).
 >
-> 1. **Feedback visivo delle operazioni**. Lamentela utente: "spesso non si capisce quando la piattaforma ha fatto o non un'operazione". Soluzione: 3 primitive nuove — `<ActionButton />` (`components/ui/action-button.tsx`) con stati `pending`/`success`/`error` (spinner + barra animata, flash verde + check, shake rosso); `useActionFeedback()` (`lib/hooks/use-action-feedback.ts`) wrapper di `useTransition` che intercetta il risultato della server action e tiene gli stati per il bottone; `<TopProgressBar />` (`components/ui/top-progress-bar.tsx`) filo sottile in cima alla pagina al cambio rotta (~600ms). Toaster Sonner ricalibrato (durata 3.5s, `closeButton`, `expand`). 11 keyframe nuove in `globals.css`. 16 form di mutazione convertiti: `spese-edu`, `turno-dialog`, `utente-drawer`, `segna-pagato`, `griglia-presenze`, `login`, `primo-accesso`, `cambia-password`, `attivita-form`, `modalita-editor`, `sessioni-editor`, `bambino-form`, `iscrizione-form`, `educatore-form`, `calendario-disponibilita`, `utente-form`. Rispetta `prefers-reduced-motion`.
+> **Sessione `claude/add-operation-animations-AhGJg` (questo branch — PR #17)**: 4 fix in una passata.
 >
-> 2. **Rimossa fascia `14-18` da `FASCE_DISPONIBILITA`** (turni educatori): era ridondante (= 14-16 + 16-18) e creava una colonna sempre vuota che sembrava un placeholder. `FASCE_ORARIE` (iscrizioni doposcuola) **invariata** — 14-18 lì è una scelta di iscrizione legittima (pomeriggio intero del bambino). **Migrazione manuale Airtable necessaria**: eventuali record `Disponibilita` con `fascia_oraria = "14-18"` non saranno più visibili nella griglia turni; vanno cancellati o riassegnati su 14-16/16-18 dall'admin Airtable.
+> 1. **Feedback visivo delle operazioni**. Lamentela utente: "spesso non si capisce quando la piattaforma ha fatto o non un'operazione". Soluzione: 3 primitive nuove — `<ActionButton />` (`components/ui/action-button.tsx`) con stati `pending`/`success`/`error` (spinner + barra animata, flash verde + check, shake rosso); `useActionFeedback()` (`lib/hooks/use-action-feedback.ts`) wrapper di `useTransition` che intercetta il risultato della server action e tiene gli stati per il bottone; `<TopProgressBar />` (`components/ui/top-progress-bar.tsx`) filo sottile in cima alla pagina al cambio rotta (~600ms). Toaster Sonner ricalibrato (durata 3.5s, `closeButton`, `expand`). 11 keyframe nuove in `globals.css`. 16 form di mutazione convertiti. Rispetta `prefers-reduced-motion`.
 >
-> 3. **Empty state su `/turni`**: se zero attività doposcuola attive **e** zero disponibilità nel periodo → la pagina mostra una CTA "Crea un'attività" verso `/attivita/nuova` invece della griglia hardcoded. La griglia smette di apparire come scaffold vuoto quando non c'è niente da gestire.
+> 2. **Empty state su `/turni`**: variante "soft" della stessa idea poi fatta strutturalmente in `55c9e8b` (vedi sotto). Rimasta come fallback per il caso senza disponibilità anche in periodi senza attività.
 >
-> 4. **Cascade delete + confirm dialog con anteprima dipendenze**. Audit utente: "quando cancello qualcosa, si cancella davvero su Airtable?". Prima il record principale veniva cancellato ma i collegati restavano orfani (rate dopo iscrizione, disponibilità dopo educatore, ecc.) → report sbagliati e link rotti. Adesso ogni delete (iscrizione, bambino, attività, modalità, sessione, educatore) cancella in cascata. Nuovo `<DeleteConfirmDialog />` (`components/ui/delete-confirm-dialog.tsx`) mostra il count di ogni dipendenza prima della conferma: "Rate: 24, Presenze: 12, Contatti: 1". Per ogni entità una `getDelete<X>ImpactAction` lato server calcola le dipendenze. La sessione mantiene il blocco hard su rate pagate/parziali. Bambino e attività non hanno più il blocco "rimuovi prima i figli" — basta il dialog di conferma.
+> 3. **Cascade delete + confirm dialog con anteprima dipendenze**. Audit utente: "quando cancello qualcosa, si cancella davvero su Airtable?". Prima il record principale veniva cancellato ma i collegati restavano orfani (rate dopo iscrizione, disponibilità dopo educatore, ecc.) → report sbagliati e link rotti. Adesso ogni delete (iscrizione, bambino, attività, modalità, sessione, educatore) cancella in cascata. Nuovo `<DeleteConfirmDialog />` (`components/ui/delete-confirm-dialog.tsx`) mostra il count di ogni dipendenza prima della conferma: "Rate: 24, Presenze: 12, Contatti: 1". Per ogni entità una `getDelete<X>ImpactAction` lato server calcola le dipendenze. La sessione mantiene il blocco hard su rate pagate/parziali. Bambino e attività non hanno più il blocco "rimuovi prima i figli" — basta il dialog di conferma.
 >
-> Type-check + lint + build puliti.
+> 4. **Convenzione anti-regressione in `STATUS.md`**: la sezione "In review" elenca ogni branch `claude/*` non mergeato. Ogni futura sessione la legge prima di pianificare per non riprovare lavoro già fatto.
 >
-> Sessione precedente (2026-05-09 notte): allineamento contenuti pagine al prototipo Claude Design **mergeato in produzione**: PR [#14](https://github.com/nicolopatti/ACLI_gestionale/pull/14) (`claude/align-design-code-Lmqps` → `claude/n8n-association-management-Q4pBM`, merge commit `ff4541d`). 14 commit atomici: componenti UI base (Tabs/Sheet/Avatar/Progress/FilterBar), restyling di tutte le pagine esistenti (`/bambini`, `/iscrizioni`, `/cassa`, `/attivita`, `/educatori`, `/presenze`, `/utenti`, `/dashboard`), tabs nel detail bambino (5 sezioni), 2 nuove rotte (`/spese-edu` form rapido educatori e `/turni` con vista settimana/mese e click-su-cella), gating proxy esteso a `coordinatore_educativo`, login restyled a 2 colonne con pannello brand. Modello dati: aggiunti 2 campi opzionali `ora_ingresso`/`ora_uscita` su `Disponibilita` per il consuntivo turni. Pianificazione + decisioni di scope in `design-prototype/GAP_ANALYSIS.md`.
+> **Sessione precedente `claude/fix-educator-display-tL4EF` (già mergeata in produzione, 5 commit)** — bug residuo da riprendere: rimuovere un educatore da una cella in `/turni` salva server-side ma la cella resta visualmente "occupata" anche dopo `router.refresh()`. Pista: `replaceTurnoCella` (`lib/airtable/disponibilita.ts:106-150`) potrebbe non trovare il record da cancellare per via del `filterByFormula {data} = '...'` su un campo date di Airtable. Da verificare con un log.
+>
+> Commit della sessione precedente (in `claude/n8n-association-management-Q4pBM`):
+> - `55c9e8b` — fix(turni): fasce/giorni dinamici da Attivita, empty state, no più 14-18. Big refactor: rimosse `FASCE_DISPONIBILITA`/`FASCE_ORARIE` hardcoded e la fascia ridondante `14-18`. `FasciaOraria` ora `string` runtime-checked. Le fasce e i giorni "offerti" si leggono dai campi `Attivita.fasce_orarie` e `Attivita.giorni_settimana`. Aggiunto campo `fascia_oraria` a `Sessioni`. Nuovo helper `lib/airtable/turni.ts` (`listAttivitaAttiveInRange`, `unionFasceOfferte`, `unionGiorniOfferti`, `calcolaCelleAttive`). `/turni` e `/educatori/[id]` mostrano empty state se nel periodo non c'è alcuna `Attivita.attivo:true`. Form crea/modifica attività con checkbox lun-dom + fasce. `ORE_PER_FASCIA` hardcoded rimosso, sostituito da `durataFasciaOre()` runtime.
+> - `8106459` — fix(bambini,turni): null in parseBambinoForm + consuntivo turni automatico. `parseBambinoForm` normalizza ogni get con `String(... ?? "")`. Consuntivo turni automatico: `data < todayIso ? durataFasciaOre(fascia) : 0`. Rimossi gli input ore dal `TurnoDialog`.
+> - `dc97ace` — fix(actions): `{typecast: true}` su `createIscrizione`/`updateIscrizione`/`createMesi`/`updateMese`. Try/catch nelle server actions di `iscrizioni`/`bambini`/`attivita`.
+> - `84e45f9` — feat(presenze,turni,sidebar): toggle presenza 1-click via campo `presente` (boolean) su Airtable. `revalidatePath` + `router.refresh()` in `salvaDisponibilitaAction`. Sidebar "Circolo ACLI" cliccabile.
+> - `79194c1` — fix(turni,sidebar): `router.refresh()` dopo `TurnoDialog`. Logo → `/cassa`.
+>
+> Sessione precedente (2026-05-09 notte): allineamento contenuti pagine al prototipo Claude Design **mergeato in produzione**: PR [#14](https://github.com/nicolopatti/ACLI_gestionale/pull/14). 14 commit atomici: componenti UI base (Tabs/Sheet/Avatar/Progress/FilterBar), restyling di tutte le pagine esistenti, tabs nel detail bambino, 2 nuove rotte (`/spese-edu` e `/turni`), gating proxy esteso a `coordinatore_educativo`, login a 2 colonne.
 >
 > Stessa sessione, fix sync Movimenti n8n: scoperti 741 record duplicati su Airtable (`id` sempre vuoto). Causa: il nodo Airtable v2.2 di n8n **strippa i `matchingColumns` dal payload di scrittura**, anche con `defineBelow` e mapping esplicito — il match key viene trattato come "già noto" e non scritto. Fix: spostata la match key da `id` a `timestamp` (univoco per costruzione del bot Telegram, ms-precision), `mappingMode: defineBelow` con espressione esplicita per ogni campo. **Ottimizzazione architetturale** in coda: workflow ora event-driven via `Google Sheets Trigger` con `event: rowAdded` (poll ogni minuto, fa partire il workflow solo su nuova riga in coda al Sheet) invece dello schedule ogni 5 min che riprocessava tutto. Tabella ricostruita pulita: 19 record con `id` valorizzato.
 >
@@ -42,19 +51,28 @@
 ## Modello dati corrente
 
 - **Attività → Modalità di iscrizione + Sessione → Iscrizione → Rate**.
-- `Attivita` (`tipo`: doposcuola | laboratorio | locomotiva, `attivo`). I campi
-  `importo_default` e `anno_scolastico` sono orfani su Airtable (non più usati
-  dal codice).
+- `Attivita` (`tipo`: doposcuola | laboratorio | locomotiva, `attivo`,
+  `giorni_settimana` multi `lun..dom`, `fasce_orarie` multi free-form es.
+  `14-16`/`16-18`/`10-12`). I campi `giorni_settimana` e `fasce_orarie`
+  dichiarano "quando l'attività ha luogo" e sono **fonte di verità** per
+  griglia turni e calendario disponibilità educatore. I campi `importo_default`
+  e `anno_scolastico` sono orfani su Airtable (non più usati dal codice).
 - `ModalitaIscrizione` (link a Attivita): `nome`, `importo` (per sessione),
   `descrizione`, `attivo`. Una stessa attività può avere più modalità a prezzi
   diversi (es. "Mensile 14-16 (3 giorni)" vs "Mensile 14-18 (5 giorni)").
-- `Sessioni` (`tipo_unita`: mese | giornata | settimana, `chiave`, `etichetta`).
-  Chiave ed etichetta sono derivate server-side da `tipo_unita` + `data_inizio`.
-  Il campo `importo` su Airtable è orfano (rimosso dal codice il "override
-  sessione"; l'importo della rata viene sempre dalla modalità).
+- `Sessioni` (`tipo_unita`: mese | giornata | settimana, `chiave`, `etichetta`,
+  `fascia_oraria`). Chiave ed etichetta sono derivate server-side da
+  `tipo_unita` + `data_inizio`. `fascia_oraria` (singleSelect) è richiesta
+  per laboratorio/locomotiva (definisce in quale cella della griglia turni
+  cade la sessione); per doposcuola è lasciata vuota perché le fasce vengono
+  dalle iscrizioni dei bambini. Il campo `importo` su Airtable è orfano
+  (rimosso dal codice il "override sessione"; l'importo della rata viene
+  sempre dalla modalità).
 - `Iscrizioni` con `attivita`, `modalita_iscrizione`, `sessioni_scelte` (multi),
-  `fasce_orarie` (`14-16` / `14-18`, multi, solo doposcuola), `giorni_settimana`
-  (solo doposcuola). Il campo `anno_scolastico` è orfano.
+  `fasce_orarie` (multi, solo doposcuola, sottoinsieme di `Attivita.fasce_orarie`),
+  `giorni_settimana` (solo doposcuola, sottoinsieme di `Attivita.giorni_settimana`).
+  La fascia legacy `14-18` è stata eliminata: chi vuole 14-18 spunta `14-16` +
+  `16-18`. Il campo `anno_scolastico` è orfano.
 - `MesiIscrizione` (significato evoluto: "Rata") con `sessione`, `tipo_unita`,
   `chiave_periodo`. `mese_anno` popolato solo per rate di tipo `mese` (legacy/cache).
   L'importo è snapshot di `modalita.importo` al momento della creazione della rata.
@@ -64,11 +82,16 @@
 - `Presenze`: `ora_ingresso`, `ora_uscita` (entrambi vuoti = assente), link
   opzionale `sessione`.
 - `Educatori` (anagrafica: `nome`, `cognome`, `email`, `telefono`, `attivo`).
-- `Disponibilita` (link a Educatori): `data`, `fascia_oraria` (14-16 / 14-18 /
-  16-18), `note`, `ora_ingresso`, `ora_uscita`. Funge da pianificazione (riga
-  esistente senza ore = turno previsto) **e da consuntivo** (ore valorizzate
-  = turno effettivamente svolto, base dati per il calcolo compensi). Vista
-  combinata su `/turni`.
+- `Disponibilita` (link a Educatori): `data`, `fascia_oraria` (singleSelect:
+  `14-16` / `16-18`; il legacy `14-18` resta come choice morto su Airtable
+  fino a rimozione manuale ma il codice non lo userà mai), `note`,
+  `ora_ingresso`, `ora_uscita`. Funge da pianificazione (riga esistente
+  senza ore = turno previsto) **e da consuntivo** (ore valorizzate = turno
+  effettivamente svolto, base dati per il calcolo compensi). Vista
+  combinata su `/turni`. La griglia turni accetta solo celle `(data, fascia)`
+  effettivamente offerte da almeno un'`Attivita.attivo:true` nel periodo —
+  controllo runtime in `lib/airtable/turni.ts` + validazione in
+  `salvaTurnoCellaAction`.
 - `Movimenti` (sync da Google Sheet via n8n): `id` (text, primary), `timestamp`
   (datetime, **match key** dell'upsert n8n), `data_movimento`, `tipo`,
   `importo`, `conto` (Cassa/BCC/Sumup), `categoria` (link), `descrizione`,
@@ -89,13 +112,15 @@
 
 | Branch | Ultimo commit | Stato | Cosa contiene |
 |---|---|---|---|
-| `claude/add-operation-animations-AhGJg` | (tip del branch) | **PR aperta** [#17](https://github.com/nicolopatti/ACLI_gestionale/pull/17), da mergeare | (1) pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, 16 form convertiti); (2) rimossa fascia `14-18` da `FASCE_DISPONIBILITA` (era ridondante = 14-16 + 16-18); (3) empty state su `/turni`: se zero attività doposcuola attive e zero disponibilità nel periodo → CTA "Crea un'attività" invece della griglia; (4) **cascade delete + confirm dialog**: ogni delete (iscrizione, bambino, attività, modalità, sessione, educatore) ora cancella in cascata i record collegati su Airtable (rate, presenze, contatti, disponibilità) — niente più orfani che falsificano report e saldi. UI: nuovo `<DeleteConfirmDialog />` mostra il count di ogni dipendenza prima di confermare. |
+| `claude/add-operation-animations-AhGJg` | (tip del branch, post-merge) | **PR aperta** [#17](https://github.com/nicolopatti/ACLI_gestionale/pull/17), da mergeare | (1) Pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, ~16 form convertiti). (2) Cascade delete + confirm dialog per ogni entità (iscrizione, bambino, attività, modalità, sessione, educatore): niente più orfani su Airtable. (3) Mergea con `claude/fix-educator-display-tL4EF` (già in produzione): mantiene fasce dinamiche da Attivita, empty state turni strutturale, presenze toggle, ecc. |
 
 ## Aperti (debiti / TODO)
 
 | # | Cosa | Priorità | Note |
 |---|------|----------|------|
+| 0 | **Bug residuo: rimuovere educatore da cella turni non si propaga** | 🔴 alta | Dal `TurnoDialog` deselezionando un educatore + Salva, lato server l'azione ritorna ok, `revalidatePath("/turni")` viene chiamato, e `router.refresh()` è in `turno-dialog.tsx:93-96`, ma l'educatore appare ancora nella cella. **Pista più calda**: `replaceTurnoCella` (`lib/airtable/disponibilita.ts:106-150`) usa `listDisponibilitaByDataEFascia(data, fascia)` con `filterByFormula: AND({data}='YYYY-MM-DD', {fascia_oraria}='14-16')`. Se Airtable serializza il campo `data` (date) in un formato non-ISO o se ci sono record con la fascia legacy `14-18` o spazi nella stringa, il filtro non matcha → `existing` vuoto → niente in `toDelete`. **Cosa provare**: (a) loggare cosa torna `listDisponibilitaByDataEFascia` con una cella nota; (b) sostituire il filtro con `listDisponibilitaByRange(data, data)` e filtrare in JS sulla fascia (più robusto, vedi pattern già usato in `listDisponibilitaByEducatoreEMese`); (c) verificare che `revalidatePath("/turni")` invalidi davvero il fetch (in Next 16 con Turbopack a volte serve `revalidateTag` su un tag esplicito). Stesso meccanismo del fix calendario disponibilità del commit `84e45f9` ma lì funziona — capire la differenza. |
 | 1 | Tabelle residue su Airtable (`Genitori`, `Table 1`) | 🟡 bassa | Da eliminare manualmente da Airtable UI (l'API non supporta delete table). Il campo `importo` su Sessioni è anch'esso orfano. |
+| 1b | Choice `14-18` su Airtable (`Iscrizioni.fasce_orarie`, `Attivita.fasce_orarie`, `Disponibilita.fascia_oraria`) | 🟡 bassa | Il codice non la userà più ma resta come choice morto. Da rimuovere manualmente da UI Airtable quando comodo (DB pulito al momento, nessun record con quella choice). |
 | 2 | Categorie iniziali su Airtable | 🟡 bassa | Verificare che `pnpm seed:categorie` sia stato eseguito. |
 | 3 | Rinomina TS `MeseIscrizione` → `Rata` | 🟢 cleanup | Tabella Airtable resta `MesiIscrizione`. |
 | 4 | Performance: i `.filter()` lato server caricano l'intera tabella | 🟢 nice-to-have | Volume attuale basso, OK. Se cresce, valutare campi formula `RECORD_ID()` su Airtable per riabilitare `filterByFormula`. |
@@ -112,7 +137,7 @@
 - **Repo GitHub**: <https://github.com/nicolopatti/ACLI_gestionale>
 - **Vercel project**: `acli-gestionale` (team `nicolopattis-projects`)
 - **Branch production di Vercel**: `claude/n8n-association-management-Q4pBM`
-- **Branch di lavoro corrente**: nessuno aperto (tutto mergeato in produzione)
+- **Branch di lavoro corrente**: `claude/fix-educator-display-tL4EF` (HEAD `79194c1`, 5 commit ahead di main, non ancora mergeato — vedi bug residuo TODO #0).
 - **Bundle prototipo Claude Design**: `design-prototype/` (handoff package — design tokens, page specs, JSX di riferimento; non codice di produzione). Include `GAP_ANALYSIS.md` con il piano di lavoro e le decisioni di scope chiuse.
 - **Airtable base**: `appvWIKKkoSeydbL7` (Acli Gestionale)
 - **Workflow n8n bootstrap schema**: `BphNmCM5qehqdKot` ([link](https://eurita.app.n8n.cloud/workflow/BphNmCM5qehqdKot))

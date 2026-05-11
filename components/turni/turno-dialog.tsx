@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { salvaTurnoCellaAction } from "@/lib/actions/disponibilita";
 import {
   Dialog,
@@ -13,10 +14,9 @@ import {
 import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { cn } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
+import type { FasciaOraria } from "@/lib/config";
 
 export interface EducatoreLight {
   recordId: string;
@@ -26,17 +26,16 @@ export interface EducatoreLight {
 
 export interface TurnoRowState {
   educatoreId: string;
-  oraIngresso: string;
-  oraUscita: string;
 }
 
 export interface TurnoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: string; // YYYY-MM-DD
-  fascia: FasciaDisponibilita;
+  fascia: FasciaOraria;
   educatori: EducatoreLight[];
   initialRows: TurnoRowState[];
+  contextLabel?: string;
 }
 
 function formatDataLabel(data: string): string {
@@ -56,11 +55,19 @@ export function TurnoDialog({
   fascia,
   educatori,
   initialRows,
+  contextLabel,
 }: TurnoDialogProps) {
+  const router = useRouter();
   const [rows, setRows] = useState<TurnoRowState[]>(initialRows);
   const fb = useActionFeedback({
     successToast: "Turno salvato",
-    onSuccess: () => onOpenChange(false),
+    onSuccess: () => {
+      onOpenChange(false);
+      // Forza re-fetch lato server: senza questo la TurniGrid resta
+      // sui dati di prop precedenti e gli educatori rimossi sembrano
+      // ancora "occupare" la cella.
+      router.refresh();
+    },
   });
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.educatoreId)), [rows]);
@@ -70,18 +77,8 @@ export function TurnoDialog({
       if (prev.some((r) => r.educatoreId === eduId)) {
         return prev.filter((r) => r.educatoreId !== eduId);
       }
-      return [...prev, { educatoreId: eduId, oraIngresso: "", oraUscita: "" }];
+      return [...prev, { educatoreId: eduId }];
     });
-  }
-
-  function setOra(
-    eduId: string,
-    field: "oraIngresso" | "oraUscita",
-    value: string,
-  ) {
-    setRows((prev) =>
-      prev.map((r) => (r.educatoreId === eduId ? { ...r, [field]: value } : r)),
-    );
   }
 
   function handleSave() {
@@ -90,13 +87,7 @@ export function TurnoDialog({
     fd.set("fascia", fascia);
     fd.set(
       "rows",
-      JSON.stringify(
-        rows.map((r) => ({
-          educatoreId: r.educatoreId,
-          oraIngresso: r.oraIngresso || undefined,
-          oraUscita: r.oraUscita || undefined,
-        })),
-      ),
+      JSON.stringify(rows.map((r) => ({ educatoreId: r.educatoreId }))),
     );
     fb.run(() => salvaTurnoCellaAction(undefined, fd));
   }
@@ -109,8 +100,9 @@ export function TurnoDialog({
             Turno · {formatDataLabel(data)} · {fascia}
           </DialogTitle>
           <DialogDescription>
-            Seleziona gli educatori in turno. Compila le ore solo a consuntivo
-            (dopo la data).
+            {contextLabel ? <span className="block mb-1">{contextLabel}</span> : null}
+            Seleziona gli educatori in turno. Le ore vengono consuntivate
+            automaticamente quando la giornata è passata.
           </DialogDescription>
         </DialogHeader>
 
@@ -122,7 +114,6 @@ export function TurnoDialog({
           ) : (
             educatori.map((e) => {
               const isSel = selectedIds.has(e.recordId);
-              const row = rows.find((r) => r.educatoreId === e.recordId);
               return (
                 <div
                   key={e.recordId}
@@ -154,36 +145,6 @@ export function TurnoDialog({
                       </span>
                     )}
                   </button>
-                  {isSel && row ? (
-                    <div className="px-3 pb-2.5 grid grid-cols-2 gap-2">
-                      <label className="space-y-1">
-                        <span className="text-[11px] text-[var(--muted-foreground)] uppercase tracking-wide">
-                          Ingresso
-                        </span>
-                        <Input
-                          type="time"
-                          value={row.oraIngresso}
-                          onChange={(ev) =>
-                            setOra(e.recordId, "oraIngresso", ev.currentTarget.value)
-                          }
-                          className="h-8"
-                        />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="text-[11px] text-[var(--muted-foreground)] uppercase tracking-wide">
-                          Uscita
-                        </span>
-                        <Input
-                          type="time"
-                          value={row.oraUscita}
-                          onChange={(ev) =>
-                            setOra(e.recordId, "oraUscita", ev.currentTarget.value)
-                          }
-                          className="h-8"
-                        />
-                      </label>
-                    </div>
-                  ) : null}
                 </div>
               );
             })

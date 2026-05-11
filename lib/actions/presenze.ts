@@ -2,13 +2,60 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
-import { upsertPresenze } from "@/lib/airtable/presenze";
-import { presenzeBatchSchema } from "@/lib/validations/presenza";
+import { setPresenza, upsertPresenze } from "@/lib/airtable/presenze";
+import { oraSchema, presenzeBatchSchema } from "@/lib/validations/presenza";
 
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
   return session;
+}
+
+/**
+ * Toggle singolo: registra "presente" o "assente" per un bambino in una data
+ * specifica, con ore opzionali. Se `presente` è null, cancella la presenza.
+ */
+export async function setPresenzaAction(input: {
+  bambinoId: string;
+  sessioneId?: string;
+  data: string;
+  presente: boolean | null;
+  oraIngresso?: string;
+  oraUscita?: string;
+}): Promise<{ ok?: boolean; error?: string }> {
+  let session;
+  try {
+    session = await requireAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data)) {
+    return { error: "Data non valida" };
+  }
+  if (!input.bambinoId) return { error: "Bambino mancante" };
+
+  const oraIngressoParsed = oraSchema.safeParse(input.oraIngresso ?? "");
+  const oraUscitaParsed = oraSchema.safeParse(input.oraUscita ?? "");
+  if (!oraIngressoParsed.success || !oraUscitaParsed.success) {
+    return { error: "Formato orario non valido (HH:MM)" };
+  }
+
+  try {
+    await setPresenza({
+      bambinoId: input.bambinoId,
+      sessioneId: input.sessioneId,
+      data: input.data,
+      // null = cancella record (vecchio comportamento "assenza implicita")
+      presente: input.presente ?? undefined,
+      oraIngresso: input.oraIngresso || undefined,
+      oraUscita: input.oraUscita || undefined,
+      registratoDaId: session.user?.recordId,
+    });
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
+  }
+  revalidatePath("/presenze");
+  return { ok: true };
 }
 
 export async function salvaPresenzeAction(formData: FormData) {

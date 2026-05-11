@@ -26,13 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { formatDate, formatEur } from "@/lib/utils";
-import type { FasciaDisponibilita } from "@/lib/config";
-import { MEZZI_PAGAMENTO } from "@/lib/config";
-
-const ORE_PER_FASCIA: Record<FasciaDisponibilita, number> = {
-  "14-16": 2,
-  "16-18": 2,
-};
+import { MEZZI_PAGAMENTO, durataFasciaOre } from "@/lib/config";
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -338,7 +332,7 @@ async function EduBlock() {
 
   // Turni della settimana
   const oreSettimanaPianificate = dispWeek.reduce(
-    (s, d) => s + (ORE_PER_FASCIA[d.fasciaOraria] ?? 0),
+    (s, d) => s + durataFasciaOre(d.fasciaOraria),
     0,
   );
   const educatoriSettimana = new Set(dispWeek.map((d) => d.educatoreId));
@@ -518,7 +512,7 @@ function RiepilogoTurniSettimana({
       consuntivo: 0,
     };
     cur.educatoriIds.add(d.educatoreId);
-    cur.ore += ORE_PER_FASCIA[d.fasciaOraria] ?? 0;
+    cur.ore += durataFasciaOre(d.fasciaOraria);
     if (d.oraIngresso) cur.consuntivo += 1;
     perGiorno.set(d.data, cur);
   }

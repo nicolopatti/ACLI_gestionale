@@ -5,7 +5,12 @@ import { auth } from "@/lib/auth/auth";
 import { disponibilitaBatchSchema } from "@/lib/validations/disponibilita";
 import { replaceDisponibilita, replaceTurnoCella, type TurnoCellaRow } from "@/lib/airtable/disponibilita";
 import { getEducatore, listEducatori } from "@/lib/airtable/educatori";
-import { FASCE_DISPONIBILITA, type FasciaDisponibilita } from "@/lib/config";
+import {
+  listAttivitaAttiveInRange,
+  unionFasceOfferte,
+  unionGiorniOfferti,
+} from "@/lib/airtable/turni";
+import { dowToGiorno, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
 
 async function requireAdmin() {
   const session = await auth();
@@ -29,7 +34,7 @@ export async function salvaDisponibilitaAction(formData: FormData) {
   const educatoreId = String(formData.get("educatoreId") ?? "");
   const meseAnno = String(formData.get("meseAnno") ?? "");
 
-  const slots: Array<{ data: string; fasciaOraria: FasciaDisponibilita }> = [];
+  const slots: Array<{ data: string; fasciaOraria: FasciaOraria }> = [];
   for (const key of formData.keys()) {
     if (!key.startsWith("slot_")) continue;
     const value = formData.get(key);
@@ -38,8 +43,29 @@ export async function salvaDisponibilitaAction(formData: FormData) {
     if (parts.length !== 2) continue;
     slots.push({
       data: parts[0],
-      fasciaOraria: parts[1] as FasciaDisponibilita,
+      fasciaOraria: parts[1] as FasciaOraria,
     });
+  }
+
+  // Validazione: ogni slot deve cadere in una cella offerta (giorno + fascia)
+  // da almeno una Attivita attiva nel periodo dello slot. La risposta è un
+  // errore unico, non per slot — è un caso di sicurezza, l'UI non dovrebbe
+  // permettere di submittare slot fuori dalle celle offerte.
+  if (slots.length > 0) {
+    const dates = slots.map((s) => s.data).sort();
+    const attiveInRange = await listAttivitaAttiveInRange(dates[0], dates[dates.length - 1]);
+    if (attiveInRange.length === 0) {
+      return { error: "Nessuna attività attiva nel periodo: impossibile registrare disponibilità." };
+    }
+    const fasceOfferte = new Set<FasciaOraria>(unionFasceOfferte(attiveInRange));
+    const giorniOfferti = new Set<GiornoSettimana>(unionGiorniOfferti(attiveInRange));
+    for (const s of slots) {
+      const dow = new Date(`${s.data}T00:00:00`).getDay();
+      const giorno = dowToGiorno(dow);
+      if (!giorniOfferti.has(giorno) || !fasceOfferte.has(s.fasciaOraria)) {
+        return { error: `Cella non offerta da nessuna attività attiva: ${s.data} ${s.fasciaOraria}` };
+      }
+    }
   }
 
   const parsed = disponibilitaBatchSchema.safeParse({
@@ -54,23 +80,31 @@ export async function salvaDisponibilitaAction(formData: FormData) {
   const educatore = await getEducatore(educatoreId);
   if (!educatore) return { error: "Educatore non trovato" };
 
-  await replaceDisponibilita(
-    educatoreId,
-    educatore.nomeCompleto,
-    meseAnno,
-    parsed.data.slots,
-  );
+  try {
+    await replaceDisponibilita(
+      educatoreId,
+      educatore.nomeCompleto,
+      meseAnno,
+      parsed.data.slots,
+    );
+  } catch (e) {
+    return { error: (e as Error).message || "Errore durante il salvataggio" };
+  }
+  // Rinfresca tutte le viste che dipendono dalla Disponibilita: scheda
+  // educatore, lista educatori (KPI ore mese), e griglia turni.
   revalidatePath(`/educatori/${educatoreId}`);
+  revalidatePath("/educatori");
+  revalidatePath("/turni");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
-const ORA_RE = /^(\d{2}):(\d{2})$/;
-
 /**
- * Sostituisce gli educatori in turno per una cella (data, fascia) e
- * imposta le ore consuntivo opzionali. Riceve un payload JSON-friendly
- * tramite FormData come "rows" (JSON-encoded). Accessibile a admin e
- * coordinatore_educativo.
+ * Sostituisce gli educatori in turno per una cella (data, fascia). Riceve un
+ * payload JSON-friendly tramite FormData come "rows" (JSON-encoded array di
+ * `{ educatoreId }`). Le ore non sono più compilate manualmente: il consuntivo
+ * è derivato dalla data (passata = ore della fascia in conto consuntivo).
+ * Accessibile a admin e coordinatore_educativo.
  */
 export async function salvaTurnoCellaAction(
   _prev: { ok?: boolean; error?: string } | undefined,
@@ -83,29 +117,34 @@ export async function salvaTurnoCellaAction(
   }
 
   const data = String(formData.get("data") ?? "").trim();
-  const fascia = String(formData.get("fascia") ?? "").trim() as FasciaDisponibilita;
+  const fascia = String(formData.get("fascia") ?? "").trim() as FasciaOraria;
   const rowsRaw = String(formData.get("rows") ?? "[]");
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { error: "Data non valida" };
-  if (!FASCE_DISPONIBILITA.includes(fascia)) return { error: "Fascia non valida" };
+  if (!fascia) return { error: "Fascia non valida" };
+
+  // Verifica che (data, fascia) sia una cella offerta da almeno un'Attivita
+  // attiva. Anche qui è un check di sicurezza: l'UI mostra solo celle valide.
+  const attive = await listAttivitaAttiveInRange(data, data);
+  if (attive.length === 0) {
+    return { error: "Nessuna attività attiva: impossibile assegnare turni." };
+  }
+  const fasceOfferte = new Set<FasciaOraria>(unionFasceOfferte(attive));
+  const giorniOfferti = new Set<GiornoSettimana>(unionGiorniOfferti(attive));
+  const giorno = dowToGiorno(new Date(`${data}T00:00:00`).getDay());
+  if (!giorniOfferti.has(giorno) || !fasceOfferte.has(fascia)) {
+    return { error: "Cella non offerta da nessuna attività attiva nel periodo." };
+  }
 
   let rows: TurnoCellaRow[];
   try {
     const parsed = JSON.parse(rowsRaw) as unknown;
     if (!Array.isArray(parsed)) throw new Error();
     rows = parsed
-      .filter((r): r is { educatoreId: string; oraIngresso?: string; oraUscita?: string } => {
+      .filter((r): r is { educatoreId: string } => {
         return Boolean(r && typeof r === "object" && "educatoreId" in r);
       })
-      .map((r) => {
-        const ingresso = typeof r.oraIngresso === "string" ? r.oraIngresso.trim() : "";
-        const uscita = typeof r.oraUscita === "string" ? r.oraUscita.trim() : "";
-        return {
-          educatoreId: String(r.educatoreId),
-          oraIngresso: ingresso && ORA_RE.test(ingresso) ? ingresso : undefined,
-          oraUscita: uscita && ORA_RE.test(uscita) ? uscita : undefined,
-        };
-      });
+      .map((r) => ({ educatoreId: String(r.educatoreId) }));
   } catch {
     return { error: "Payload non valido" };
   }
