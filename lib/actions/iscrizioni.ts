@@ -12,8 +12,10 @@ import {
 } from "@/lib/airtable/iscrizioni";
 import {
   createMesi,
+  deleteMesiByIscrizione,
   deleteRateBySessioneEIscrizione,
   hasRataPagataForSessione,
+  listMesiByIscrizione,
 } from "@/lib/airtable/mesi";
 import { getAttivita } from "@/lib/airtable/attivita";
 import { listSessioni } from "@/lib/airtable/sessioni";
@@ -194,9 +196,24 @@ export async function updateIscrizioneAction(
   return { ok: true };
 }
 
+/**
+ * Conta i record che verranno cascadeati cancellando questa iscrizione.
+ * Usato dal dialog di conferma per mostrare l'impatto all'utente.
+ */
+export async function getDeleteIscrizioneImpactAction(
+  recordId: string,
+): Promise<{ rate: number }> {
+  await requireAdmin();
+  const rate = await listMesiByIscrizione(recordId);
+  return { rate: rate.length };
+}
+
 export async function deleteIscrizioneAction(recordId: string) {
   await requireAdmin();
   try {
+    // Cascade: prima cancella tutte le rate, poi l'iscrizione, così la
+    // tabella Rate non resta con record orfani che falsificano report e saldi.
+    await deleteMesiByIscrizione(recordId);
     await deleteIscrizione(recordId);
   } catch (e) {
     return { error: (e as Error).message || "Errore durante l'eliminazione" };

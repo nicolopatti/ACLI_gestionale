@@ -9,9 +9,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EducatoreForm } from "@/components/educatori/educatore-form";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { deleteEducatoreAction } from "@/lib/actions/educatori";
+import { DeleteEducatoreButton } from "@/components/educatori/delete-educatore-button";
 
 function meseCorrenteIso(): string {
   const d = new Date();
@@ -83,20 +82,11 @@ export default async function EducatoreDetailPage({
         <CardHeader>
           <CardTitle>Eliminazione</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form
-            action={async () => {
-              "use server";
-              await deleteEducatoreAction(educatore.recordId);
-            }}
-          >
-            <Button variant="destructive" type="submit">
-              Elimina educatore
-            </Button>
-            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-              Le disponibilità collegate vanno rimosse separatamente da Airtable.
-            </p>
-          </form>
+        <CardContent className="space-y-2">
+          <DeleteEducatoreButton educatoreId={educatore.recordId} />
+          <p className="text-xs text-[var(--muted-foreground)]">
+            Cascade automatico sulle disponibilità (turni) collegate.
+          </p>
         </CardContent>
       </Card>
     </div>

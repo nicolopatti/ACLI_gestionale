@@ -1,15 +1,18 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import { TIPI_UNITA, type TipoUnita } from "@/lib/config";
 import {
   createSessioneAction,
   deleteSessioneAction,
+  getDeleteSessioneImpactAction,
 } from "@/lib/actions/sessioni";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
-import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/utils";
@@ -33,8 +36,8 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
     { error?: string; ok?: boolean } | undefined,
     FormData
   >(createSessioneAction, undefined);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deletePending, startDelete] = useTransition();
+  const [success, setSuccess] = useState(false);
+  const hasError = !!state?.error;
 
   const previewEtichetta = dataInizio
     ? deriveChiaveEtichetta(tipoUnita, dataInizio)?.etichetta
@@ -46,21 +49,13 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
       formRef.current?.reset();
       setDataInizio("");
       setTipoUnita(defaultTipoUnita);
+      setSuccess(true);
+      toast.success("Sessione aggiunta");
+      const id = setTimeout(() => setSuccess(false), 1400);
+      return () => clearTimeout(id);
     }
   }, [state, defaultTipoUnita]);
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  const onDelete = (id: string) => {
-    startDelete(async () => {
-      setDeleteError(null);
-      const res = await deleteSessioneAction(id, attivitaId);
-      if (res && "error" in res) {
-        setDeleteError(res.error);
-        return;
-      }
-      router.refresh();
-    });
-  };
 
   return (
     <div className="space-y-4">
@@ -81,23 +76,37 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
                   {s.dataFine && s.dataFine !== s.dataInizio ? `–${formatDate(s.dataFine)}` : ""}
                 </span>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => onDelete(s.recordId)}
-                aria-label="Elimina sessione"
-                disabled={deletePending}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <DeleteConfirmDialog
+                triggerVariant="ghost"
+                triggerIconOnly
+                triggerLabel="Elimina sessione"
+                title={`Elimina sessione "${s.etichetta}"`}
+                description="Le rate non pagate collegate verranno eliminate. Se ci sono rate pagate o parziali, l'eliminazione sarà rifiutata."
+                successToast="Sessione eliminata"
+                loadImpact={async () => {
+                  const i = await getDeleteSessioneImpactAction(s.recordId);
+                  if (i.bloccatoDaPagate) {
+                    return [
+                      {
+                        label: "Rate pagate/parziali (bloccano la delete)",
+                        count: 1,
+                      },
+                    ];
+                  }
+                  return [
+                    { label: "Rate non pagate", count: i.rateNonPagate },
+                  ];
+                }}
+                onConfirm={async () => {
+                  const res = await deleteSessioneAction(s.recordId, attivitaId);
+                  if (res && "error" in res) return { error: res.error };
+                  router.refresh();
+                  return { ok: true };
+                }}
+              />
             </li>
           ))}
         </ul>
-      )}
-
-      {deleteError && (
-        <p className="text-sm text-[var(--destructive)]">{deleteError}</p>
       )}
 
       <form
@@ -142,10 +151,18 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
           />
         </div>
         <div className="md:col-span-3 flex items-end">
-          <Button type="submit" disabled={pending} className="w-full">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <ActionButton
+            type="submit"
+            pending={pending}
+            success={success}
+            error={hasError && !pending}
+            pendingText="Aggiungo…"
+            successText="Aggiunta ✓"
+            idleIcon={<Plus className="h-4 w-4" />}
+            className="w-full"
+          >
             Aggiungi
-          </Button>
+          </ActionButton>
         </div>
         {previewEtichetta && (
           <p className="md:col-span-12 text-xs text-[var(--muted-foreground)]">
@@ -153,7 +170,12 @@ export function SessioniEditor({ attivitaId, defaultTipoUnita, sessioni }: Props
           </p>
         )}
         {state?.error && (
-          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{state.error}</p>
+          <p
+            className="md:col-span-12 text-sm text-[var(--destructive)] field-error"
+            key={state.error}
+          >
+            {state.error}
+          </p>
         )}
       </form>
     </div>

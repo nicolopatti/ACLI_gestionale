@@ -12,9 +12,8 @@ import { listModalitaByAttivita } from "@/lib/airtable/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
 import { MesiTable } from "@/components/iscrizioni/mesi-table";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { deleteIscrizioneAction } from "@/lib/actions/iscrizioni";
+import { DeleteIscrizioneButton } from "@/components/iscrizioni/delete-iscrizione-button";
 import { formatEur } from "@/lib/utils";
 import type { ModalitaIscrizione, Sessione } from "@/lib/airtable/types";
 
@@ -140,20 +139,11 @@ export default async function IscrizioneDetailPage({
         <CardHeader>
           <CardTitle>Eliminazione</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form
-            action={async () => {
-              "use server";
-              await deleteIscrizioneAction(iscrizione.recordId);
-            }}
-          >
-            <Button variant="destructive" type="submit">
-              Elimina iscrizione
-            </Button>
-            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-              I record delle rate vanno rimossi separatamente da Airtable.
-            </p>
-          </form>
+        <CardContent className="space-y-2">
+          <DeleteIscrizioneButton iscrizioneId={iscrizione.recordId} />
+          <p className="text-xs text-[var(--muted-foreground)]">
+            La cancellazione include automaticamente le rate collegate.
+          </p>
         </CardContent>
       </Card>
     </div>

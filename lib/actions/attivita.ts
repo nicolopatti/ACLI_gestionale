@@ -10,7 +10,23 @@ import {
   deleteAttivita,
   updateAttivita,
 } from "@/lib/airtable/attivita";
-import { createSessioniBatch } from "@/lib/airtable/sessioni";
+import {
+  createSessioniBatch,
+  deleteSessioniByIds,
+  listSessioniByAttivita,
+} from "@/lib/airtable/sessioni";
+import {
+  deleteIscrizioniByIds,
+  listIscrizioni,
+} from "@/lib/airtable/iscrizioni";
+import {
+  deleteMesiByIscrizione,
+  listMesiByIscrizione,
+} from "@/lib/airtable/mesi";
+import {
+  deleteModalitaByIds,
+  listModalitaByAttivita,
+} from "@/lib/airtable/modalita-iscrizione";
 import { primoEUltimoGiornoDelMese } from "@/lib/sessioni-utils";
 
 async function requireAdmin() {
@@ -113,9 +129,53 @@ export async function updateAttivitaAction(
   return { ok: true };
 }
 
+/**
+ * Conta i record collegati che verranno cascadeati cancellando un'attività.
+ */
+export async function getDeleteAttivitaImpactAction(
+  recordId: string,
+): Promise<{
+  modalita: number;
+  sessioni: number;
+  iscrizioni: number;
+  rate: number;
+}> {
+  await requireAdmin();
+  const [modalita, sessioni, iscrizioni] = await Promise.all([
+    listModalitaByAttivita(recordId),
+    listSessioniByAttivita(recordId),
+    listIscrizioni({ attivitaId: recordId }),
+  ]);
+  let rate = 0;
+  for (const i of iscrizioni) {
+    const r = await listMesiByIscrizione(i.recordId);
+    rate += r.length;
+  }
+  return {
+    modalita: modalita.length,
+    sessioni: sessioni.length,
+    iscrizioni: iscrizioni.length,
+    rate,
+  };
+}
+
 export async function deleteAttivitaAction(recordId: string) {
   await requireAdmin();
   try {
+    // Cascade dal basso verso l'alto: rate → iscrizioni → sessioni/modalità →
+    // attività. Le rate vanno per ogni iscrizione perché il loro link punta lì,
+    // non all'attività direttamente.
+    const [iscrizioni, sessioni, modalita] = await Promise.all([
+      listIscrizioni({ attivitaId: recordId }),
+      listSessioniByAttivita(recordId),
+      listModalitaByAttivita(recordId),
+    ]);
+    for (const i of iscrizioni) {
+      await deleteMesiByIscrizione(i.recordId);
+    }
+    await deleteIscrizioniByIds(iscrizioni.map((i) => i.recordId));
+    await deleteSessioniByIds(sessioni.map((s) => s.recordId));
+    await deleteModalitaByIds(modalita.map((m) => m.recordId));
     await deleteAttivita(recordId);
   } catch (e) {
     return { error: (e as Error).message || "Errore durante l'eliminazione" };

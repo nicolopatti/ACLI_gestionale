@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Loader2 } from "lucide-react";
 import { primoAccessoAction } from "@/lib/actions/utenti";
-import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -12,6 +11,7 @@ export function PrimoAccessoForm() {
     { error?: string } | undefined,
     FormData
   >(primoAccessoAction, undefined);
+  const hasError = !!state?.error;
 
   return (
     <form action={action} className="space-y-4">
@@ -40,12 +40,19 @@ export function PrimoAccessoForm() {
         />
       </div>
       {state?.error ? (
-        <p className="text-sm text-[var(--destructive)]">{state.error}</p>
+        <p className="text-sm text-[var(--destructive)] field-error" key={state.error}>
+          {state.error}
+        </p>
       ) : null}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      <ActionButton
+        type="submit"
+        className="w-full"
+        pending={pending}
+        error={hasError && !pending}
+        pendingText="Salvataggio…"
+      >
         Imposta password e accedi
-      </Button>
+      </ActionButton>
     </form>
   );
 }

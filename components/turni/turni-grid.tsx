@@ -127,7 +127,7 @@ export function TurniGrid({
         className={cn(
           "w-full text-left rounded-md border border-dashed border-[var(--border)]",
           "px-2 py-1.5 min-h-[42px] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]/20",
-          "transition-colors",
+          "transition-colors btn-tactile",
         )}
         title={info!.etichetta ?? info!.attivitaNome}
       >

@@ -1,9 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { salvaTurnoCellaAction } from "@/lib/actions/disponibilita";
 import {
   Dialog,
@@ -13,8 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { cn } from "@/lib/utils";
 import type { FasciaOraria } from "@/lib/config";
 
@@ -59,7 +59,16 @@ export function TurnoDialog({
 }: TurnoDialogProps) {
   const router = useRouter();
   const [rows, setRows] = useState<TurnoRowState[]>(initialRows);
-  const [pending, startTransition] = useTransition();
+  const fb = useActionFeedback({
+    successToast: "Turno salvato",
+    onSuccess: () => {
+      onOpenChange(false);
+      // Forza re-fetch lato server: senza questo la TurniGrid resta
+      // sui dati di prop precedenti e gli educatori rimossi sembrano
+      // ancora "occupare" la cella.
+      router.refresh();
+    },
+  });
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.educatoreId)), [rows]);
 
@@ -73,26 +82,14 @@ export function TurnoDialog({
   }
 
   function handleSave() {
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("data", data);
-      fd.set("fascia", fascia);
-      fd.set(
-        "rows",
-        JSON.stringify(rows.map((r) => ({ educatoreId: r.educatoreId }))),
-      );
-      const res = await salvaTurnoCellaAction(undefined, fd);
-      if (res?.ok) {
-        toast.success("Turno salvato");
-        onOpenChange(false);
-        // Forza re-fetch lato server: senza questo la TurniGrid resta
-        // sui dati di prop precedenti e gli educatori rimossi sembrano
-        // ancora "occupare" la cella.
-        router.refresh();
-      } else if (res?.error) {
-        toast.error(res.error);
-      }
-    });
+    const fd = new FormData();
+    fd.set("data", data);
+    fd.set("fascia", fascia);
+    fd.set(
+      "rows",
+      JSON.stringify(rows.map((r) => ({ educatoreId: r.educatoreId }))),
+    );
+    fb.run(() => salvaTurnoCellaAction(undefined, fd));
   }
 
   return (
@@ -155,13 +152,24 @@ export function TurnoDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={fb.pending}
+          >
             Annulla
           </Button>
-          <Button type="button" onClick={handleSave} disabled={pending}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <ActionButton
+            type="button"
+            onClick={handleSave}
+            pending={fb.pending}
+            success={fb.success}
+            error={fb.error}
+            pendingText="Salvataggio…"
+          >
             Salva
-          </Button>
+          </ActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

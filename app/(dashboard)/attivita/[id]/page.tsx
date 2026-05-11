@@ -10,9 +10,8 @@ import { AttivitaForm } from "@/components/attivita/attivita-form";
 import { SessioniEditor } from "@/components/attivita/sessioni-editor";
 import { ModalitaEditor } from "@/components/attivita/modalita-editor";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { TIPO_ATTIVITA_TO_UNITA } from "@/lib/config";
-import { deleteAttivitaAction } from "@/lib/actions/attivita";
+import { DeleteAttivitaButton } from "@/components/attivita/delete-attivita-button";
 
 export default async function AttivitaDetailPage({
   params,
@@ -101,26 +100,11 @@ export default async function AttivitaDetailPage({
         <CardHeader>
           <CardTitle>Eliminazione</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form
-            action={async () => {
-              "use server";
-              await deleteAttivitaAction(attivita.recordId);
-            }}
-          >
-            <Button
-              variant="destructive"
-              type="submit"
-              disabled={iscrizioni.length > 0 || sessioni.length > 0 || modalita.length > 0}
-            >
-              Elimina attività
-            </Button>
-            {(iscrizioni.length > 0 || sessioni.length > 0 || modalita.length > 0) && (
-              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                Rimuovi prima sessioni, modalità e iscrizioni collegate.
-              </p>
-            )}
-          </form>
+        <CardContent className="space-y-2">
+          <DeleteAttivitaButton attivitaId={attivita.recordId} />
+          <p className="text-xs text-[var(--muted-foreground)]">
+            Cascade automatico su modalità, sessioni, iscrizioni e rate.
+          </p>
         </CardContent>
       </Card>
     </div>

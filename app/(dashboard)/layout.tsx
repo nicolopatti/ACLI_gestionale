@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { AreaAttr } from "@/components/dashboard/area-attr";
+import { TopProgressBar } from "@/components/ui/top-progress-bar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -10,6 +11,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="app">
+      <TopProgressBar />
       <Sidebar ruolo={session.user.ruolo} />
       <div className="main">
         <Topbar

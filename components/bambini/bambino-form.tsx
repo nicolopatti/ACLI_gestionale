@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   createBambinoAction,
   updateBambinoAction,
 } from "@/lib/actions/bambini";
 import { CONTATTO_RUOLI, type RuoloContatto } from "@/lib/config";
+import { ActionButton, CheckIconAnimated } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,18 @@ export function BambinoForm({ bambino, bambini, contatti }: Props) {
     { error?: string; ok?: boolean } | undefined,
     FormData
   >(action, undefined);
+  const [success, setSuccess] = useState(false);
+  const hasError = !!state?.error;
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (state?.ok) {
+      setSuccess(true);
+      const id = setTimeout(() => setSuccess(false), 1400);
+      return () => clearTimeout(id);
+    }
+  }, [state]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const altriBambini = useMemo(
     () => bambini.filter((b) => b.recordId !== bambino?.recordId),
@@ -318,13 +331,24 @@ export function BambinoForm({ bambino, bambini, contatti }: Props) {
       </div>
 
       {state?.error ? (
-        <p className="text-sm text-[var(--destructive)]">{state.error}</p>
+        <p className="text-sm text-[var(--destructive)] field-error" key={state.error}>
+          {state.error}
+        </p>
       ) : null}
-      {state?.ok ? <p className="text-sm text-emerald-700">Salvato.</p> : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      {state?.ok ? (
+        <p className="flex items-center gap-1.5 text-sm text-[var(--success-soft-ink)]">
+          <CheckIconAnimated /> Salvato.
+        </p>
+      ) : null}
+      <ActionButton
+        type="submit"
+        pending={pending}
+        success={success}
+        error={hasError && !pending}
+        pendingText="Salvataggio…"
+      >
         {bambino ? "Aggiorna" : "Crea bambino"}
-      </Button>
+      </ActionButton>
     </form>
   );
 }

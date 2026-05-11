@@ -187,3 +187,19 @@ export async function replaceDisponibilita(
     await base(TABLE_NAMES.disponibilita).destroy(toDelete.slice(i, i + 10));
   }
 }
+
+/**
+ * Cancella in bulk tutte le disponibilità di un educatore (cascade da
+ * delete educatore). Ritorna il numero di disponibilità cancellate.
+ */
+export async function deleteDisponibilitaByEducatore(
+  educatoreId: string,
+): Promise<number> {
+  if (!base) return 0;
+  const all = await listDisponibilitaByEducatore(educatoreId);
+  const ids = all.map((d) => d.recordId);
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.disponibilita).destroy(ids.slice(i, i + 10));
+  }
+  return ids.length;
+}

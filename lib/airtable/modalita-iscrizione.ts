@@ -91,3 +91,14 @@ export async function deleteModalita(recordId: string): Promise<void> {
   if (!base) throw new Error("Airtable client non configurato");
   await base(TABLE_NAMES.modalitaIscrizione).destroy([recordId]);
 }
+
+/**
+ * Cancella in bulk un set di modalità per id. Usato dal cascade delete
+ * di attività.
+ */
+export async function deleteModalitaByIds(ids: string[]): Promise<void> {
+  if (!base || ids.length === 0) return;
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLE_NAMES.modalitaIscrizione).destroy(ids.slice(i, i + 10));
+  }
+}

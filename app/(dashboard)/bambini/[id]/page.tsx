@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteBambinoAction } from "@/lib/actions/bambini";
+import { DeleteBambinoButton } from "@/components/bambini/delete-bambino-button";
 import { cn, formatDate, formatEur, meseAnnoLabel } from "@/lib/utils";
 
 type Tab = "anagrafica" | "iscrizioni" | "presenze" | "pagamenti" | "note";
@@ -160,26 +160,12 @@ export default async function BambinoDetailPage({
             <CardHeader>
               <CardTitle>Eliminazione</CardTitle>
             </CardHeader>
-            <CardContent>
-              <form
-                action={async () => {
-                  "use server";
-                  await deleteBambinoAction(bambino.recordId);
-                }}
-              >
-                <Button
-                  variant="destructive"
-                  type="submit"
-                  disabled={iscrizioniBambino.length > 0}
-                >
-                  Elimina bambino
-                </Button>
-                {iscrizioniBambino.length > 0 && (
-                  <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                    Rimuovi prima le iscrizioni collegate.
-                  </p>
-                )}
-              </form>
+            <CardContent className="space-y-2">
+              <DeleteBambinoButton bambinoId={bambino.recordId} />
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Cascade automatico su iscrizioni, rate, presenze e contatti
+                aggiuntivi del bambino.
+              </p>
             </CardContent>
           </Card>
         </div>

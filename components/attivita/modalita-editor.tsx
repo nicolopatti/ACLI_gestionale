@@ -1,14 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { useTransition } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import {
   createModalitaAction,
   deleteModalitaAction,
+  getDeleteModalitaImpactAction,
 } from "@/lib/actions/modalita-iscrizione";
-import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -27,18 +29,20 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
     { error?: string; ok?: boolean } | undefined,
     FormData
   >(createModalitaAction, undefined);
-  const [deletePending, startDelete] = useTransition();
+  const [success, setSuccess] = useState(false);
+  const hasError = !!state?.error;
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (state?.ok) {
+      formRef.current?.reset();
+      setSuccess(true);
+      toast.success("Modalità aggiunta");
+      const id = setTimeout(() => setSuccess(false), 1400);
+      return () => clearTimeout(id);
+    }
   }, [state]);
-
-  const onDelete = (id: string) => {
-    startDelete(async () => {
-      await deleteModalitaAction(id, attivitaId);
-      router.refresh();
-    });
-  };
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <div className="space-y-4">
@@ -70,16 +74,22 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{formatEur(m.importo)}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(m.recordId)}
-                  aria-label="Elimina modalità"
-                  disabled={deletePending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <DeleteConfirmDialog
+                  triggerVariant="ghost"
+                  triggerIconOnly
+                  triggerLabel="Elimina modalità"
+                  title={`Elimina modalità "${m.nome}"`}
+                  description="Le iscrizioni che usano questa modalità (e le loro rate) verranno eliminate a cascata, perché senza modalità l'iscrizione resterebbe senza prezzo."
+                  successToast="Modalità eliminata"
+                  loadImpact={async () => {
+                    const i = await getDeleteModalitaImpactAction(m.recordId);
+                    return [{ label: "Iscrizioni che la usano", count: i.iscrizioni }];
+                  }}
+                  onConfirm={async () => {
+                    await deleteModalitaAction(m.recordId, attivitaId);
+                    router.refresh();
+                  }}
+                />
               </div>
             </li>
           ))}
@@ -121,13 +131,26 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
           />
         </div>
         <div className="md:col-span-2 flex items-end">
-          <Button type="submit" disabled={pending} className="w-full">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <ActionButton
+            type="submit"
+            pending={pending}
+            success={success}
+            error={hasError && !pending}
+            pendingText="Aggiungo…"
+            successText="Aggiunta ✓"
+            idleIcon={<Plus className="h-4 w-4" />}
+            className="w-full"
+          >
             Aggiungi
-          </Button>
+          </ActionButton>
         </div>
         {state?.error && (
-          <p className="md:col-span-12 text-sm text-[var(--destructive)]">{state.error}</p>
+          <p
+            className="md:col-span-12 text-sm text-[var(--destructive)] field-error"
+            key={state.error}
+          >
+            {state.error}
+          </p>
         )}
       </form>
 

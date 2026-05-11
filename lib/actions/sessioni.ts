@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { sessioneSchema } from "@/lib/validations/sessione";
 import { createSessioniBatch, deleteSessione } from "@/lib/airtable/sessioni";
-import { hasAnyRataPagataForSessione } from "@/lib/airtable/mesi";
+import {
+  deleteMesiBySessione,
+  hasAnyRataPagataForSessione,
+} from "@/lib/airtable/mesi";
+import { listAllMesi } from "@/lib/airtable/mesi";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 
 async function requireAdmin() {
@@ -45,6 +49,23 @@ export async function createSessioneAction(_prev: unknown, formData: FormData) {
   return { ok: true };
 }
 
+/**
+ * Conta rate non pagate che verranno cascadeate cancellando la sessione.
+ * Le rate pagate/parziali bloccano la delete (vedi action sotto).
+ */
+export async function getDeleteSessioneImpactAction(
+  sessioneId: string,
+): Promise<{ rateNonPagate: number; bloccatoDaPagate: boolean }> {
+  await requireAdmin();
+  const blocked = await hasAnyRataPagataForSessione(sessioneId);
+  if (blocked) return { rateNonPagate: 0, bloccatoDaPagate: true };
+  const all = await listAllMesi();
+  const rateNonPagate = all.filter(
+    (m) => m.sessioneId === sessioneId && m.statoPagamento !== "pagato",
+  ).length;
+  return { rateNonPagate, bloccatoDaPagate: false };
+}
+
 export async function deleteSessioneAction(
   sessioneId: string,
   attivitaId: string,
@@ -56,6 +77,8 @@ export async function deleteSessioneAction(
         "Impossibile eliminare: esistono rate pagate o parziali collegate a questa sessione.",
     };
   }
+  // Cascade rate non pagate prima della sessione, così non restano orfane.
+  await deleteMesiBySessione(sessioneId);
   await deleteSessione(sessioneId);
   revalidatePath(`/attivita/${attivitaId}`);
   return { ok: true };
