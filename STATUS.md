@@ -1,7 +1,7 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-11** (sera) — **cutover Airtable → Supabase eseguito**. Produzione gira ora sul progetto Supabase `aikforfebngrqfzdkowo` (deploy `dpl_4GJWK1jaNUa3yVxyJvBs8abCxk1W` su `acli-gestionale.vercel.app`). Pomeriggio della stessa giornata: PR #19 mergeata troppo presto senza env Vercel settate → produzione "dead-on-arrival" per 15 minuti (zero utenti impattati, nessun login nella finestra) → rollback automatico via revert del merge → travaso dati eseguito via MCP (Airtable MCP per read, Supabase MCP `execute_sql` per write, bypassando il firewall del sandbox di Claude Code che blocca outbound verso `*.supabase.co` da nodejs) → env Vercel settate dall'utente → revert-of-revert → cutover completo. Resta da fare: (1) aggiornamento workflow n8n `cmMaMjtv6xEzdZQC` per scrivere i nuovi Movimenti su Supabase invece che su Airtable (i movimenti già esistenti sono migrati, ma quelli che arrivano dal bot Telegram dopo questo cutover atterrano ancora su Airtable e non vengono visti dall'app); (2) cleanup post-osservazione (rimozione `airtable` da deps, cartella `lib/airtable/` da repo, env `AIRTABLE_*` da Vercel).
+> Ultimo aggiornamento: **2026-05-11** (sera tardi) — **cutover Airtable → Supabase eseguito interamente**, incluso aggiornamento del workflow n8n. Produzione gira ora sul progetto Supabase `aikforfebngrqfzdkowo` (deploy `dpl_4GJWK1jaNUa3yVxyJvBs8abCxk1W` su `acli-gestionale.vercel.app`). Pomeriggio: PR #19 mergeata troppo presto senza env Vercel → produzione "dead-on-arrival" per 15 minuti (zero utenti impattati) → rollback automatico via revert → travaso dati via MCP (Airtable MCP read + Supabase MCP `execute_sql` write, bypassando il firewall del sandbox Claude Code che blocca outbound verso `*.supabase.co` da nodejs) → env Vercel settate dall'utente → revert-of-revert → app live. Sera: workflow n8n `cmMaMjtv6xEzdZQC` ripuntato a Supabase via RPC `upsert_movimento_from_sheet` (SECURITY DEFINER + grant ad `anon` per usare la publishable key, no service_role nel workflow body); test simulati come ruolo `anon` ok. Resta da fare: (1) test end-to-end con una riga reale nel Google Sheet per confermare il trigger; (2) cleanup post-osservazione di 1 settimana (rimozione dep `airtable`, cartella `lib/airtable/`, env `AIRTABLE_*`).
 >
 > **Sessione `claude/airtable-to-supabase-migration-uBZxn` (questo branch)**: 6 fasi completate, 2 rimanenti come cutover manuale.
 >
@@ -143,28 +143,21 @@ Cutover eseguito 2026-05-11. Riepilogo di quello che e' fatto e quello che resta
   - contatti_aggiuntivi: 0
 - **Env Vercel Production + Preview**: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (formato nuovo `sb_secret_*`) settate dall'utente.
 - **Deploy `dpl_4GJWK1jaNUa3yVxyJvBs8abCxk1W`** READY su `acli-gestionale.vercel.app`. Login page carica, zero errori runtime nelle prime ore.
+- **Workflow n8n `cmMaMjtv6xEzdZQC` rinominato e ripuntato a Supabase** (versione attiva `8dca5c6e-d047-...`):
+  - Trigger Google Sheets invariato (poll `everyMinute` sul Sheet `Cassa_Associazione_Template`).
+  - Code node `Normalize for Supabase` (sostituisce `Normalize for Airtable`): output con chiavi `mov_*` allineate alla RPC.
+  - HTTP Request node `Upsert into Supabase Movimenti` (sostituisce il nodo Airtable v2.2): POST a `/rest/v1/rpc/upsert_movimento_from_sheet` con publishable key (`sb_publishable_*`, pubblica per design) in header `apikey` + `Authorization`.
+  - **RPC `public.upsert_movimento_from_sheet(...)`** su Supabase (`SECURITY DEFINER` + `GRANT EXECUTE TO anon`): risolve `categoria_nome` -> `categoria_id` via lookup case-insensitive, fa `INSERT ... ON CONFLICT ("timestamp") DO UPDATE` aggiornando solo i campi mutabili. Bypassa il bug noto di n8n Airtable v2.2 sui `matchingColumns`.
+  - Test eseguiti via Postgres simulando il ruolo `anon`: insert ok, update path ok, categoria risolta. Cleanup post-test verificato (count torna a 20).
 
-### Da fare entro 24-48 h
+### Verifica da fare ora (test end-to-end con riga reale)
 
-1. **Workflow n8n `cmMaMjtv6xEzdZQC`** (sync Movimenti Google Sheet -> DB):
-   - Aprire: <https://eurita.app.n8n.cloud/workflow/cmMaMjtv6xEzdZQC>
-   - Nuovo credential Postgres su n8n con i parametri da <https://supabase.com/dashboard/project/aikforfebngrqfzdkowo/settings/database> (Session Pooler, host `aws-0-eu-central-1.pooler.supabase.com`, port `5432` o `6543`, db `postgres`, user `postgres.aikforfebngrqfzdkowo`, password DB da reset se non disponibile, SSL required).
-   - Sostituire il nodo "Airtable" finale con un nodo "Postgres" → Operation `Execute Query`:
-     ```sql
-     INSERT INTO movimenti (id, "timestamp", data_movimento, tipo, importo, conto,
-       categoria_id, descrizione, volontario, telegram_user_id, stato, note,
-       id_correzione, importo_segnato, synced_at)
-     VALUES ($1, $2, $3, $4::tipo_movimento, $5, $6::mezzo_pagamento,
-       (SELECT id FROM categorie WHERE LOWER(nome) = LOWER($7) LIMIT 1),
-       $8, $9, $10, $11::stato_movimento, $12, $13, $14, NOW())
-     ON CONFLICT ("timestamp") DO UPDATE SET
-       data_movimento = EXCLUDED.data_movimento, importo = EXCLUDED.importo,
-       descrizione = EXCLUDED.descrizione, stato = EXCLUDED.stato,
-       importo_segnato = EXCLUDED.importo_segnato, synced_at = NOW();
-     ```
-     Mappare i 14 parametri ai campi dello Sheet con `{{ String($json.<campo>) }}` per `telegram_user_id` e `id_correzione`.
-   - Test con riga nuova nello Sheet → verifica che compare su <https://supabase.com/dashboard/project/aikforfebngrqfzdkowo/editor> tabella `movimenti`.
-   - **Senza questo step** i nuovi movimenti del bot Telegram continuano a scriversi su Airtable e l'app `/cassa` NON li vede.
+1. Apri il Google Sheet `Cassa_Associazione_Template` ([link](https://docs.google.com/spreadsheets/d/1NZ9G7Vv8C6yYMb-oA3czSNq4d1vVC961iIMOXtAnrqE/edit)) e aggiungi una riga di test (es. id `MOV-test-postcutover`, importo 0.01, conto Cassa, descrizione "test").
+2. Aspetta 1-2 minuti (il poll del trigger è ogni minuto).
+3. Verifica su Supabase Table Editor → `movimenti`: <https://supabase.com/dashboard/project/aikforfebngrqfzdkowo/editor> filtrando per `id = 'MOV-test-postcutover'`. Deve esserci una riga col `categoria_id` risolto.
+4. Verifica anche su `/cassa` della webapp: il nuovo movimento deve apparire nell'elenco.
+5. Se il trigger non firma (eseguzione mai partita), aprire il workflow su n8n → click sul nodo "On new Movimenti row" → ri-selezionare la credential Google Sheets dal dropdown (il salvataggio della nuova versione via MCP **potrebbe aver perso il binding**, in tal caso il trigger e' fermo e ti accorgi perche' la riga del Sheet non viene mai sincronizzata).
+6. Cleanup post-verifica: eliminare la riga test dal Sheet e da Supabase (`DELETE FROM movimenti WHERE id = 'MOV-test-postcutover';`).
 
 ### Da fare dopo 1 settimana di osservazione (PR separata di cleanup)
 
