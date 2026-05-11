@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth/auth";
-import { listMovimenti } from "@/lib/airtable/movimenti";
-import { listCategorie } from "@/lib/airtable/categorie";
+import { listMovimenti } from "@/lib/db/movimenti";
+import { listCategorie } from "@/lib/db/categorie";
 import {
   Table,
   TableBody,

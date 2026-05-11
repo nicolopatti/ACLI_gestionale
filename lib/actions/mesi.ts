@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { segnaPagatoSchema } from "@/lib/validations/mese";
-import { updateMese } from "@/lib/airtable/mesi";
+import { updateMese } from "@/lib/db/mesi";
 
 async function requireAdmin() {
   const session = await auth();

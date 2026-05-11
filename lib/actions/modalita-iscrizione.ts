@@ -7,12 +7,12 @@ import {
   createModalita,
   deleteModalita,
   updateModalita,
-} from "@/lib/airtable/modalita-iscrizione";
+} from "@/lib/db/modalita-iscrizione";
 import {
   deleteIscrizioniByIds,
   listIscrizioniByModalita,
-} from "@/lib/airtable/iscrizioni";
-import { deleteMesiByIscrizione } from "@/lib/airtable/mesi";
+} from "@/lib/db/iscrizioni";
+import { deleteMesiByIscrizione } from "@/lib/db/mesi";
 
 async function requireAdmin() {
   const session = await auth();

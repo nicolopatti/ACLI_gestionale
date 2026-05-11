@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { listBambini } from "@/lib/airtable/bambini";
-import { listPresenzeByBambino } from "@/lib/airtable/presenze";
+import { listBambini } from "@/lib/db/bambini";
+import { listPresenzeByBambino } from "@/lib/db/presenze";
 import { presenzaAssente } from "@/lib/airtable/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

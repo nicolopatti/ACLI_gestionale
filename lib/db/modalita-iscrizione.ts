@@ -1,0 +1,119 @@
+import "server-only";
+import { db } from "./client";
+import type { ModalitaIscrizione } from "@/lib/airtable/types";
+import type { Database } from "./types.gen";
+
+type ModalitaRow = Database["public"]["Tables"]["modalita_iscrizione"]["Row"];
+
+function mapModalita(row: ModalitaRow): ModalitaIscrizione {
+  return {
+    recordId: row.id,
+    attivitaId: row.attivita_id,
+    nome: row.nome,
+    importo: Number(row.importo),
+    descrizione: row.descrizione ?? undefined,
+    attivo: row.attivo,
+  };
+}
+
+export async function listAllModalita(): Promise<ModalitaIscrizione[]> {
+  if (!db) return [];
+  const { data, error } = await db
+    .from("modalita_iscrizione")
+    .select("*")
+    .order("importo");
+  if (error) throw error;
+  return (data ?? []).map(mapModalita);
+}
+
+export async function listModalitaByAttivita(
+  attivitaId: string,
+): Promise<ModalitaIscrizione[]> {
+  if (!db) return [];
+  const { data, error } = await db
+    .from("modalita_iscrizione")
+    .select("*")
+    .eq("attivita_id", attivitaId)
+    .order("importo");
+  if (error) throw error;
+  return (data ?? []).map(mapModalita);
+}
+
+export async function getModalita(
+  recordId: string,
+): Promise<ModalitaIscrizione | null> {
+  if (!db) return null;
+  const { data, error } = await db
+    .from("modalita_iscrizione")
+    .select("*")
+    .eq("id", recordId)
+    .maybeSingle();
+  if (error) return null;
+  return data ? mapModalita(data) : null;
+}
+
+export async function createModalita(input: {
+  attivitaId: string;
+  nome: string;
+  importo: number;
+  descrizione?: string;
+  attivo?: boolean;
+}): Promise<ModalitaIscrizione> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { data, error } = await db
+    .from("modalita_iscrizione")
+    .insert({
+      attivita_id: input.attivitaId,
+      nome: input.nome,
+      importo: input.importo,
+      descrizione: input.descrizione,
+      attivo: input.attivo ?? true,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapModalita(data);
+}
+
+export async function updateModalita(
+  recordId: string,
+  fields: Partial<{
+    nome: string;
+    importo: number;
+    descrizione: string;
+    attivo: boolean;
+  }>,
+): Promise<ModalitaIscrizione> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { data, error } = await db
+    .from("modalita_iscrizione")
+    .update(fields)
+    .eq("id", recordId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapModalita(data);
+}
+
+export async function deleteModalita(recordId: string): Promise<void> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { error } = await db
+    .from("modalita_iscrizione")
+    .delete()
+    .eq("id", recordId);
+  if (error) throw error;
+}
+
+/**
+ * Cancella in bulk un set di modalita per id. Usato dal cascade delete di
+ * attivita. FK CASCADE in DB rende il flusso ridondante ma manteniamo la
+ * funzione per non rompere i chiamanti esistenti.
+ */
+export async function deleteModalitaByIds(ids: string[]): Promise<void> {
+  if (!db || ids.length === 0) return;
+  const { error } = await db
+    .from("modalita_iscrizione")
+    .delete()
+    .in("id", ids);
+  if (error) throw error;
+}
