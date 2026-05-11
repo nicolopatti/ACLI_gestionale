@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { verifyPassword } from "./password";
-import { getUserByEmail, recordLogin } from "@/lib/airtable/users";
+import { getUserByEmail, recordLogin } from "@/lib/db/users";
 
 const credentialsSchema = z.object({
   email: z.string().email(),

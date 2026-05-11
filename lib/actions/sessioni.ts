@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { sessioneSchema } from "@/lib/validations/sessione";
-import { createSessioniBatch, deleteSessione } from "@/lib/airtable/sessioni";
+import { createSessioniBatch, deleteSessione } from "@/lib/db/sessioni";
 import {
   deleteMesiBySessione,
   hasAnyRataPagataForSessione,
-} from "@/lib/airtable/mesi";
-import { listAllMesi } from "@/lib/airtable/mesi";
+} from "@/lib/db/mesi";
+import { listAllMesi } from "@/lib/db/mesi";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 
 async function requireAdmin() {

@@ -2,15 +2,15 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { listEducatori } from "@/lib/airtable/educatori";
-import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
-import { listSessioniByRange } from "@/lib/airtable/sessioni";
+import { listEducatori } from "@/lib/db/educatori";
+import { listDisponibilitaByRange } from "@/lib/db/disponibilita";
+import { listSessioniByRange } from "@/lib/db/sessioni";
 import {
   listAttivitaAttiveInRange,
   unionFasceOfferte,
   unionGiorniOfferti,
   calcolaCelleAttive,
-} from "@/lib/airtable/turni";
+} from "@/lib/db/turni";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,

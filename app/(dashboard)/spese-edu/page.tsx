@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { listMovimenti } from "@/lib/airtable/movimenti";
-import { listCategorie } from "@/lib/airtable/categorie";
+import { listMovimenti } from "@/lib/db/movimenti";
+import { listCategorie } from "@/lib/db/categorie";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpeseEduForm } from "@/components/spese-edu/spese-edu-form";
