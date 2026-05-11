@@ -4,7 +4,7 @@
  *
  * Uso: pnpm seed:categorie
  */
-import { ensureCategoria, listCategorie } from "../lib/airtable/categorie";
+import { ensureCategoria, listCategorie } from "../lib/db/categorie";
 
 const ENTRATE = [
   "Quote iscrizione",

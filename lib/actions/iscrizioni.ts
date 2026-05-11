@@ -9,17 +9,17 @@ import {
   deleteIscrizione,
   getIscrizione,
   updateIscrizione,
-} from "@/lib/airtable/iscrizioni";
+} from "@/lib/db/iscrizioni";
 import {
   createMesi,
   deleteMesiByIscrizione,
   deleteRateBySessioneEIscrizione,
   hasRataPagataForSessione,
   listMesiByIscrizione,
-} from "@/lib/airtable/mesi";
-import { getAttivita } from "@/lib/airtable/attivita";
-import { listSessioni } from "@/lib/airtable/sessioni";
-import { getModalita } from "@/lib/airtable/modalita-iscrizione";
+} from "@/lib/db/mesi";
+import { getAttivita } from "@/lib/db/attivita";
+import { listSessioni } from "@/lib/db/sessioni";
+import { getModalita } from "@/lib/db/modalita-iscrizione";
 import type { FasciaOraria, GiornoSettimana } from "@/lib/config";
 
 async function requireAdmin() {

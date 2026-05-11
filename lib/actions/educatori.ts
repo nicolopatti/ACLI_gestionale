@@ -8,11 +8,11 @@ import {
   createEducatore,
   deleteEducatore,
   updateEducatore,
-} from "@/lib/airtable/educatori";
+} from "@/lib/db/educatori";
 import {
   deleteDisponibilitaByEducatore,
   listDisponibilitaByEducatore,
-} from "@/lib/airtable/disponibilita";
+} from "@/lib/db/disponibilita";
 
 async function requireAdmin() {
   const session = await auth();

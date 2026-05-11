@@ -1,7 +1,21 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-10** — due sessioni distinte mergeate in una PR. Aggiornamento atomico sopra il merge `claude/fix-educator-display-tL4EF` (5 commit, già in produzione) + sessione `claude/add-operation-animations-AhGJg` ([PR #17](https://github.com/nicolopatti/ACLI_gestionale/pull/17)).
+> Ultimo aggiornamento: **2026-05-11** — sessione di migrazione **Airtable → Supabase** sul branch `claude/airtable-to-supabase-migration-uBZxn`. Infrastruttura pronta: schema Postgres applicato sul progetto Supabase nuovo, 14 moduli `lib/db/*` riscritti con `@supabase/supabase-js`, app codemodata (55 file), auth puntata a Supabase, script di travaso dati pronto. Cutover ancora da eseguire (vedi sezione "Cutover Supabase").
+>
+> **Sessione `claude/airtable-to-supabase-migration-uBZxn` (questo branch)**: 6 fasi completate, 2 rimanenti come cutover manuale.
+>
+> 1. **Schema Postgres su Supabase** (`supabase/aikforfebngrqfzdkowo`, region `eu-central-1`). 8 enum types + 14 tabelle (`users`, `bambini`, `attivita`, `modalita_iscrizione`, `sessioni`, `iscrizioni`, `iscrizioni_sessioni`, `rate` ex-`MesiIscrizione`, `presenze`, `educatori`, `disponibilita`, `movimenti`, `categorie`, `contatti_aggiuntivi`). FK `ON DELETE CASCADE` ovunque le dipendenze sono "forti" (figli del bambino, dell'attivita, dell'iscrizione, ecc.); `ON DELETE SET NULL` per relazioni opzionali (`rate.movimento_id`, `presenze.registrato_da`). Indici su FK + colonne di filtro frequente (data, chiave_periodo, stato_pagamento). **`UNIQUE(educatore_id, data, fascia_oraria)` su `disponibilita`** — fixa strutturalmente il bug residuo TODO #0 della versione Airtable. **Array Postgres** per i multi-value `giorni_settimana`/`fasce_orarie` (semantica = lista TS pura). **Join table** `iscrizioni_sessioni` per la M-to-M `sessioni_scelte`. RLS abilitata su tutte le tabelle senza policy → service-role key bypassa, anon key non puo' leggere niente (difesa in profondita').
+>
+> 2. **Client + types** (`lib/db/client.ts`, `lib/db/types.gen.ts`). Singleton `createClient<Database>(URL, SERVICE_ROLE_KEY)` con `auth.persistSession=false` (Auth.js gestisce la sessione, non Supabase Auth). `import "server-only"` in cima: errore di build se importato da un Client Component (la service-role key NON deve mai finire nel bundle). Tipi auto-generati da Supabase via `mcp__supabase__generate_typescript_types`.
+>
+> 3. **14 moduli `lib/db/*`** che replicano una-a-uno le signature pubbliche di `lib/airtable/*`. Stesso pattern `mapXxx(row)` -> domain type, stessi nomi funzione (`listBambini`, `getIscrizione`, `createMesi`, `replaceTurnoCella`, ecc.). I `.filter()` JS lato server della versione Airtable (workaround per il bug `filterByFormula` su linked records) **eliminati**: ora query SQL native via `.eq("bambino_id", ...)`, `.in("id", [...])`. I `delete*ByXxx` cascade-helpers ridotti a singolo `DELETE` Postgres che sfrutta `ON DELETE CASCADE` per le foglie. Le batch da 10 record di Airtable sostituite da insert singoli (Postgres no limit).
+>
+> 4. **Script di migrazione dati** (`scripts/migrate-airtable-to-supabase.ts`, `pnpm migrate:airtable`). Idempotente, ordine topologico, mappa `recXXX -> uuid` per ogni tabella, gestisce self-FK (`bambini.fratello_di`) in 2-pass, esplode `iscrizioni.sessioni_scelte` nella join table, mantiene il PK testuale dei `Movimenti` (`app_xxx` / id Telegram). Flag `--reset` (svuota Supabase prima) e `--dry-run`. **Da eseguire** al cutover (vedi sezione).
+>
+> 5. **Auth + codemod**. `lib/auth/auth.ts` import switchato a `lib/db/users` (zero altre modifiche all'auth flow — bcrypt, JWT, callbacks invariati). Sed globale sui 55 file dell'app: tutti gli `@/lib/airtable/{users,bambini,...,turni}` -> `@/lib/db/...`. `@/lib/airtable/types` mantenuto (domain types stabili, restano dove sono finche' non si rinomina `MeseIscrizione -> Rata`). Scripts `seed:admin`, `seed:categorie`, `reset-password` aggiornati allo stesso modo. **`pnpm typecheck` + `pnpm lint` + `pnpm build` verdi** (23 pagine generate). Branch deployabile come preview Vercel con env Supabase per QA.
+>
+> 6. **`.env.example`**: aggiunte `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Le env Airtable conservate (script di migrazione + n8n workflow le useranno fino al cutover).
 >
 > **Sessione `claude/add-operation-animations-AhGJg` (questo branch — PR #17)**: 4 fix in una passata.
 >
@@ -113,13 +127,40 @@
 | Branch | Ultimo commit | Stato | Cosa contiene |
 |---|---|---|---|
 | `claude/add-operation-animations-AhGJg` | (tip del branch, post-merge) | **PR aperta** [#17](https://github.com/nicolopatti/ACLI_gestionale/pull/17), da mergeare | (1) Pacchetto animazioni di feedback (ActionButton, useActionFeedback, TopProgressBar, 11 keyframe, ~16 form convertiti). (2) Cascade delete + confirm dialog per ogni entità (iscrizione, bambino, attività, modalità, sessione, educatore): niente più orfani su Airtable. (3) Mergea con `claude/fix-educator-display-tL4EF` (già in produzione): mantiene fasce dinamiche da Attivita, empty state turni strutturale, presenze toggle, ecc. |
+| `claude/airtable-to-supabase-migration-uBZxn` | (tip del branch, da pushare) | **In sviluppo, NON mergeare in produzione finche' non e' completato il cutover** | Migrazione completa Airtable -> Supabase. Schema Postgres applicato sul progetto `aikforfebngrqfzdkowo`. 14 moduli `lib/db/*` con stesse signature di `lib/airtable/*`, app intera codemodata, auth puntata, build verde. Manca solo il cutover manuale: (a) eseguire `pnpm migrate:airtable -- --reset` con env Airtable+Supabase, (b) settare `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` su Vercel Production, (c) riconfigurare workflow n8n `cmMaMjtv6xEzdZQC` per scrivere su Supabase Postgres (nodo Postgres al posto di Airtable, upsert `ON CONFLICT (timestamp)`), (d) merge. Vedi sezione **Cutover Supabase** sotto. |
+
+## Cutover Supabase
+
+Stato corrente: branch `claude/airtable-to-supabase-migration-uBZxn` con il codice gia' puntato a Supabase ma **produzione ancora su Airtable**. Il cutover va eseguito in finestra schedulata. Step nell'ordine:
+
+1. **Pre-flight**: env locali. Aggiungere a `.env.local`:
+   ```
+   SUPABASE_URL=https://aikforfebngrqfzdkowo.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<dal dashboard Supabase / Settings / API>
+   ```
+   Tenere anche `AIRTABLE_API_KEY` e `AIRTABLE_BASE_ID` (servono allo script).
+2. **Travaso dati**: `pnpm migrate:airtable -- --reset` (locale o su un job runner). Lo script svuota Supabase e ricarica tutto da Airtable, mappando `recXXX` -> UUID. Output: tabella di counts per ogni tabella. Se warn su FK non risolte, indagare prima di proseguire.
+3. **Smoke test in preview**: deploy del branch `claude/airtable-to-supabase-migration-uBZxn` su Vercel Preview con env Supabase. Login + verifica delle pagine `/dashboard`, `/bambini`, `/iscrizioni`, `/turni`, `/cassa`, `/presenze`.
+4. **Aggiornamento n8n** (workflow `cmMaMjtv6xEzdZQC`):
+   - Sostituire il nodo "Airtable" finale con un nodo "Postgres" puntato al connection string Supabase (Settings / Database / Connection string / Session Pooler, `:6543`).
+   - Operation: `Execute Query`, SQL `INSERT INTO movimenti (...) VALUES (...) ON CONFLICT (timestamp) DO UPDATE SET ...`. Bye-bye bug n8n v2.2 che strippa matchingColumns.
+   - Tenere `id_correzione`/`telegram_user_id` come stringa (Sheet API restituisce number).
+   - Test con riga nuova nello Sheet.
+5. **Env Vercel Production**: aggiungere `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. **Non rimuovere ancora** quelle Airtable (rollback rapido).
+6. **Merge** del branch su `claude/n8n-association-management-Q4pBM`. Verifica login + dashboard.
+7. **Windowing rollback**: tenere Airtable in lettura per 1 settimana. In caso di rollback, revert del merge + rimettere n8n a scrivere su Airtable.
+8. **Cleanup** (PR separata, dopo settimana di osservazione):
+   - `pnpm remove airtable`
+   - `rm -rf lib/airtable/` (i domain types si spostano in `lib/db/types.ts`)
+   - Rimuovere `AIRTABLE_*` da env Vercel
+   - Aggiornare `.env.example` e questo file
 
 ## Aperti (debiti / TODO)
 
 | # | Cosa | Priorità | Note |
 |---|------|----------|------|
-| 0 | **Bug residuo: rimuovere educatore da cella turni non si propaga** | 🔴 alta | Dal `TurnoDialog` deselezionando un educatore + Salva, lato server l'azione ritorna ok, `revalidatePath("/turni")` viene chiamato, e `router.refresh()` è in `turno-dialog.tsx:93-96`, ma l'educatore appare ancora nella cella. **Pista più calda**: `replaceTurnoCella` (`lib/airtable/disponibilita.ts:106-150`) usa `listDisponibilitaByDataEFascia(data, fascia)` con `filterByFormula: AND({data}='YYYY-MM-DD', {fascia_oraria}='14-16')`. Se Airtable serializza il campo `data` (date) in un formato non-ISO o se ci sono record con la fascia legacy `14-18` o spazi nella stringa, il filtro non matcha → `existing` vuoto → niente in `toDelete`. **Cosa provare**: (a) loggare cosa torna `listDisponibilitaByDataEFascia` con una cella nota; (b) sostituire il filtro con `listDisponibilitaByRange(data, data)` e filtrare in JS sulla fascia (più robusto, vedi pattern già usato in `listDisponibilitaByEducatoreEMese`); (c) verificare che `revalidatePath("/turni")` invalidi davvero il fetch (in Next 16 con Turbopack a volte serve `revalidateTag` su un tag esplicito). Stesso meccanismo del fix calendario disponibilità del commit `84e45f9` ma lì funziona — capire la differenza. |
-| 1 | Tabelle residue su Airtable (`Genitori`, `Table 1`) | 🟡 bassa | Da eliminare manualmente da Airtable UI (l'API non supporta delete table). Il campo `importo` su Sessioni è anch'esso orfano. |
+| 0 | ~~Bug residuo: rimuovere educatore da cella turni non si propaga~~ | ✅ risolto strutturalmente | La causa era il `filterByFormula` di Airtable su campo date inaffidabile. Con Postgres + `UNIQUE(educatore_id, data, fascia_oraria)` + `.eq("data", data).eq("fascia_oraria", fascia)` il match e' deterministico. Da verificare in preview dopo cutover. |
+| 1 | Tabelle residue su Airtable (`Genitori`, `Table 1`) | 🟡 bassa | Da eliminare manualmente da Airtable UI (l'API non supporta delete table). Il campo `importo` su Sessioni è anch'esso orfano. Con il cutover, tutto Airtable viene archiviato/dismesso quindi cleanup automatico. |
 | 1b | Choice `14-18` su Airtable (`Iscrizioni.fasce_orarie`, `Attivita.fasce_orarie`, `Disponibilita.fascia_oraria`) | 🟡 bassa | Il codice non la userà più ma resta come choice morto. Da rimuovere manualmente da UI Airtable quando comodo (DB pulito al momento, nessun record con quella choice). |
 | 2 | Categorie iniziali su Airtable | 🟡 bassa | Verificare che `pnpm seed:categorie` sia stato eseguito. |
 | 3 | Rinomina TS `MeseIscrizione` → `Rata` | 🟢 cleanup | Tabella Airtable resta `MesiIscrizione`. |
@@ -137,12 +178,13 @@
 - **Repo GitHub**: <https://github.com/nicolopatti/ACLI_gestionale>
 - **Vercel project**: `acli-gestionale` (team `nicolopattis-projects`)
 - **Branch production di Vercel**: `claude/n8n-association-management-Q4pBM`
-- **Branch di lavoro corrente**: `claude/fix-educator-display-tL4EF` (HEAD `79194c1`, 5 commit ahead di main, non ancora mergeato — vedi bug residuo TODO #0).
+- **Branch di lavoro corrente**: `claude/airtable-to-supabase-migration-uBZxn` (migrazione Supabase, vedi sezione "Cutover Supabase").
 - **Bundle prototipo Claude Design**: `design-prototype/` (handoff package — design tokens, page specs, JSX di riferimento; non codice di produzione). Include `GAP_ANALYSIS.md` con il piano di lavoro e le decisioni di scope chiuse.
-- **Airtable base**: `appvWIKKkoSeydbL7` (Acli Gestionale)
+- **Supabase project**: `aikforfebngrqfzdkowo` (acli-gestionale, region `eu-central-1`, tier Free $0/mese). URL: `https://aikforfebngrqfzdkowo.supabase.co`. Dashboard: `https://supabase.com/dashboard/project/aikforfebngrqfzdkowo`. La service-role key NON e' nel repo: recuperarla da Settings / API / `service_role` (`secret`).
+- **Airtable base** (legacy, in dismissione al cutover): `appvWIKKkoSeydbL7` (Acli Gestionale)
 - **Workflow n8n bootstrap schema**: `BphNmCM5qehqdKot` ([link](https://eurita.app.n8n.cloud/workflow/BphNmCM5qehqdKot))
 - **Workflow n8n sync Movimenti**: `cmMaMjtv6xEzdZQC` ([link](https://eurita.app.n8n.cloud/workflow/cmMaMjtv6xEzdZQC)) — Google Sheet `Cassa_Associazione_Template` (id `1NZ9G7Vv8C6yYMb-oA3czSNq4d1vVC961iIMOXtAnrqE`) → Airtable Movimenti. **Trigger**: `Google Sheets Trigger` su `event: rowAdded`, polling ogni minuto (parte solo su nuova riga). **Match**: `timestamp` (ms-precision dal bot Telegram). **Mapping**: `defineBelow` con espressione esplicita per ogni campo (incluso `id`, che n8n strippa se in matchingColumns).
-- **Env vars necessarie su Vercel** (Production + Preview): `AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `AIRTABLE_API_KEY` (Personal Access Token con scope `data.records:read/write` sulla base), `AIRTABLE_BASE_ID`.
+- **Env vars necessarie su Vercel** (Production + Preview): `AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Le `AIRTABLE_*` restano valorizzate sul preview del branch migrazione per consentire allo script di travaso di leggere; dopo cutover andranno rimosse anche da Production.
 
 ## Stack
 
