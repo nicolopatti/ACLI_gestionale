@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { dowToGiorno, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
 import type { Disponibilita } from "@/lib/airtable/types";
-import type { CellaAttiva } from "@/lib/db/turni";
+import type { CellaAttiva } from "@/lib/airtable/turni";
 
 export interface TurniGridProps {
   vista: "settimana" | "mese";

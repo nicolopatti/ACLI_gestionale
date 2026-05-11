@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getIscrizione } from "@/lib/db/iscrizioni";
-import { listMesiByIscrizione } from "@/lib/db/mesi";
-import { listBambini } from "@/lib/db/bambini";
-import { listAttivita, getAttivita } from "@/lib/db/attivita";
+import { getIscrizione } from "@/lib/airtable/iscrizioni";
+import { listMesiByIscrizione } from "@/lib/airtable/mesi";
+import { listBambini } from "@/lib/airtable/bambini";
+import { listAttivita, getAttivita } from "@/lib/airtable/attivita";
 import {
   listSessioni,
   listSessioniByAttivita,
-} from "@/lib/db/sessioni";
-import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
+} from "@/lib/airtable/sessioni";
+import { listModalitaByAttivita } from "@/lib/airtable/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
 import { MesiTable } from "@/components/iscrizioni/mesi-table";

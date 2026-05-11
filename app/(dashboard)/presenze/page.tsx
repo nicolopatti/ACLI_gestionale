@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { CalendarCheck, UserCheck, UserX } from "lucide-react";
-import { listBambini } from "@/lib/db/bambini";
-import { listIscrizioni } from "@/lib/db/iscrizioni";
-import { listPresenzeByData } from "@/lib/db/presenze";
-import { listAttivita } from "@/lib/db/attivita";
-import { listSessioniByAttivita } from "@/lib/db/sessioni";
+import { listBambini } from "@/lib/airtable/bambini";
+import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { listPresenzeByData } from "@/lib/airtable/presenze";
+import { listAttivita } from "@/lib/airtable/attivita";
+import { listSessioniByAttivita } from "@/lib/airtable/sessioni";
 import { GrigliaPresenze } from "@/components/presenze/griglia-presenze";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

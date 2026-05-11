@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { listBambini } from "@/lib/db/bambini";
-import { listAttivita } from "@/lib/db/attivita";
-import { listSessioniByAttivita } from "@/lib/db/sessioni";
-import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
+import { listBambini } from "@/lib/airtable/bambini";
+import { listAttivita } from "@/lib/airtable/attivita";
+import { listSessioniByAttivita } from "@/lib/airtable/sessioni";
+import { listModalitaByAttivita } from "@/lib/airtable/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
 import type { ModalitaIscrizione, Sessione } from "@/lib/airtable/types";

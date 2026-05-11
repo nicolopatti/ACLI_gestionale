@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { disponibilitaBatchSchema } from "@/lib/validations/disponibilita";
-import { replaceDisponibilita, replaceTurnoCella, type TurnoCellaRow } from "@/lib/db/disponibilita";
-import { getEducatore, listEducatori } from "@/lib/db/educatori";
+import { replaceDisponibilita, replaceTurnoCella, type TurnoCellaRow } from "@/lib/airtable/disponibilita";
+import { getEducatore, listEducatori } from "@/lib/airtable/educatori";
 import {
   listAttivitaAttiveInRange,
   unionFasceOfferte,
   unionGiorniOfferti,
-} from "@/lib/db/turni";
+} from "@/lib/airtable/turni";
 import { dowToGiorno, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
 
 async function requireAdmin() {

@@ -11,7 +11,7 @@ import {
   primoAccessoSchema,
   resetPasswordSchema,
 } from "@/lib/validations/utente";
-import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/db/users";
+import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/airtable/users";
 
 async function requireAdmin() {
   const session = await auth();

@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import { getEducatore } from "@/lib/db/educatori";
-import { listDisponibilitaByEducatore } from "@/lib/db/disponibilita";
+import { getEducatore } from "@/lib/airtable/educatori";
+import { listDisponibilitaByEducatore } from "@/lib/airtable/disponibilita";
 import {
   listAttivitaAttiveInRange,
   unionFasceOfferte,
   unionGiorniOfferti,
-} from "@/lib/db/turni";
+} from "@/lib/airtable/turni";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EducatoreForm } from "@/components/educatori/educatore-form";
 import { CalendarioDisponibilita } from "@/components/educatori/calendario-disponibilita";

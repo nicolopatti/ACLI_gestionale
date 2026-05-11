@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
-import { createMovimento } from "@/lib/db/movimenti";
+import { createMovimento } from "@/lib/airtable/movimenti";
 import { movimentoSchema } from "@/lib/validations/movimento";
 
 export interface CreaMovimentoResult {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
-import { setPresenza, upsertPresenze } from "@/lib/db/presenze";
+import { setPresenza, upsertPresenze } from "@/lib/airtable/presenze";
 import { oraSchema, presenzeBatchSchema } from "@/lib/validations/presenza";
 
 async function requireAdmin() {

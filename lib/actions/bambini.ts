@@ -8,24 +8,24 @@ import {
   createBambino as createBambinoAt,
   deleteBambino as deleteBambinoAt,
   updateBambino as updateBambinoAt,
-} from "@/lib/db/bambini";
+} from "@/lib/airtable/bambini";
 import {
   deleteContattiByBambino,
   listContattiByBambino,
   replaceContattiForBambino,
-} from "@/lib/db/contatti-aggiuntivi";
+} from "@/lib/airtable/contatti-aggiuntivi";
 import {
   deleteIscrizioniByIds,
   listIscrizioni,
-} from "@/lib/db/iscrizioni";
+} from "@/lib/airtable/iscrizioni";
 import {
   deleteMesiByIscrizione,
   listMesiByIscrizione,
-} from "@/lib/db/mesi";
+} from "@/lib/airtable/mesi";
 import {
   deletePresenzeByBambino,
   listPresenzeByBambino,
-} from "@/lib/db/presenze";
+} from "@/lib/airtable/presenze";
 
 async function requireAdmin() {
   const session = await auth();

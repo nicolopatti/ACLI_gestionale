@@ -9,24 +9,24 @@ import {
   createAttivita,
   deleteAttivita,
   updateAttivita,
-} from "@/lib/db/attivita";
+} from "@/lib/airtable/attivita";
 import {
   createSessioniBatch,
   deleteSessioniByIds,
   listSessioniByAttivita,
-} from "@/lib/db/sessioni";
+} from "@/lib/airtable/sessioni";
 import {
   deleteIscrizioniByIds,
   listIscrizioni,
-} from "@/lib/db/iscrizioni";
+} from "@/lib/airtable/iscrizioni";
 import {
   deleteMesiByIscrizione,
   listMesiByIscrizione,
-} from "@/lib/db/mesi";
+} from "@/lib/airtable/mesi";
 import {
   deleteModalitaByIds,
   listModalitaByAttivita,
-} from "@/lib/db/modalita-iscrizione";
+} from "@/lib/airtable/modalita-iscrizione";
 import { primoEUltimoGiornoDelMese } from "@/lib/sessioni-utils";
 
 async function requireAdmin() {

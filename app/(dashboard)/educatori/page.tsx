@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Mail, Pencil, Phone, Plus } from "lucide-react";
-import { listEducatori } from "@/lib/db/educatori";
-import { listDisponibilitaByMese } from "@/lib/db/disponibilita";
+import { listEducatori } from "@/lib/airtable/educatori";
+import { listDisponibilitaByMese } from "@/lib/airtable/disponibilita";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import {
   listAttivitaAttiveInRange,
   unionFasceOfferte,
   unionGiorniOfferti,
-} from "@/lib/db/turni";
+} from "@/lib/airtable/turni";
 import type { Disponibilita } from "@/lib/airtable/types";
 
 function meseCorrenteIso(): string {

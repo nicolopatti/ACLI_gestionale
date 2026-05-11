@@ -7,7 +7,7 @@
  * Richiede AIRTABLE_API_KEY e AIRTABLE_BASE_ID in .env.local.
  */
 import { hashPassword } from "../lib/auth/password";
-import { getUserByEmail, updateUser } from "../lib/db/users";
+import { getUserByEmail, updateUser } from "../lib/airtable/users";
 
 async function main() {
   const [, , email, password] = process.argv;

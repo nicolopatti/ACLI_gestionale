@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { listIscrizioni } from "@/lib/db/iscrizioni";
-import { listBambini } from "@/lib/db/bambini";
-import { listAttivita } from "@/lib/db/attivita";
-import { listAllMesi } from "@/lib/db/mesi";
-import { listAllModalita } from "@/lib/db/modalita-iscrizione";
+import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { listBambini } from "@/lib/airtable/bambini";
+import { listAttivita } from "@/lib/airtable/attivita";
+import { listAllMesi } from "@/lib/airtable/mesi";
+import { listAllModalita } from "@/lib/airtable/modalita-iscrizione";
 import type { Iscrizione, MeseIscrizione } from "@/lib/airtable/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

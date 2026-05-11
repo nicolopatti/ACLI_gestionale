@@ -10,15 +10,15 @@ import {
   Wallet,
 } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
-import { listBambini } from "@/lib/db/bambini";
-import { listMovimenti } from "@/lib/db/movimenti";
-import { listIscrizioni } from "@/lib/db/iscrizioni";
-import { listAttivita } from "@/lib/db/attivita";
-import { listAllMesi } from "@/lib/db/mesi";
-import { listPresenzeByData } from "@/lib/db/presenze";
-import { listSessioni } from "@/lib/db/sessioni";
-import { listEducatori } from "@/lib/db/educatori";
-import { listDisponibilitaByRange } from "@/lib/db/disponibilita";
+import { listBambini } from "@/lib/airtable/bambini";
+import { listMovimenti } from "@/lib/airtable/movimenti";
+import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { listAttivita } from "@/lib/airtable/attivita";
+import { listAllMesi } from "@/lib/airtable/mesi";
+import { listPresenzeByData } from "@/lib/airtable/presenze";
+import { listSessioni } from "@/lib/airtable/sessioni";
+import { listEducatori } from "@/lib/airtable/educatori";
+import { listDisponibilitaByRange } from "@/lib/airtable/disponibilita";
 import { presenzaAssente } from "@/lib/airtable/types";
 import type { MeseIscrizione, Movimento } from "@/lib/airtable/types";
 import { meseAnnoSCorrenteLabel } from "@/lib/utils-dashboard";

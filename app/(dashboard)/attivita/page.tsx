@@ -7,10 +7,10 @@ import {
   Train,
   type LucideIcon,
 } from "lucide-react";
-import { listAttivita } from "@/lib/db/attivita";
-import { listSessioni } from "@/lib/db/sessioni";
-import { listIscrizioni } from "@/lib/db/iscrizioni";
-import { listAllMesi } from "@/lib/db/mesi";
+import { listAttivita } from "@/lib/airtable/attivita";
+import { listSessioni } from "@/lib/airtable/sessioni";
+import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { listAllMesi } from "@/lib/airtable/mesi";
 import type { Sessione } from "@/lib/airtable/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

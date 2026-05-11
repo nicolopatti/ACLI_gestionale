@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getAttivita } from "@/lib/db/attivita";
-import { listSessioniByAttivita } from "@/lib/db/sessioni";
-import { listIscrizioni } from "@/lib/db/iscrizioni";
-import { listBambini } from "@/lib/db/bambini";
-import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
+import { getAttivita } from "@/lib/airtable/attivita";
+import { listSessioniByAttivita } from "@/lib/airtable/sessioni";
+import { listIscrizioni } from "@/lib/airtable/iscrizioni";
+import { listBambini } from "@/lib/airtable/bambini";
+import { listModalitaByAttivita } from "@/lib/airtable/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttivitaForm } from "@/components/attivita/attivita-form";
 import { SessioniEditor } from "@/components/attivita/sessioni-editor";

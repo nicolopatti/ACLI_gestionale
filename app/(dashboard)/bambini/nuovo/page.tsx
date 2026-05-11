@@ -1,4 +1,4 @@
-import { listBambini } from "@/lib/db/bambini";
+import { listBambini } from "@/lib/airtable/bambini";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BambinoForm } from "@/components/bambini/bambino-form";
 
