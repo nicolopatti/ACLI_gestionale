@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { listMovimenti } from "@/lib/db/movimenti";
 import { listCategorie } from "@/lib/db/categorie";
+import { listVociRendiconto } from "@/lib/db/voci-rendiconto";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpeseEduForm } from "@/components/spese-edu/spese-edu-form";
@@ -15,12 +16,13 @@ export default async function SpeseEduPage() {
     redirect("/dashboard");
   }
 
-  const [categorie, movimenti] = await Promise.all([
+  const [categorie, movimenti, voci] = await Promise.all([
     listCategorie(),
     listMovimenti({
       ...(user.telegramUserId ? { telegramUserId: user.telegramUserId } : {}),
       limit: 200,
     }),
+    listVociRendiconto(),
   ]);
   const categoriaById = new Map(categorie.map((c) => [c.recordId, c] as const));
 
@@ -51,7 +53,16 @@ export default async function SpeseEduPage() {
                 id: c.recordId,
                 nome: c.nome,
                 tipo: c.tipo,
+                voceRendicontoDefaultId: c.voceRendicontoDefaultId,
               }))}
+              voci={voci
+                .filter((v) => v.attivo)
+                .map((v) => ({
+                  id: v.recordId,
+                  codice: v.codice,
+                  label: v.label,
+                  tipo: v.tipo,
+                }))}
             />
           </CardContent>
         </Card>

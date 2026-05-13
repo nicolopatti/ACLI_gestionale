@@ -11,7 +11,8 @@
     "seed:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
     "seed:categorie": "tsx --env-file=.env.local scripts/seed-categorie.ts",
     "reset-password": "tsx --env-file=.env.local scripts/reset-password.ts",
-    "migrate:airtable": "tsx --env-file=.env.local scripts/migrate-airtable-to-supabase.ts"
+    "migrate:airtable": "tsx --env-file=.env.local scripts/migrate-airtable-to-supabase.ts",
+    "backfill:rate-movimenti": "tsx --env-file=.env.local scripts/backfill-rate-movimenti.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",

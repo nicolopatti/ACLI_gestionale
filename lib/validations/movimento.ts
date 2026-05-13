@@ -7,6 +7,7 @@ export const movimentoSchema = z.object({
   conto: z.enum(MEZZI_PAGAMENTO),
   dataMovimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data non valida"),
   categoriaId: z.string().trim().optional().or(z.literal("")),
+  voceRendicontoId: z.string().trim().optional().or(z.literal("")),
   descrizione: z.string().trim().min(1, "Descrizione obbligatoria"),
   note: z.string().trim().optional().or(z.literal("")),
 });

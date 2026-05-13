@@ -23,8 +23,10 @@ function mapMovimento(record: { id: string; fields: Record<string, unknown> }): 
     stato: (f.stato as "valido" | "errato" | "corretto") ?? undefined,
     note: (f.note as string) ?? undefined,
     idCorrezione: (f.id_correzione as string) ?? undefined,
-    importoSegnato: f.importo_segnato != null ? Number(f.importo_segnato as number) : undefined,
+    importoSegnato:
+      f.importo_segnato != null ? Number(f.importo_segnato as number) : undefined,
     syncedAt: (f.synced_at as string) ?? undefined,
+    isGiroconto: false,
   };
 }
 

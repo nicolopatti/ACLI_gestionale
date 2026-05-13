@@ -196,10 +196,34 @@ export interface Movimento {
   idCorrezione?: string;
   importoSegnato?: number;
   syncedAt?: string;
+  voceRendicontoId?: string;
+  origine?: OrigineMovimento;
+  fingerprintBank?: string;
+  isGiroconto: boolean;
 }
+
+export type OrigineMovimento =
+  | "telegram"
+  | "app"
+  | "rata"
+  | "bank_import";
 
 export interface Categoria {
   recordId: string;
   nome: string;
   tipo: "Entrata" | "Uscita";
+  voceRendicontoDefaultId?: string;
+}
+
+export type SezioneRendiconto = "A" | "B" | "C" | "D" | "E";
+
+export interface VoceRendiconto {
+  recordId: string;
+  codice: string;
+  tipo: "Entrata" | "Uscita";
+  sezione: SezioneRendiconto;
+  numero: number;
+  label: string;
+  ordering: number;
+  attivo: boolean;
 }

@@ -1,9 +1,11 @@
 import {
   Banknote,
   Baby,
+  BookOpenCheck,
   CalendarCheck,
   CalendarClock,
   CalendarRange,
+  FileSpreadsheet,
   GraduationCap,
   HeartHandshake,
   LayoutDashboard,
@@ -39,6 +41,8 @@ export const NAV: Record<Area, NavSection> = {
     icon: Shield,
     items: [
       { href: "/cassa", label: "Cassa e finanze", icon: Banknote },
+      { href: "/rendiconto", label: "Rendiconto ETS", icon: FileSpreadsheet },
+      { href: "/categorie", label: "Categorie", icon: BookOpenCheck },
       { href: "/utenti", label: "Utenti gestionale", icon: UserCog },
     ],
   },

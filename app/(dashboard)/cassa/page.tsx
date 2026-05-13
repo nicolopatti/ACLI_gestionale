@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth/auth";
 import { listMovimenti } from "@/lib/db/movimenti";
 import { listCategorie } from "@/lib/db/categorie";
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CassaFilters } from "@/components/cassa/cassa-filters";
 import { formatDate, formatEur } from "@/lib/utils";
 import { MEZZI_PAGAMENTO, type MezzoPagamento } from "@/lib/config";
@@ -89,9 +91,11 @@ export default async function CassaPage({
   ]);
   const categoriaById = new Map(categorie.map((c) => [c.recordId, c] as const));
 
-  // KPI per conto = unfiltered (saldo reale di ciascun conto)
-  const totaliConto = aggregaPerConto(movimenti);
-  const totaleGenerale = aggregaTotale(movimenti);
+  // KPI per conto = unfiltered (saldo reale di ciascun conto).
+  // I giroconti sono trasferimenti interni e NON contribuiscono ai saldi.
+  const movimentiContabili = movimenti.filter((m) => !m.isGiroconto);
+  const totaliConto = aggregaPerConto(movimentiContabili);
+  const totaleGenerale = aggregaTotale(movimentiContabili);
 
   // Movimenti filtrati per la tabella + footer periodo
   const filtered = movimenti.filter((m) => {
@@ -112,7 +116,19 @@ export default async function CassaPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Cassa</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Cassa</h1>
+        {isAdmin ? (
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/cassa/import">Importa estratto conto</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/rendiconto">Rendiconto ETS</Link>
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {(MEZZI_PAGAMENTO).map((conto) => (
@@ -193,6 +209,11 @@ export default async function CassaPage({
                       ) : (
                         <Badge variant="warning">Uscita</Badge>
                       )}
+                      {m.isGiroconto ? (
+                        <Badge variant="outline" className="ml-1">
+                          Giroc.
+                        </Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell className="font-mono text-right tabular-nums">
                       {m.tipo === "Uscita" ? "−" : "+"} {formatEur(m.importo)}
