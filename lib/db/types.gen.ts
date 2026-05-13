@@ -124,20 +124,31 @@ export type Database = {
           id: string
           nome: string
           tipo: Database["public"]["Enums"]["tipo_movimento"]
+          voce_rendiconto_default_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           nome: string
           tipo: Database["public"]["Enums"]["tipo_movimento"]
+          voce_rendiconto_default_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           nome?: string
           tipo?: Database["public"]["Enums"]["tipo_movimento"]
+          voce_rendiconto_default_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categorie_voce_rendiconto_default_id_fkey"
+            columns: ["voce_rendiconto_default_id"]
+            isOneToOne: false
+            referencedRelation: "voci_rendiconto"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contatti_aggiuntivi: {
         Row: {
@@ -393,16 +404,20 @@ export type Database = {
           created_at: string
           data_movimento: string | null
           descrizione: string | null
+          fingerprint_bank: string | null
           id: string
           id_correzione: string | null
           importo: number
           importo_segnato: number | null
+          is_giroconto: boolean
           note: string | null
+          origine: string | null
           stato: Database["public"]["Enums"]["stato_movimento"] | null
           synced_at: string | null
           telegram_user_id: string | null
           timestamp: string | null
           tipo: Database["public"]["Enums"]["tipo_movimento"]
+          voce_rendiconto_id: string | null
           volontario: string | null
         }
         Insert: {
@@ -411,16 +426,20 @@ export type Database = {
           created_at?: string
           data_movimento?: string | null
           descrizione?: string | null
+          fingerprint_bank?: string | null
           id: string
           id_correzione?: string | null
           importo: number
           importo_segnato?: number | null
+          is_giroconto?: boolean
           note?: string | null
+          origine?: string | null
           stato?: Database["public"]["Enums"]["stato_movimento"] | null
           synced_at?: string | null
           telegram_user_id?: string | null
           timestamp?: string | null
           tipo: Database["public"]["Enums"]["tipo_movimento"]
+          voce_rendiconto_id?: string | null
           volontario?: string | null
         }
         Update: {
@@ -429,16 +448,20 @@ export type Database = {
           created_at?: string
           data_movimento?: string | null
           descrizione?: string | null
+          fingerprint_bank?: string | null
           id?: string
           id_correzione?: string | null
           importo?: number
           importo_segnato?: number | null
+          is_giroconto?: boolean
           note?: string | null
+          origine?: string | null
           stato?: Database["public"]["Enums"]["stato_movimento"] | null
           synced_at?: string | null
           telegram_user_id?: string | null
           timestamp?: string | null
           tipo?: Database["public"]["Enums"]["tipo_movimento"]
+          voce_rendiconto_id?: string | null
           volontario?: string | null
         }
         Relationships: [
@@ -447,6 +470,13 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_voce_rendiconto_id_fkey"
+            columns: ["voce_rendiconto_id"]
+            isOneToOne: false
+            referencedRelation: "voci_rendiconto"
             referencedColumns: ["id"]
           },
         ]
@@ -678,17 +708,72 @@ export type Database = {
         }
         Relationships: []
       }
+      voci_rendiconto: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string
+          id: string
+          label: string
+          numero: number
+          ordering: number
+          sezione: Database["public"]["Enums"]["sezione_rendiconto"]
+          tipo: Database["public"]["Enums"]["tipo_movimento"]
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string
+          id?: string
+          label: string
+          numero: number
+          ordering: number
+          sezione: Database["public"]["Enums"]["sezione_rendiconto"]
+          tipo: Database["public"]["Enums"]["tipo_movimento"]
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string
+          id?: string
+          label?: string
+          numero?: number
+          ordering?: number
+          sezione?: Database["public"]["Enums"]["sezione_rendiconto"]
+          tipo?: Database["public"]["Enums"]["tipo_movimento"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      upsert_movimento_from_sheet: {
+        Args: {
+          mov_categoria: string
+          mov_conto: string
+          mov_data_movimento: string
+          mov_descrizione: string
+          mov_id: string
+          mov_id_correzione: string
+          mov_importo: number
+          mov_importo_segnato: number
+          mov_note: string
+          mov_stato: string
+          mov_telegram_user_id: string
+          mov_timestamp: string
+          mov_tipo: string
+          mov_volontario: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       mezzo_pagamento: "Cassa" | "BCC" | "Sumup"
       ruolo: "admin" | "volontario_cassa" | "coordinatore_educativo"
       ruolo_contatto: "nonno" | "nonna" | "zio" | "zia" | "altro"
+      sezione_rendiconto: "A" | "B" | "C" | "D" | "E"
       stato_movimento: "valido" | "errato" | "corretto"
       stato_pagamento: "non_pagato" | "pagato" | "parziale"
       tipo_attivita: "doposcuola" | "laboratorio" | "locomotiva"
@@ -824,6 +909,7 @@ export const Constants = {
       mezzo_pagamento: ["Cassa", "BCC", "Sumup"],
       ruolo: ["admin", "volontario_cassa", "coordinatore_educativo"],
       ruolo_contatto: ["nonno", "nonna", "zio", "zia", "altro"],
+      sezione_rendiconto: ["A", "B", "C", "D", "E"],
       stato_movimento: ["valido", "errato", "corretto"],
       stato_pagamento: ["non_pagato", "pagato", "parziale"],
       tipo_attivita: ["doposcuola", "laboratorio", "locomotiva"],
