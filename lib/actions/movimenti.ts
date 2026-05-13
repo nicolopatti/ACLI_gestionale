@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
-import { createMovimento } from "@/lib/db/movimenti";
+import {
+  createMovimento,
+  setCategoriaMovimento,
+  setVoceRendicontoMovimento,
+} from "@/lib/db/movimenti";
 import { movimentoSchema } from "@/lib/validations/movimento";
 
 export interface CreaMovimentoResult {
@@ -66,4 +70,29 @@ export async function creaMovimentoAction(
   } catch (e) {
     return { error: (e as Error).message };
   }
+}
+
+async function requireAdmin() {
+  const session = await auth();
+  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+}
+
+export async function setCategoriaMovimentoAction(
+  movimentoId: string,
+  categoriaId: string | null,
+) {
+  await requireAdmin();
+  await setCategoriaMovimento(movimentoId, categoriaId);
+  revalidatePath("/rendiconto");
+  revalidatePath("/cassa");
+}
+
+export async function setVoceRendicontoMovimentoAction(
+  movimentoId: string,
+  voceRendicontoId: string | null,
+) {
+  await requireAdmin();
+  await setVoceRendicontoMovimento(movimentoId, voceRendicontoId);
+  revalidatePath("/rendiconto");
+  revalidatePath("/cassa");
 }

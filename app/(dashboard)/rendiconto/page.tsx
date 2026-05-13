@@ -8,6 +8,7 @@ import { aggregaRendiconto } from "@/lib/rendiconto/aggregate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/utils";
+import { MovimentoDaClassificareRow } from "@/components/rendiconto/movimento-da-classificare-row";
 
 function annoCorrente(): number {
   return new Date().getFullYear();
@@ -89,29 +90,74 @@ export default async function RendicontoPage({
         </div>
       </div>
 
-      {(r.nonClassificati.length > 0 || r.giroconti.length > 0) ? (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--muted)]/40 px-4 py-3 text-[12.5px] space-y-1">
-          {r.nonClassificati.length > 0 ? (
-            <div>
-              <span className="font-medium text-[var(--danger)]">
-                {r.nonClassificati.length} movimenti senza voce rendiconto
-              </span>{" "}
-              ({formatEur(
-                r.nonClassificati.reduce((s, m) => s + m.importo, 0),
-              )}{" "}
-              totale). Assegna una categoria con voce di default da{" "}
+      {r.nonClassificati.length > 0 ? (
+        <details
+          open
+          className="rounded-md border border-[var(--danger)]/30 bg-[var(--danger)]/[0.04]"
+        >
+          <summary className="px-4 py-3 text-[12.5px] cursor-pointer select-none flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-medium text-[var(--danger)]">
+              {r.nonClassificati.length} movimenti senza voce rendiconto
+            </span>
+            <span className="text-[var(--muted-foreground)]">
+              ({formatEur(r.nonClassificati.reduce((s, m) => s + m.importo, 0))}{" "}
+              totale)
+            </span>
+            <span className="text-[var(--muted-foreground)]">
+              · assegna categoria o voce qui sotto, oppure imposta il default da{" "}
               <Link href="/categorie" className="underline">
                 /categorie
-              </Link>{" "}
-              oppure una voce diretta su ciascun movimento.
+              </Link>
+              .
+            </span>
+          </summary>
+          <div className="border-t border-[var(--danger)]/20 bg-[var(--background)]">
+            <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2 text-[11px] uppercase tracking-wide text-[var(--muted-foreground)] border-b border-[var(--border)]/60">
+              <div className="col-span-2">Data</div>
+              <div className="col-span-3">Movimento</div>
+              <div className="col-span-3">Categoria</div>
+              <div className="col-span-4">Voce ETS (override)</div>
             </div>
-          ) : null}
-          {r.giroconti.length > 0 ? (
-            <div className="text-[var(--muted-foreground)]">
-              {r.giroconti.length} giroconti esclusi (
-              {formatEur(r.giroconti.reduce((s, m) => s + m.importo, 0))}).
-            </div>
-          ) : null}
+            <ul>
+              {r.nonClassificati.map((m) => {
+                const categorieOpt = categorie
+                  .filter((c) => c.tipo === m.tipo)
+                  .map((c) => ({ id: c.recordId, nome: c.nome }));
+                const vociOpt = voci
+                  .filter((v) => v.tipo === m.tipo && v.attivo)
+                  .sort((a, b) => a.ordering - b.ordering)
+                  .map((v) => ({
+                    id: v.recordId,
+                    codice: v.codice,
+                    label: v.label,
+                  }));
+                return (
+                  <MovimentoDaClassificareRow
+                    key={m.recordId}
+                    movimento={{
+                      id: m.recordId,
+                      dataMovimento: m.dataMovimento,
+                      descrizione: m.descrizione,
+                      conto: m.conto,
+                      tipo: m.tipo,
+                      importo: m.importo,
+                      categoriaId: m.categoriaId,
+                      voceRendicontoId: m.voceRendicontoId,
+                    }}
+                    categorie={categorieOpt}
+                    voci={vociOpt}
+                  />
+                );
+              })}
+            </ul>
+          </div>
+        </details>
+      ) : null}
+
+      {r.giroconti.length > 0 ? (
+        <div className="rounded-md border border-[var(--border)] bg-[var(--muted)]/40 px-4 py-2 text-[12px] text-[var(--muted-foreground)]">
+          {r.giroconti.length} giroconti esclusi (
+          {formatEur(r.giroconti.reduce((s, m) => s + m.importo, 0))}).
         </div>
       ) : null}
 
