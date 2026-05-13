@@ -6,7 +6,7 @@ import { listIscrizioni } from "@/lib/db/iscrizioni";
 import { listContattiByBambino } from "@/lib/db/contatti-aggiuntivi";
 import { listAttivita } from "@/lib/db/attivita";
 import { listAllModalita } from "@/lib/db/modalita-iscrizione";
-import { listAllMesi } from "@/lib/db/mesi";
+import { listMesiByIscrizioneIds } from "@/lib/db/mesi";
 import { listPresenzeByBambino } from "@/lib/db/presenze";
 import { listSessioni } from "@/lib/db/sessioni";
 import { presenzaAssente } from "@/lib/airtable/types";
@@ -63,6 +63,7 @@ export default async function BambinoDetailPage({
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const tab: Tab = isTab(sp.tab) ? sp.tab : "anagrafica";
 
+  // Stage 1: dati specifici del bambino + lookup table cachate
   const [
     bambino,
     bambini,
@@ -70,9 +71,7 @@ export default async function BambinoDetailPage({
     contatti,
     attivita,
     modalita,
-    allRate,
     presenze,
-    sessioni,
   ] = await Promise.all([
     getBambino(id),
     listBambini(),
@@ -80,20 +79,27 @@ export default async function BambinoDetailPage({
     listContattiByBambino(id),
     listAttivita(),
     listAllModalita(),
-    listAllMesi(),
     listPresenzeByBambino(id),
-    listSessioni(),
   ]);
   if (!bambino) notFound();
+
+  // Stage 2: solo le rate del bambino e solo le sessioni referenziate
+  const iscrizioneIds = iscrizioniBambino.map((i) => i.recordId);
+  const sessioneIds = Array.from(
+    new Set(presenze.map((p) => p.sessioneId).filter(Boolean) as string[]),
+  );
+  const [rateBambino, sessioni] = await Promise.all([
+    listMesiByIscrizioneIds(iscrizioneIds),
+    listSessioni({ recordIds: sessioneIds }),
+  ]);
 
   const attivitaById = new Map(attivita.map((a) => [a.recordId, a] as const));
   const modalitaById = new Map(modalita.map((m) => [m.recordId, m] as const));
   const sessioniById = new Map(sessioni.map((s) => [s.recordId, s] as const));
 
-  const iscrizioneIds = new Set(iscrizioniBambino.map((i) => i.recordId));
-  const rateBambino = allRate
-    .filter((r) => iscrizioneIds.has(r.iscrizioneId))
-    .sort((a, b) => (b.chiavePeriodo ?? "").localeCompare(a.chiavePeriodo ?? ""));
+  rateBambino.sort((a, b) =>
+    (b.chiavePeriodo ?? "").localeCompare(a.chiavePeriodo ?? ""),
+  );
 
   const fullName = `${bambino.cognome} ${bambino.nome}`.trim();
 
