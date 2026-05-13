@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
 import type { ModalitaIscrizione } from "@/lib/airtable/types";
 import type { Database } from "./types.gen";
@@ -16,7 +17,7 @@ function mapModalita(row: ModalitaRow): ModalitaIscrizione {
   };
 }
 
-export async function listAllModalita(): Promise<ModalitaIscrizione[]> {
+async function _listAllModalita(): Promise<ModalitaIscrizione[]> {
   if (!db) return [];
   const { data, error } = await db
     .from("modalita_iscrizione")
@@ -26,7 +27,13 @@ export async function listAllModalita(): Promise<ModalitaIscrizione[]> {
   return (data ?? []).map(mapModalita);
 }
 
-export async function listModalitaByAttivita(
+export const listAllModalita = unstable_cache(
+  _listAllModalita,
+  ["modalita:all"],
+  { revalidate: 120, tags: ["modalita"] },
+);
+
+async function _listModalitaByAttivita(
   attivitaId: string,
 ): Promise<ModalitaIscrizione[]> {
   if (!db) return [];
@@ -38,6 +45,12 @@ export async function listModalitaByAttivita(
   if (error) throw error;
   return (data ?? []).map(mapModalita);
 }
+
+export const listModalitaByAttivita = unstable_cache(
+  _listModalitaByAttivita,
+  ["modalita:by-attivita"],
+  { revalidate: 120, tags: ["modalita"] },
+);
 
 export async function getModalita(
   recordId: string,
@@ -72,6 +85,7 @@ export async function createModalita(input: {
     .select("*")
     .single();
   if (error) throw error;
+  revalidateTag("modalita", "max");
   return mapModalita(data);
 }
 
@@ -92,6 +106,7 @@ export async function updateModalita(
     .select("*")
     .single();
   if (error) throw error;
+  revalidateTag("modalita", "max");
   return mapModalita(data);
 }
 
@@ -102,6 +117,7 @@ export async function deleteModalita(recordId: string): Promise<void> {
     .delete()
     .eq("id", recordId);
   if (error) throw error;
+  revalidateTag("modalita", "max");
 }
 
 /**
@@ -116,4 +132,5 @@ export async function deleteModalitaByIds(ids: string[]): Promise<void> {
     .delete()
     .in("id", ids);
   if (error) throw error;
+  revalidateTag("modalita", "max");
 }

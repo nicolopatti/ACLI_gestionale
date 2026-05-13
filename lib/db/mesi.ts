@@ -54,6 +54,19 @@ export async function listMesiByIscrizione(
   return (data ?? []).map(mapMese);
 }
 
+export async function listMesiByIscrizioneIds(
+  iscrizioneIds: string[],
+): Promise<MeseIscrizione[]> {
+  if (!db || iscrizioneIds.length === 0) return [];
+  const { data, error } = await db
+    .from("rate")
+    .select("*")
+    .in("iscrizione_id", iscrizioneIds)
+    .order("chiave_periodo");
+  if (error) throw error;
+  return (data ?? []).map(mapMese);
+}
+
 export async function listMesiByChiavePeriodo(
   chiave: string,
 ): Promise<MeseIscrizione[]> {

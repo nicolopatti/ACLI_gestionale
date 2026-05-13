@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
 import type { Attivita } from "@/lib/airtable/types";
 import type { Database } from "./types.gen";
@@ -35,7 +36,7 @@ function mapAttivita(row: AttivitaRowWithRel): Attivita {
 
 const REL_SELECT = "*, sessioni(id), iscrizioni(id), modalita_iscrizione(id)";
 
-export async function listAttivita(opts?: {
+async function _listAttivita(opts?: {
   tipo?: TipoAttivita;
   attivo?: boolean;
 }): Promise<Attivita[]> {
@@ -50,6 +51,11 @@ export async function listAttivita(opts?: {
   if (error) throw error;
   return (data ?? []).map((r) => mapAttivita(r as AttivitaRowWithRel));
 }
+
+export const listAttivita = unstable_cache(_listAttivita, ["attivita:list"], {
+  revalidate: 120,
+  tags: ["attivita"],
+});
 
 export async function getAttivita(recordId: string): Promise<Attivita | null> {
   if (!db) return null;
@@ -88,6 +94,7 @@ export async function createAttivita(input: {
     .select(REL_SELECT)
     .single();
   if (error) throw error;
+  revalidateTag("attivita", "max");
   return mapAttivita(data as AttivitaRowWithRel);
 }
 
@@ -112,6 +119,7 @@ export async function updateAttivita(
     .select(REL_SELECT)
     .single();
   if (error) throw error;
+  revalidateTag("attivita", "max");
   return mapAttivita(data as AttivitaRowWithRel);
 }
 
@@ -120,4 +128,5 @@ export async function deleteAttivita(recordId: string): Promise<void> {
   // FK CASCADE pulisce modalita, sessioni, iscrizioni (e a cascata rate).
   const { error } = await db.from("attivita").delete().eq("id", recordId);
   if (error) throw error;
+  revalidateTag("attivita", "max");
 }

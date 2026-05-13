@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
 import type { Educatore } from "@/lib/airtable/types";
 import type { Database } from "./types.gen";
@@ -18,7 +19,7 @@ function mapEducatore(row: EducatoreRow): Educatore {
   };
 }
 
-export async function listEducatori(opts?: {
+async function _listEducatori(opts?: {
   soloAttivi?: boolean;
 }): Promise<Educatore[]> {
   if (!db) return [];
@@ -28,6 +29,11 @@ export async function listEducatori(opts?: {
   if (error) throw error;
   return (data ?? []).map(mapEducatore);
 }
+
+export const listEducatori = unstable_cache(_listEducatori, ["educatori:list"], {
+  revalidate: 120,
+  tags: ["educatori"],
+});
 
 export async function getEducatore(recordId: string): Promise<Educatore | null> {
   if (!db) return null;
@@ -64,6 +70,7 @@ export async function createEducatore(input: EducatoreInput): Promise<Educatore>
     .select("*")
     .single();
   if (error) throw error;
+  revalidateTag("educatori", "max");
   return mapEducatore(data);
 }
 
@@ -86,6 +93,7 @@ export async function updateEducatore(
     .select("*")
     .single();
   if (error) throw error;
+  revalidateTag("educatori", "max");
   return mapEducatore(data);
 }
 
@@ -94,4 +102,5 @@ export async function deleteEducatore(recordId: string): Promise<void> {
   // FK CASCADE in DB pulisce le disponibilita automaticamente.
   const { error } = await db.from("educatori").delete().eq("id", recordId);
   if (error) throw error;
+  revalidateTag("educatori", "max");
 }
