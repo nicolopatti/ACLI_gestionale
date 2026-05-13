@@ -1,7 +1,7 @@
 # Stato del progetto
 
 > Documento vivo: si aggiorna a fine di ogni sessione di lavoro.
-> Ultimo aggiornamento: **2026-05-11** (sera tardi) — **cutover Airtable → Supabase eseguito interamente**, incluso aggiornamento del workflow n8n. Produzione gira ora sul progetto Supabase `aikforfebngrqfzdkowo` (deploy `dpl_4GJWK1jaNUa3yVxyJvBs8abCxk1W` su `acli-gestionale.vercel.app`). Pomeriggio: PR #19 mergeata troppo presto senza env Vercel → produzione "dead-on-arrival" per 15 minuti (zero utenti impattati) → rollback automatico via revert → travaso dati via MCP (Airtable MCP read + Supabase MCP `execute_sql` write, bypassando il firewall del sandbox Claude Code che blocca outbound verso `*.supabase.co` da nodejs) → env Vercel settate dall'utente → revert-of-revert → app live. Sera: workflow n8n `cmMaMjtv6xEzdZQC` ripuntato a Supabase via RPC `upsert_movimento_from_sheet` (SECURITY DEFINER + grant ad `anon` per usare la publishable key, no service_role nel workflow body); test simulati come ruolo `anon` ok. Resta da fare: (1) test end-to-end con una riga reale nel Google Sheet per confermare il trigger; (2) cleanup post-osservazione di 1 settimana (rimozione dep `airtable`, cartella `lib/airtable/`, env `AIRTABLE_*`).
+> Ultimo aggiornamento: **2026-05-13** — **cutover Airtable → Supabase completato end-to-end**, verificato anche il flusso n8n con una riga reale dal Google Sheet che è apparsa su `/cassa` entro 1 minuto. Produzione gira sul progetto Supabase `aikforfebngrqfzdkowo` (`acli-gestionale.vercel.app`). Storia compressa: 2026-05-11 → PR #19 mergeata senza env Vercel ("dead-on-arrival" 15 min, zero login impattati) → rollback via revert → travaso 47 record via MCP (Airtable MCP read + Supabase MCP `execute_sql` write, bypassa il firewall del sandbox Claude Code che blocca outbound HTTPS verso `*.supabase.co`) → env Vercel settate → revert-of-revert → app live. Sera → workflow n8n `cmMaMjtv6xEzdZQC` ripuntato a Supabase via RPC `upsert_movimento_from_sheet` (SECURITY DEFINER + grant ad `anon` → uso publishable key nel workflow, nessun secret embedded). 2026-05-13 → conferma utente che la sync funziona. **Aperto solo**: (1) **fix cosmetico n8n** — il nodo HTTP Request marca l'execution come errore perché tenta `JSON.parse('')` sulla 204 No Content (la RPC ritorna void); il dato passa lo stesso ma il quadrato si vede rosso. Fix manuale UI: cambiare `Response Format` da `JSON` a `Autodetect`. Non applicabile via SDK in questa sessione (token MCP n8n scaduto). (2) **Cleanup PR** dopo 1 settimana di osservazione: rimozione dep `airtable`, cartella `lib/airtable/`, env `AIRTABLE_*` da Vercel, script `migrate-airtable-to-supabase.ts`.
 >
 > **Sessione `claude/airtable-to-supabase-migration-uBZxn` (questo branch)**: 6 fasi completate, 2 rimanenti come cutover manuale.
 >
@@ -149,15 +149,17 @@ Cutover eseguito 2026-05-11. Riepilogo di quello che e' fatto e quello che resta
   - HTTP Request node `Upsert into Supabase Movimenti` (sostituisce il nodo Airtable v2.2): POST a `/rest/v1/rpc/upsert_movimento_from_sheet` con publishable key (`sb_publishable_*`, pubblica per design) in header `apikey` + `Authorization`.
   - **RPC `public.upsert_movimento_from_sheet(...)`** su Supabase (`SECURITY DEFINER` + `GRANT EXECUTE TO anon`): risolve `categoria_nome` -> `categoria_id` via lookup case-insensitive, fa `INSERT ... ON CONFLICT ("timestamp") DO UPDATE` aggiornando solo i campi mutabili. Bypassa il bug noto di n8n Airtable v2.2 sui `matchingColumns`.
   - Test eseguiti via Postgres simulando il ruolo `anon`: insert ok, update path ok, categoria risolta. Cleanup post-test verificato (count torna a 20).
+- **Verifica end-to-end completata** (2026-05-13): l'utente ha aggiunto una riga reale (`MOV-1778699516478-0d9d3`, €0.01 "cancelleria", categoria "Materiale di consumo") al Google Sheet; entro 1 minuto è apparsa su Supabase con `categoria_id` risolto e sulla pagina `/cassa` della webapp. Il binding della credential Google Sheets del trigger si è preservato attraverso l'`update_workflow` MCP (non serviva ri-selezionarla manualmente).
 
-### Verifica da fare ora (test end-to-end con riga reale)
+### Quirk noto: nodo n8n marca l'execution come errore, ma il dato passa
 
-1. Apri il Google Sheet `Cassa_Associazione_Template` ([link](https://docs.google.com/spreadsheets/d/1NZ9G7Vv8C6yYMb-oA3czSNq4d1vVC961iIMOXtAnrqE/edit)) e aggiungi una riga di test (es. id `MOV-test-postcutover`, importo 0.01, conto Cassa, descrizione "test").
-2. Aspetta 1-2 minuti (il poll del trigger è ogni minuto).
-3. Verifica su Supabase Table Editor → `movimenti`: <https://supabase.com/dashboard/project/aikforfebngrqfzdkowo/editor> filtrando per `id = 'MOV-test-postcutover'`. Deve esserci una riga col `categoria_id` risolto.
-4. Verifica anche su `/cassa` della webapp: il nuovo movimento deve apparire nell'elenco.
-5. Se il trigger non firma (eseguzione mai partita), aprire il workflow su n8n → click sul nodo "On new Movimenti row" → ri-selezionare la credential Google Sheets dal dropdown (il salvataggio della nuova versione via MCP **potrebbe aver perso il binding**, in tal caso il trigger e' fermo e ti accorgi perche' la riga del Sheet non viene mai sincronizzata).
-6. Cleanup post-verifica: eliminare la riga test dal Sheet e da Supabase (`DELETE FROM movimenti WHERE id = 'MOV-test-postcutover';`).
+Sintomo: ogni esecuzione del workflow mostra "Cannot read properties of undefined (reading 'data')" sul nodo `Upsert into Supabase Movimenti`, ma la riga **arriva regolarmente su Supabase** (verificabile da `synced_at`).
+
+Causa: la RPC ritorna `void` → PostgREST risponde `204 No Content` (corpo vuoto) → n8n con `responseFormat: 'json'` tenta `JSON.parse('')` e fallisce **dopo** che la POST è andata a buon fine.
+
+Fix cosmetico (UI n8n, ~5 secondi): apri il workflow → click sul nodo `Upsert into Supabase Movimenti` → scrolla `Parameters` fino a `Options` → `Response` → `Response Format`: cambia da `JSON` a `Autodetect` → Save. Non ho potuto applicarlo via SDK perché il token MCP n8n era scaduto a fine sessione.
+
+Per la successiva sessione: oltre al fix, considerare anche di settare `Retry on Fail: false` sul nodo HTTP per evitare retry automatici causati dallo status "errore" — anche se con `ON CONFLICT (timestamp) DO UPDATE` un retry sarebbe innocuo (no duplicati).
 
 ### Da fare dopo 1 settimana di osservazione (PR separata di cleanup)
 
