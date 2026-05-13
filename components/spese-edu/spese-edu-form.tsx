@@ -24,21 +24,31 @@ export interface CategoriaOption {
   id: string;
   nome: string;
   tipo: "Entrata" | "Uscita";
+  voceRendicontoDefaultId?: string;
+}
+
+export interface VoceOption {
+  id: string;
+  codice: string;
+  label: string;
+  tipo: "Entrata" | "Uscita";
 }
 
 export interface SpeseEduFormProps {
   categorie: CategoriaOption[];
+  voci: VoceOption[];
 }
 
 type Tipo = "Entrata" | "Uscita";
 
-export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
+export function SpeseEduForm({ categorie, voci }: SpeseEduFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [tipo, setTipo] = useState<Tipo>("Uscita");
   const [conto, setConto] = useState<MezzoPagamento>("Cassa");
   const [importo, setImporto] = useState<string>("");
   const [data, setData] = useState<string>(new Date().toISOString().slice(0, 10));
   const [categoriaId, setCategoriaId] = useState<string>("");
+  const [voceRendicontoId, setVoceRendicontoId] = useState<string>("");
   const [descrizione, setDescrizione] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,6 +61,7 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
       setDescrizione("");
       setNote("");
       setCategoriaId("");
+      setVoceRendicontoId("");
       setData(new Date().toISOString().slice(0, 10));
     },
   });
@@ -62,6 +73,7 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
     fd.set("importo", importo);
     fd.set("dataMovimento", data);
     fd.set("categoriaId", categoriaId);
+    fd.set("voceRendicontoId", voceRendicontoId);
     fd.set("descrizione", descrizione);
     fd.set("note", note);
     fb.run(() => creaMovimentoAction(undefined, fd));
@@ -69,7 +81,19 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
 
   const categorieFiltrate = categorie.filter((c) => c.tipo === tipo);
   const categoriaSel = categorie.find((c) => c.id === categoriaId);
+  const vociFiltrate = voci.filter((v) => v.tipo === tipo);
+  const voceSel = voci.find((v) => v.id === voceRendicontoId);
   const importoNum = Number(importo.replace(",", ".")) || 0;
+
+  function handleCategoriaChange(nextId: string) {
+    setCategoriaId(nextId);
+    // Auto-applica la voce di rendiconto di default della categoria (solo
+    // se l'utente non ha già scelto manualmente una voce diversa).
+    const c = categorie.find((x) => x.id === nextId);
+    if (c?.voceRendicontoDefaultId) {
+      setVoceRendicontoId(c.voceRendicontoDefaultId);
+    }
+  }
 
   function openConfirm(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -170,7 +194,7 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
             id="categoriaId"
             name="categoriaId"
             value={categoriaId}
-            onChange={(e) => setCategoriaId(e.currentTarget.value)}
+            onChange={(e) => handleCategoriaChange(e.currentTarget.value)}
             className="flex h-9 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
           >
             <option value="">Nessuna categoria</option>
@@ -185,6 +209,28 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
               Nessuna categoria di tipo {tipo}. Chiedi all&apos;admin di aggiungerne una.
             </p>
           ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="voceRendicontoId">Voce di rendiconto (ETS)</Label>
+          <select
+            id="voceRendicontoId"
+            name="voceRendicontoId"
+            value={voceRendicontoId}
+            onChange={(e) => setVoceRendicontoId(e.currentTarget.value)}
+            className="flex h-9 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+          >
+            <option value="">Usa default della categoria</option>
+            {vociFiltrate.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.codice} · {v.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11.5px] text-[var(--muted-foreground)]">
+            Necessaria per il rendiconto ETS. Se lasci il default, viene presa
+            dalla categoria scelta.
+          </p>
         </div>
 
         <div className="space-y-1.5">
@@ -245,6 +291,10 @@ export function SpeseEduForm({ categorie }: SpeseEduFormProps) {
             <Riepilogo k="Data" v={data} />
             <Riepilogo k="Conto" v={conto} />
             <Riepilogo k="Categoria" v={categoriaSel?.nome ?? "—"} />
+            <Riepilogo
+              k="Voce rendiconto"
+              v={voceSel ? `${voceSel.codice} · ${voceSel.label}` : "— default categoria —"}
+            />
             <Riepilogo k="Descrizione" v={descrizione} />
             {note ? <Riepilogo k="Note" v={note} /> : null}
           </dl>

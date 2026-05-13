@@ -37,6 +37,7 @@ export async function creaMovimentoAction(
     conto: formData.get("conto"),
     dataMovimento: formData.get("dataMovimento"),
     categoriaId: formData.get("categoriaId") ?? "",
+    voceRendicontoId: formData.get("voceRendicontoId") ?? "",
     descrizione: formData.get("descrizione"),
     note: formData.get("note") ?? "",
   });
@@ -52,10 +53,12 @@ export async function creaMovimentoAction(
       conto: parsed.data.conto,
       dataMovimento: parsed.data.dataMovimento,
       categoriaId: parsed.data.categoriaId || undefined,
+      voceRendicontoId: parsed.data.voceRendicontoId || undefined,
       descrizione: parsed.data.descrizione,
       note: parsed.data.note || undefined,
       volontario: user.nome,
       telegramUserId: user.telegramUserId,
+      origine: "app",
     });
     revalidatePath("/spese-edu");
     revalidatePath("/cassa");
