@@ -1,0 +1,1937 @@
+<!doctype html>
+<html lang="it" data-theme="light" data-area="amm">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280" />
+<title>ACLI Gestionale · Cruscotto contabile — mockup fedele alla produzione</title>
+<meta name="description" content="Mockup self-contained delle 5 pagine del cruscotto contabile del gestionale ACLI: cassa, import estratto conto, rendiconto ETS, categorie, registra movimento. Carica questo file su Claude Design per iterare sul design." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Newsreader:ital,opsz,wght@0,6..72,400..600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  /* =============================================================
+     Design tokens — copiati 1:1 da app/globals.css (palette warm)
+     ============================================================= */
+  :root {
+    --bg: oklch(0.985 0.008 85);
+    --bg-elev: oklch(0.995 0.005 85);
+    --surface: #ffffff;
+    --surface-2: oklch(0.97 0.01 85);
+    --border: oklch(0.91 0.012 85);
+    --border-strong: oklch(0.84 0.014 85);
+
+    --ink: oklch(0.22 0.018 75);
+    --ink-2: oklch(0.38 0.015 75);
+    --muted-text: oklch(0.55 0.012 75);
+    --muted-2: oklch(0.7 0.01 75);
+
+    --primary: oklch(0.4 0.07 150);
+    --primary-ink: oklch(0.99 0.005 85);
+    --primary-soft: oklch(0.94 0.03 150);
+    --primary-soft-ink: oklch(0.32 0.06 150);
+
+    --accent-solid: oklch(0.72 0.13 75);
+    --accent-soft: oklch(0.94 0.04 75);
+    --accent-soft-ink: oklch(0.42 0.1 70);
+
+    --danger: oklch(0.55 0.18 25);
+    --danger-soft: oklch(0.94 0.04 25);
+    --danger-soft-ink: oklch(0.42 0.14 25);
+    --success: oklch(0.55 0.12 150);
+    --success-soft: oklch(0.93 0.04 150);
+    --success-soft-ink: oklch(0.36 0.09 150);
+    --warning: oklch(0.7 0.14 75);
+    --warning-soft: oklch(0.93 0.05 80);
+    --warning-soft-ink: oklch(0.42 0.1 70);
+    --info: oklch(0.55 0.13 240);
+    --info-soft: oklch(0.93 0.04 240);
+    --info-soft-ink: oklch(0.38 0.1 240);
+
+    --area-color: oklch(0.4 0.08 250);
+    --area-soft: oklch(0.94 0.03 250);
+    --area-soft-ink: oklch(0.32 0.1 250);
+
+    --row-h: 52px;
+    --gap-page: 32px;
+    --pad-card: 24px;
+
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-lg: 14px;
+    --radius-pill: 999px;
+
+    --shadow-sm: 0 1px 2px rgba(38, 30, 18, 0.04);
+    --shadow-md: 0 6px 24px -8px rgba(38, 30, 18, 0.12), 0 2px 6px rgba(38, 30, 18, 0.04);
+    --shadow-lg: 0 20px 48px -12px rgba(38, 30, 18, 0.18), 0 4px 12px rgba(38, 30, 18, 0.06);
+
+    --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-serif: "Newsreader", Georgia, serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  :root[data-theme="dark"] {
+    --bg: oklch(0.16 0.012 75);
+    --bg-elev: oklch(0.2 0.012 75);
+    --surface: oklch(0.22 0.012 75);
+    --surface-2: oklch(0.24 0.012 75);
+    --border: oklch(0.3 0.012 75);
+    --border-strong: oklch(0.4 0.012 75);
+    --ink: oklch(0.97 0.008 85);
+    --ink-2: oklch(0.85 0.008 85);
+    --muted-text: oklch(0.65 0.01 75);
+    --muted-2: oklch(0.5 0.01 75);
+    --primary: oklch(0.78 0.1 145);
+    --primary-ink: oklch(0.18 0.02 75);
+    --primary-soft: oklch(0.3 0.05 150);
+    --primary-soft-ink: oklch(0.86 0.08 145);
+    --danger-soft: oklch(0.3 0.08 25);
+    --danger-soft-ink: oklch(0.82 0.14 25);
+    --success-soft: oklch(0.3 0.06 150);
+    --success-soft-ink: oklch(0.82 0.1 150);
+    --warning-soft: oklch(0.3 0.08 80);
+    --warning-soft-ink: oklch(0.85 0.13 80);
+    --info-soft: oklch(0.3 0.07 240);
+    --info-soft-ink: oklch(0.82 0.12 240);
+    --area-color: oklch(0.7 0.1 250);
+    --area-soft: oklch(0.3 0.05 250);
+    --area-soft-ink: oklch(0.85 0.1 250);
+  }
+
+  /* =============================================================
+     Base
+     ============================================================= */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+  ::selection { background: var(--accent-soft); color: var(--accent-soft-ink); }
+
+  .font-serif { font-family: var(--font-serif); }
+  .font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted-text); }
+  .ink-2 { color: var(--ink-2); }
+
+  /* =============================================================
+     App layout (sidebar 280 + main)
+     ============================================================= */
+  .app {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .sidebar-brand {
+    padding: 20px 18px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-brand .logo {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: #fff; border: 1px solid var(--border);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    font-family: var(--font-serif);
+    font-weight: 600; font-size: 18px;
+    color: var(--primary);
+    letter-spacing: -0.04em;
+  }
+  .sidebar-brand .name {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .sidebar-brand .sub {
+    font-size: 11px;
+    color: var(--muted-text);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .nav { padding: 14px 10px; flex: 1; overflow-y: auto; }
+  .nav-section {
+    padding: 10px 8px 6px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-section:last-of-type { border-bottom: none; }
+  .nav-section[data-area="amm"] {
+    background: linear-gradient(180deg, oklch(0.97 0.01 250 / 0.4), transparent 80%);
+  }
+  .nav-section[data-area="edu"] {
+    background: linear-gradient(180deg, oklch(0.96 0.025 60 / 0.5), transparent 80%);
+  }
+  .nav-section-head {
+    display: flex; gap: 8px; padding: 10px 12px;
+    align-items: center; color: var(--muted-text);
+  }
+  .nav-section[data-area="amm"] .nav-section-head { color: oklch(0.4 0.08 250); }
+  .nav-section[data-area="edu"] .nav-section-head { color: oklch(0.45 0.12 50); }
+  .nav-section-label {
+    font-family: var(--font-serif);
+    font-weight: 500; font-size: 13px;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .nav-section-sub {
+    font-size: 10.5px;
+    color: var(--muted-text);
+    letter-spacing: 0.03em;
+    margin-top: 1px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    font-size: 13.5px; color: var(--ink-2);
+    cursor: pointer; user-select: none;
+    position: relative;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .nav-item:hover { background: var(--surface-2); color: var(--ink); }
+  .nav-item.is-active {
+    background: var(--primary-soft);
+    color: var(--primary-soft-ink);
+    font-weight: 600;
+  }
+  .nav-item.is-active::before {
+    content: ""; position: absolute;
+    left: -10px; top: 8px; bottom: 8px;
+    width: 3px; background: var(--primary);
+    border-radius: 0 3px 3px 0;
+  }
+  .nav-item .nav-icon {
+    width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.6;
+  }
+  .nav-item .nav-badge {
+    margin-left: auto;
+    font-size: 11px; padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--muted-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .sidebar-foot {
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+    font-size: 11.5px;
+    color: var(--muted-text);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-foot .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success);
+  }
+
+  /* ---- Main column ---- */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: 60px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 24px; gap: 18px;
+    position: sticky; top: 0; z-index: 5;
+    backdrop-filter: blur(6px);
+    box-shadow: inset 0 -2px 0 0 color-mix(in oklch, var(--area-color) 25%, transparent);
+  }
+  .area-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px 5px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 11.5px; font-weight: 500; letter-spacing: 0.02em;
+    background: var(--area-soft); color: var(--area-soft-ink);
+    border: 1px solid color-mix(in oklch, var(--area-color) 25%, transparent);
+  }
+  .area-pill .dot {
+    width: 6px; height: 6px; border-radius: 6px;
+    background: var(--area-color);
+  }
+  .crumb {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--muted-text);
+  }
+  .crumb b { color: var(--ink); font-weight: 500; }
+  .crumb-sep { color: var(--muted-2); }
+  .search {
+    flex: 1; max-width: 420px;
+    margin-left: auto; position: relative;
+    min-width: 200px;
+  }
+  .search input {
+    width: 100%; height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    padding: 0 12px 0 36px;
+    font-size: 13px; color: var(--ink);
+    font-family: inherit; outline: none;
+  }
+  .search input:focus { border-color: var(--primary); background: var(--surface); }
+  .search .search-icon {
+    position: absolute; left: 11px; top: 9px;
+    width: 16px; height: 16px; color: var(--muted-text);
+  }
+  .search kbd {
+    position: absolute; right: 8px; top: 7px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 2px 6px; border-radius: 4px;
+    color: var(--muted-text);
+  }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid transparent; background: transparent;
+    color: var(--ink-2);
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+  .user-pill {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px 4px 4px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: inherit; color: inherit;
+  }
+  .user-pill .who {
+    font-size: 12.5px; line-height: 1.1;
+    max-width: 160px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-align: left;
+  }
+  .user-pill .who small {
+    display: block; color: var(--muted-text); font-size: 10.5px;
+  }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--primary); color: var(--primary-ink);
+    display: grid; place-items: center;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+
+  /* ---- Content ---- */
+  .content {
+    padding: var(--gap-page) calc(var(--gap-page) + 8px) calc(var(--gap-page) * 2);
+    max-width: 1480px; width: 100%; margin: 0 auto;
+  }
+  .page { display: none; }
+  .page.is-active { display: block; }
+
+  /* ---- Tabs di navigazione (per il mockup, in produzione è routing) ---- */
+  .tabs {
+    display: flex; gap: 4px;
+    padding: 4px;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 8px 14px; border-radius: 6px;
+    font-size: 13px; color: var(--muted-text);
+    white-space: nowrap;
+    border: 1px solid transparent; background: transparent;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.is-active {
+    background: var(--surface); color: var(--ink);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border);
+    font-weight: 500;
+  }
+
+  /* =============================================================
+     Componenti UI riutilizzati
+     ============================================================= */
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header h2 {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .card-body { padding: 16px 20px; }
+  .card-body.flush { padding: 0; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 36px; padding: 0 14px;
+    border-radius: 8px;
+    background: var(--primary); color: var(--primary-ink);
+    border: 1px solid var(--primary);
+    font-size: 13px; font-weight: 500;
+    transition: filter 0.12s ease, transform 0.1s ease;
+  }
+  .btn:hover { filter: brightness(0.97); }
+  .btn:active { transform: scale(0.97); }
+  .btn.btn-sm { height: 32px; padding: 0 12px; font-size: 12.5px; }
+  .btn.btn-outline {
+    background: transparent; color: var(--ink);
+    border-color: var(--border-strong);
+  }
+  .btn.btn-outline:hover { background: var(--surface-2); }
+  .btn.btn-ghost {
+    background: transparent; color: var(--ink-2);
+    border-color: transparent;
+  }
+  .btn.btn-ghost:hover { background: var(--surface-2); color: var(--ink); }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 11.5px; font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .badge-success { background: var(--success-soft); color: var(--success-soft-ink); }
+  .badge-warning { background: var(--warning-soft); color: var(--warning-soft-ink); }
+  .badge-danger  { background: var(--danger-soft); color: var(--danger-soft-ink); }
+  .badge-info    { background: var(--info-soft); color: var(--info-soft-ink); }
+  .badge-neutral { background: var(--surface-2); color: var(--ink-2); border-color: var(--border); }
+  .badge-outline { background: transparent; color: var(--ink-2); border-color: var(--border); }
+  .badge-primary-soft { background: var(--primary-soft); color: var(--primary-soft-ink); }
+
+  .h1 {
+    font-size: 24px; font-weight: 600;
+    letter-spacing: -0.02em; margin: 0;
+  }
+  .subtitle {
+    color: var(--muted-text);
+    font-size: 13px;
+    margin: 4px 0 0;
+    max-width: 64ch;
+  }
+
+  /* KPI */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .kpi-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-sm);
+  }
+  .kpi-card .label {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-text);
+  }
+  .kpi-card .value {
+    font-size: 24px; font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-card .sub {
+    font-size: 11.5px;
+    color: var(--muted-text);
+    margin-top: 6px;
+  }
+  .kpi-card.is-primary {
+    background: var(--primary-soft);
+    border-color: color-mix(in oklch, var(--primary-soft-ink) 20%, transparent);
+  }
+  .kpi-card.is-primary .label,
+  .kpi-card.is-primary .value { color: var(--primary-soft-ink); }
+  .kpi-card.is-primary .sub { color: color-mix(in oklch, var(--primary-soft-ink) 75%, transparent); }
+  .delta-up { color: var(--success); }
+  .delta-down { color: var(--danger); }
+  .delta-sep { color: var(--muted-2); margin: 0 6px; }
+
+  /* Table */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table thead th {
+    text-align: left;
+    color: var(--muted-text);
+    font-weight: 500;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .table tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    vertical-align: middle;
+  }
+  .table tbody tr:last-child td { border-bottom: none; }
+  .table tbody tr:hover { background: var(--surface-2); }
+  .table tfoot td {
+    padding: 12px 14px;
+    background: var(--surface-2);
+    font-weight: 500;
+    border-top: 1px solid var(--border);
+  }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 32ch; }
+
+  /* Filterbar */
+  .filterbar {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    padding: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .filter-search {
+    flex: 1; min-width: 220px;
+    position: relative;
+  }
+  .filter-search input {
+    width: 100%; height: 34px;
+    padding: 0 10px 0 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: inherit; font-size: 13px;
+    color: var(--ink);
+  }
+  .filter-search .icon {
+    position: absolute; left: 9px; top: 8px;
+    width: 16px; height: 16px;
+    color: var(--muted-text);
+  }
+  .filter-select {
+    height: 34px;
+    padding: 0 28px 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: inherit; font-size: 13px;
+    color: var(--ink);
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-position: right 8px center;
+    background-repeat: no-repeat;
+    background-size: 14px;
+  }
+
+  /* Forms */
+  .form-row { display: grid; gap: 6px; margin-bottom: 16px; }
+  .form-label {
+    font-size: 12.5px; font-weight: 500;
+    color: var(--ink);
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    font-family: inherit; font-size: 13px;
+  }
+  .form-textarea { height: auto; padding: 8px 12px; resize: vertical; min-height: 64px; }
+  .form-hint { font-size: 11.5px; color: var(--muted-text); }
+  .seg {
+    display: grid; gap: 4px;
+    padding: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .seg.two { grid-template-columns: 1fr 1fr; }
+  .seg.three { grid-template-columns: 1fr 1fr 1fr; }
+  .seg button {
+    padding: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px; color: var(--muted-text);
+    transition: background 0.12s, color 0.12s;
+  }
+  .seg button.is-active {
+    background: var(--surface); color: var(--ink);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border);
+    font-weight: 500;
+  }
+  .opt-btn {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 13px; color: var(--ink-2);
+    font-weight: 500;
+    transition: border 0.12s, background 0.12s, color 0.12s;
+  }
+  .opt-btn:hover { border-color: var(--border-strong); }
+  .opt-btn.is-active {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary-soft-ink);
+  }
+
+  /* Banner / details */
+  details.banner {
+    border: 1px solid color-mix(in oklch, var(--danger) 25%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in oklch, var(--danger) 4%, transparent);
+  }
+  details.banner > summary {
+    list-style: none; cursor: pointer;
+    padding: 12px 16px;
+    font-size: 12.5px;
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  }
+  details.banner > summary::-webkit-details-marker { display: none; }
+  details.banner > summary::before {
+    content: "▾"; color: var(--muted-text); margin-right: 4px;
+    transition: transform 0.12s;
+    display: inline-block;
+  }
+  details.banner:not([open]) > summary::before { transform: rotate(-90deg); }
+  details.banner .danger { color: var(--danger); font-weight: 500; }
+  details.banner .body {
+    border-top: 1px solid color-mix(in oklch, var(--danger) 20%, transparent);
+    background: var(--bg-elev);
+  }
+  .nonclass-row {
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 12px; align-items: center;
+    font-size: 12.5px;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  }
+  .nonclass-row:last-child { border-bottom: none; }
+  .nonclass-row .date { font-family: var(--font-mono); color: var(--muted-text); font-size: 12px; }
+  .nonclass-row .meta { font-size: 11px; color: var(--muted-text); margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+  .nonclass-header {
+    padding: 8px 16px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 12px;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--muted-text);
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  }
+  .mini-select {
+    width: 100%; height: 32px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: inherit; font-size: 12px;
+    color: var(--ink);
+  }
+
+  /* Rendiconto table */
+  .rendiconto-grid { display: grid; gap: 24px; }
+  @media (min-width: 1080px) { .rendiconto-grid { grid-template-columns: 1fr 1fr; } }
+  .rend-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .rend-table tbody tr.section-title td {
+    padding: 14px 14px 6px;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--muted-text);
+  }
+  .rend-table tbody tr.voce td {
+    padding: 6px 14px;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
+  }
+  .rend-table tbody tr.section-tot td {
+    padding: 8px 14px;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    font-weight: 500;
+    color: var(--muted-text);
+  }
+  .rend-table tbody tr.section-tot td.amount { color: var(--ink); }
+  .rend-table tfoot td {
+    padding: 12px 14px;
+    background: var(--surface-2);
+    font-weight: 600;
+  }
+  .rend-table .voce-num { color: var(--muted-text); font-family: var(--font-mono); margin-right: 8px; font-size: 11.5px; }
+  .rend-table .amount { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .rend-table .amount.empty { color: var(--muted-2); }
+
+  /* Spese-edu layout */
+  .spese-grid {
+    display: grid; gap: 24px;
+  }
+  @media (min-width: 1024px) {
+    .spese-grid { grid-template-columns: 1fr 320px; }
+  }
+
+  /* Import table */
+  .import-table { width: 100%; font-size: 12.5px; border-collapse: separate; border-spacing: 0 4px; }
+  .import-table thead th {
+    text-align: left; color: var(--muted-text); font-weight: 500;
+    padding: 8px 8px; font-size: 11.5px;
+  }
+  .import-table tbody tr {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+  }
+  .import-table tbody tr.dim { opacity: 0.55; }
+  .import-table tbody td {
+    padding: 10px 8px; vertical-align: top;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .import-table tbody td:first-child { border-left: 1px solid var(--border); border-radius: 8px 0 0 8px; }
+  .import-table tbody td:last-child { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+
+  /* Page break separators */
+  .page-break {
+    margin: 56px 0 24px;
+    padding-top: 32px;
+    border-top: 2px dashed var(--border);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .page-break .label {
+    font-family: var(--font-serif);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-2);
+  }
+  .page-break .name {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  /* Doc banner (top) */
+  .doc-banner {
+    background: var(--info-soft);
+    color: var(--info-soft-ink);
+    border: 1px solid color-mix(in oklch, var(--info) 25%, transparent);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 12.5px;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .doc-banner b { font-weight: 600; }
+  .doc-banner code {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+
+  /* Theme switch */
+  .theme-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: var(--muted-text);
+  }
+
+  /* Utility */
+  .stack-sm { display: flex; flex-direction: column; gap: 8px; }
+  .stack-md { display: flex; flex-direction: column; gap: 16px; }
+  .stack-lg { display: flex; flex-direction: column; gap: 24px; }
+  .hstack { display: flex; align-items: center; gap: 10px; }
+  .hstack-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .between { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .mt-2 { margin-top: 8px; }
+  .mt-3 { margin-top: 12px; }
+  .mt-4 { margin-top: 16px; }
+  .mt-6 { margin-top: 24px; }
+  .pad-md { padding: 12px 16px; }
+  .row-divide > * + * { border-top: 1px solid var(--border); }
+
+  /* Categoria row */
+  .cat-row {
+    padding: 12px 20px;
+    display: flex; gap: 12px; align-items: center;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-row .name { flex: 1; min-width: 160px; font-size: 13.5px; font-weight: 500; }
+  .cat-row .voce-select {
+    min-width: 280px;
+    height: 36px; padding: 0 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--ink);
+    font-family: inherit; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+  ICONE LUCIDE (sprite SVG inline) — referenziate via <use href="#i-..."/>
+============================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- nav: amm -->
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-banknote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></symbol>
+    <symbol id="i-filespread" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></symbol>
+    <symbol id="i-bookopencheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V7"/><path d="m16 12 2 2 4-4"/><path d="M22 6V4a1 1 0 0 0-1-1h-5a4 4 0 0 0-4 4 4 4 0 0 0-4-4H3a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h6a3 3 0 0 1 3 3 3 3 0 0 1 3-3h6a1 1 0 0 0 1-1v-1.3"/></symbol>
+    <symbol id="i-usercog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m21.7 16.4-.9-.3"/><path d="m15.2 13.9-.9-.3"/><path d="m16.6 18.7.3-.9"/><path d="m19.1 12.2.3-.9"/><path d="m19.6 18.7-.4-1"/><path d="m16.8 12.3-.4-1"/><path d="m14.3 16.6 1-.4"/><path d="m20.7 13.8 1-.4"/></symbol>
+    <!-- nav: edu -->
+    <symbol id="i-graduation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
+    <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+    <symbol id="i-baby" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7.9 20A9 9 0 0 1 4 16.1L2 14l2-1 2 .5L9 12l-1.5-2.5L4 7l3-1.5L9 4l3 1 3-1 2 1.5L20 7l-3.5 2.5L15 12l3 1.5 2-.5 2 1-2 2.1A9 9 0 0 1 16.1 20"/></symbol>
+    <symbol id="i-calclock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></symbol>
+    <symbol id="i-calrange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M17 14h-6"/><path d="M13 18H7"/><path d="M7 14h.01"/><path d="M17 18h.01"/></symbol>
+    <symbol id="i-calcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></symbol>
+    <!-- topbar -->
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></symbol>
+    <!-- ui -->
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+  </defs>
+</svg>
+
+
+<div class="app">
+
+  <!-- ============================================================
+    SIDEBAR
+  ============================================================ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">A</div>
+      <div>
+        <div class="name">Circolo ACLI</div>
+        <div class="sub">Calvisano</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <!-- Sezione amministrazione (la più rilevante per le 5 pagine in scope) -->
+      <div class="nav-section" data-area="amm">
+        <div class="nav-section-head">
+          <svg width="13" height="13"><use href="#i-shield"/></svg>
+          <div>
+            <div class="nav-section-label">Amministrazione</div>
+            <div class="nav-section-sub">Direttivo · Presidenza</div>
+          </div>
+        </div>
+        <a class="nav-item is-active" data-target="cassa">
+          <svg class="nav-icon"><use href="#i-banknote"/></svg>
+          <span>Cassa e finanze</span>
+          <span class="nav-badge">218</span>
+        </a>
+        <a class="nav-item" data-target="rendiconto">
+          <svg class="nav-icon"><use href="#i-filespread"/></svg>
+          <span>Rendiconto ETS</span>
+        </a>
+        <a class="nav-item" data-target="categorie">
+          <svg class="nav-icon"><use href="#i-bookopencheck"/></svg>
+          <span>Categorie</span>
+          <span class="nav-badge">18</span>
+        </a>
+        <a class="nav-item">
+          <svg class="nav-icon"><use href="#i-usercog"/></svg>
+          <span>Utenti gestionale</span>
+        </a>
+      </div>
+      <!-- Sezione educativa (mostrata per realismo, link disabilitati nel mockup) -->
+      <div class="nav-section" data-area="edu">
+        <div class="nav-section-head">
+          <svg width="13" height="13"><use href="#i-graduation"/></svg>
+          <div>
+            <div class="nav-section-label">Attività educative</div>
+            <div class="nav-section-sub">Doposcuola · Laboratori · Estate</div>
+          </div>
+        </div>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-dashboard"/></svg><span>Cruscotto</span></a>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-baby"/></svg><span>Bambini</span><span class="nav-badge">42</span></a>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-heart"/></svg><span>Educatori</span></a>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-calclock"/></svg><span>Turni</span></a>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-calrange"/></svg><span>Attività</span></a>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-graduation"/></svg><span>Iscrizioni</span><span class="nav-badge">28</span></a>
+        <a class="nav-item"><svg class="nav-icon"><use href="#i-calcheck"/></svg><span>Presenze</span></a>
+        <a class="nav-item" data-target="spese-edu">
+          <svg class="nav-icon"><use href="#i-receipt"/></svg>
+          <span>Registra movimento</span>
+        </a>
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="dot"></span>
+      <span>Sync n8n attivo</span>
+    </div>
+  </aside>
+
+
+  <!-- ============================================================
+    MAIN COLUMN
+  ============================================================ -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar" data-area="amm">
+      <div class="area-pill"><span class="dot"></span><span>Amministrazione</span></div>
+      <div class="crumb">
+        <span id="crumb-area">Amministrazione</span>
+        <span class="crumb-sep">/</span>
+        <b id="crumb-page">Cassa e finanze</b>
+      </div>
+      <div class="search">
+        <svg class="search-icon"><use href="#i-search"/></svg>
+        <input placeholder="Cerca movimento, categoria, descrizione…" />
+        <kbd>⌘ K</kbd>
+      </div>
+      <button class="icon-btn" title="Notifiche">
+        <svg width="16" height="16"><use href="#i-bell"/></svg>
+      </button>
+      <button class="icon-btn theme-btn" id="themeBtn" title="Tema chiaro/scuro">
+        <svg width="16" height="16"><use href="#i-sun"/></svg>
+      </button>
+      <button class="user-pill">
+        <span class="avatar">NP</span>
+        <span class="who">Nicolò Patti<small>Admin</small></span>
+      </button>
+    </header>
+
+    <!-- CONTENT -->
+    <main class="content">
+
+      <!-- Doc banner: spiega come usare il file -->
+      <div class="doc-banner">
+        <b>Mockup per Claude Design — Cruscotto contabile ACLI</b><br />
+        Single-file standalone con le 5 pagine del cruscotto contabile del gestionale ACLI:
+        <code>/cassa</code>, <code>/cassa/import</code>, <code>/rendiconto</code>,
+        <code>/categorie</code>, <code>/spese-edu</code>. Click sulle tab qui sotto per navigare.
+        Sidebar e topbar sono quelle reali. Toggle tema chiaro/scuro nell'angolo in alto a destra.
+      </div>
+
+      <!-- Tab navigation tra le 5 pagine -->
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-tab="cassa">Cassa e finanze</button>
+        <button class="tab" data-tab="cassa-import">Importa estratto conto</button>
+        <button class="tab" data-tab="rendiconto">Rendiconto ETS</button>
+        <button class="tab" data-tab="categorie">Categorie</button>
+        <button class="tab" data-tab="spese-edu">Registra movimento</button>
+      </nav>
+
+      <!-- =========================================================
+        PAGINA 1 — /cassa
+      ========================================================= -->
+      <section class="page is-active" data-page="cassa">
+
+        <div class="between" style="margin-bottom: 24px;">
+          <h1 class="h1">Cassa</h1>
+          <div class="hstack">
+            <button class="btn btn-outline btn-sm">Importa estratto conto</button>
+            <button class="btn btn-outline btn-sm">Rendiconto ETS</button>
+          </div>
+        </div>
+
+        <!-- KPI per conto -->
+        <div class="kpi-grid mt-2">
+          <div class="kpi-card">
+            <div class="label">Cassa</div>
+            <div class="value">€&nbsp;1.247,30</div>
+            <div class="sub">
+              <span class="delta-up">+ €&nbsp;3.412,00</span>
+              <span class="delta-sep">·</span>
+              <span class="delta-down">− €&nbsp;2.164,70</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">BCC</div>
+            <div class="value">€&nbsp;8.546,82</div>
+            <div class="sub">
+              <span class="delta-up">+ €&nbsp;14.250,00</span>
+              <span class="delta-sep">·</span>
+              <span class="delta-down">− €&nbsp;5.703,18</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Sumup</div>
+            <div class="value">€&nbsp;342,15</div>
+            <div class="sub">
+              <span class="delta-up">+ €&nbsp;1.220,00</span>
+              <span class="delta-sep">·</span>
+              <span class="delta-down">− €&nbsp;877,85</span>
+            </div>
+          </div>
+          <div class="kpi-card is-primary">
+            <div class="label">Saldo totale</div>
+            <div class="value">€&nbsp;10.136,27</div>
+            <div class="sub">+ €&nbsp;18.882,00 · − €&nbsp;8.745,73</div>
+          </div>
+        </div>
+
+        <!-- Filterbar -->
+        <div class="filterbar mt-6">
+          <div class="filter-search">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input placeholder="Cerca descrizione, categoria, volontario…" />
+          </div>
+          <select class="filter-select">
+            <option>Tutti i tipi</option>
+            <option>Entrata</option>
+            <option>Uscita</option>
+          </select>
+          <select class="filter-select">
+            <option>Tutti i conti</option>
+            <option>Cassa</option>
+            <option>BCC</option>
+            <option>Sumup</option>
+          </select>
+          <select class="filter-select">
+            <option>Tutte le categorie</option>
+            <option>Compensi educatori</option>
+            <option>Utenze</option>
+            <option>Materiale didattico</option>
+          </select>
+          <button class="btn btn-ghost btn-sm">Reset</button>
+        </div>
+
+        <!-- Tabella movimenti -->
+        <div class="card mt-4">
+          <div class="card-body flush">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th class="text-right">Importo</th>
+                  <th>Conto</th>
+                  <th>Categoria</th>
+                  <th>Descrizione</th>
+                  <th>Volontario</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono">12/05/2026</td>
+                  <td><span class="badge badge-warning">Uscita</span></td>
+                  <td class="text-right font-mono">− €&nbsp;142,50</td>
+                  <td><span class="badge badge-outline">BCC</span></td>
+                  <td>Utenze</td>
+                  <td class="truncate">SDD Enel — bolletta luce sede aprile</td>
+                  <td>Bank import</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">12/05/2026</td>
+                  <td><span class="badge badge-success">Entrata</span></td>
+                  <td class="text-right font-mono">− €&nbsp;</td>
+                  <td><span class="badge badge-outline">BCC</span></td>
+                  <td>—</td>
+                  <td class="truncate">Bonifico mensile DOPOSCUOLA — Rossi Luca</td>
+                  <td>Bank import</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">11/05/2026</td>
+                  <td><span class="badge badge-warning">Uscita</span></td>
+                  <td class="text-right font-mono">− €&nbsp;38,40</td>
+                  <td><span class="badge badge-outline">Cassa</span></td>
+                  <td>Materiale di consumo</td>
+                  <td class="truncate">Cancelleria fogli A4 e pennarelli</td>
+                  <td>Patti Nicolò</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">10/05/2026</td>
+                  <td>
+                    <span class="badge badge-success">Entrata</span>
+                    <span class="badge badge-outline" style="margin-left:4px">Giroc.</span>
+                  </td>
+                  <td class="text-right font-mono">+ €&nbsp;500,00</td>
+                  <td><span class="badge badge-outline">BCC</span></td>
+                  <td>—</td>
+                  <td class="truncate">Payout Sumup → BCC</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">10/05/2026</td>
+                  <td><span class="badge badge-warning">Uscita</span></td>
+                  <td class="text-right font-mono">− €&nbsp;380,00</td>
+                  <td><span class="badge badge-outline">BCC</span></td>
+                  <td>Compensi educatori</td>
+                  <td class="truncate">Bonifico Rossi Maria — aprile</td>
+                  <td>Bank import</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">09/05/2026</td>
+                  <td><span class="badge badge-success">Entrata</span></td>
+                  <td class="text-right font-mono">+ €&nbsp;25,00</td>
+                  <td><span class="badge badge-outline">Sumup</span></td>
+                  <td>Quote iscrizione</td>
+                  <td class="truncate">Iscrizione Bianchi Pietro - mese maggio</td>
+                  <td>Verdi Anna</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">09/05/2026</td>
+                  <td><span class="badge badge-warning">Uscita</span></td>
+                  <td class="text-right font-mono">− €&nbsp;62,90</td>
+                  <td><span class="badge badge-outline">Cassa</span></td>
+                  <td>Vitto e ospitalità</td>
+                  <td class="truncate">Spesa Esselunga — colazione e merenda evento</td>
+                  <td>Patti Nicolò</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">08/05/2026</td>
+                  <td><span class="badge badge-warning">Uscita</span></td>
+                  <td class="text-right font-mono">− €&nbsp;18,50</td>
+                  <td><span class="badge badge-outline">Cassa</span></td>
+                  <td>Trasporti</td>
+                  <td class="truncate">Biglietto autobus uscita didattica</td>
+                  <td>Esposito Giulia</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">07/05/2026</td>
+                  <td><span class="badge badge-success">Entrata</span></td>
+                  <td class="text-right font-mono">+ €&nbsp;100,00</td>
+                  <td><span class="badge badge-outline">BCC</span></td>
+                  <td>Donazioni</td>
+                  <td class="truncate">Donazione liberale — sig. Mauro G.</td>
+                  <td>Bank import</td>
+                </tr>
+                <tr>
+                  <td class="font-mono">06/05/2026</td>
+                  <td><span class="badge badge-warning">Uscita</span></td>
+                  <td class="text-right font-mono">− €&nbsp;58,32</td>
+                  <td><span class="badge badge-outline">BCC</span></td>
+                  <td>Cancelleria</td>
+                  <td class="truncate">Amazon — libri attività laboratorio</td>
+                  <td>Bank import</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2" class="muted" style="font-size:12px">Totali periodo (10 movimenti)</td>
+                  <td class="text-right font-mono">
+                    <span class="delta-up">+ €&nbsp;625,00</span>
+                    <span class="delta-sep">·</span>
+                    <span class="delta-down">− €&nbsp;700,62</span>
+                  </td>
+                  <td colspan="4" class="text-right font-mono">
+                    Saldo periodo <b>− €&nbsp;75,62</b>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- =========================================================
+        PAGINA 2 — /cassa/import (step 2: review)
+      ========================================================= -->
+      <section class="page" data-page="cassa-import">
+
+        <div class="stack-sm" style="margin-bottom:24px">
+          <div class="muted" style="font-size:12px"><a href="#" data-tab-link="cassa">Cassa</a> / Importa estratto conto</div>
+          <h1 class="h1">Importa estratto conto</h1>
+          <p class="subtitle">Carica l'estratto conto BCC (file <code>.xls</code> tab-separato) o SumUp (CSV). Il sistema deduplica contro i movimenti già registrati da Telegram, da iscrizione bambini o dall'app, e propone categoria e voce di rendiconto per ogni riga nuova.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+
+            <!-- Step header -->
+            <div class="hstack-wrap" style="margin-bottom:16px">
+              <div style="font-weight:500">export_movimenti_2026-05.xls → BCC</div>
+              <div class="muted" style="font-size:12.5px">
+                42 righe lette · 28 nuove · 9 già presenti · 3 dubbi · 2 duplicati nel file
+              </div>
+            </div>
+
+            <!-- Tab del flusso (mockup mostra: review) -->
+            <div class="hstack-wrap" style="margin-bottom:16px; gap:6px; font-size:12px">
+              <span class="badge badge-neutral">1. Upload</span>
+              <svg width="12" height="12" style="color:var(--muted-2)"><use href="#i-check"/></svg>
+              <span class="badge badge-primary-soft">2. Review · in corso</span>
+              <span class="muted">3. Conferma →</span>
+            </div>
+
+            <!-- Tabella review -->
+            <div style="overflow-x:auto">
+              <table class="import-table">
+                <thead>
+                  <tr>
+                    <th style="width:30px"><input type="checkbox" checked /></th>
+                    <th>Stato</th>
+                    <th>Data</th>
+                    <th class="text-right">Importo</th>
+                    <th>Descrizione</th>
+                    <th>Categoria</th>
+                    <th>Voce ETS</th>
+                    <th style="width:60px" class="text-center">Giroc.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><input type="checkbox" checked /></td>
+                    <td>
+                      <span class="badge badge-success">Nuovo</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">auto: SDD utenza</div>
+                    </td>
+                    <td class="font-mono">12/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--danger)">− €&nbsp;142,50</td>
+                    <td class="truncate" style="max-width:24ch" title="SDD ENEL ENERGIA SPA - BOLLETTA LUCE - rif 250504123">SDD ENEL ENERGIA SPA — BOLLETTA LUCE</td>
+                    <td>
+                      <select class="mini-select"><option selected>Utenze</option><option>Materiale di consumo</option><option>Servizi prof.</option></select>
+                    </td>
+                    <td>
+                      <select class="mini-select"><option selected>U-A-2 · Servizi</option><option>U-A-1 · Materie prime</option></select>
+                    </td>
+                    <td class="text-center"><input type="checkbox" /></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked /></td>
+                    <td>
+                      <span class="badge badge-success">Nuovo</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">auto: supermercato</div>
+                    </td>
+                    <td class="font-mono">11/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--danger)">− €&nbsp;62,90</td>
+                    <td class="truncate" style="max-width:24ch">POS ESSELUNGA SPA CALVISANO</td>
+                    <td><select class="mini-select"><option selected>Vitto e ospitalità</option></select></td>
+                    <td><select class="mini-select"><option selected>U-A-2 · Servizi</option></select></td>
+                    <td class="text-center"><input type="checkbox" /></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked /></td>
+                    <td>
+                      <span class="badge badge-success">Nuovo</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">auto: bonifico quota</div>
+                    </td>
+                    <td class="font-mono">10/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--success)">+ €&nbsp;55,00</td>
+                    <td class="truncate" style="max-width:24ch">BONIFICO DOPOSCUOLA MAGGIO - Rossi Luca</td>
+                    <td><select class="mini-select"><option selected>Quote iscrizione</option></select></td>
+                    <td><select class="mini-select"><option selected>E-A-3 · Quote associative</option></select></td>
+                    <td class="text-center"><input type="checkbox" /></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked /></td>
+                    <td>
+                      <span class="badge badge-warning">Dubbio</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">corrispondenza parziale (2)</div>
+                    </td>
+                    <td class="font-mono">09/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--danger)">− €&nbsp;380,00</td>
+                    <td class="truncate" style="max-width:24ch">BONIFICO ROSSI MARIA — Comp. educatori aprile</td>
+                    <td><select class="mini-select"><option selected>Compensi educatori</option></select></td>
+                    <td><select class="mini-select"><option selected>U-A-4 · Personale</option></select></td>
+                    <td class="text-center"><input type="checkbox" /></td>
+                  </tr>
+                  <tr class="dim">
+                    <td><input type="checkbox" /></td>
+                    <td>
+                      <span class="badge badge-neutral">Già presente</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">match esatto · 1 movim.</div>
+                    </td>
+                    <td class="font-mono">08/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--danger)">− €&nbsp;58,32</td>
+                    <td class="truncate" style="max-width:24ch">AMAZON IT MILANO</td>
+                    <td><select class="mini-select" disabled><option>—</option></select></td>
+                    <td><select class="mini-select" disabled><option>—</option></select></td>
+                    <td class="text-center"><input type="checkbox" disabled /></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked /></td>
+                    <td>
+                      <span class="badge badge-info">Giroconto</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">payout Sumup→BCC</div>
+                    </td>
+                    <td class="font-mono">07/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--success)">+ €&nbsp;500,00</td>
+                    <td class="truncate" style="max-width:24ch">ACCREDITO SUMUP PAYMENTS LTD</td>
+                    <td><select class="mini-select" disabled><option>—</option></select></td>
+                    <td><select class="mini-select" disabled><option>—</option></select></td>
+                    <td class="text-center"><input type="checkbox" checked /></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked /></td>
+                    <td>
+                      <span class="badge badge-success">Nuovo</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">auto: donazione</div>
+                    </td>
+                    <td class="font-mono">06/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--success)">+ €&nbsp;100,00</td>
+                    <td class="truncate" style="max-width:24ch">BONIFICO MAURO GIANGI - donazione liberale</td>
+                    <td><select class="mini-select"><option selected>Donazioni</option></select></td>
+                    <td><select class="mini-select"><option selected>E-A-4 · Erog. liberali</option></select></td>
+                    <td class="text-center"><input type="checkbox" /></td>
+                  </tr>
+                  <tr class="dim">
+                    <td><input type="checkbox" /></td>
+                    <td>
+                      <span class="badge badge-outline">Duplicato</span>
+                      <div class="muted" style="font-size:10.5px; margin-top:4px">fingerprint nel file</div>
+                    </td>
+                    <td class="font-mono">06/05/2026</td>
+                    <td class="text-right font-mono" style="color:var(--success)">+ €&nbsp;100,00</td>
+                    <td class="truncate" style="max-width:24ch">BONIFICO MAURO GIANGI — donazione</td>
+                    <td><select class="mini-select" disabled><option>—</option></select></td>
+                    <td><select class="mini-select" disabled><option>—</option></select></td>
+                    <td class="text-center"><input type="checkbox" disabled /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Footer azioni -->
+            <div class="between" style="margin-top:16px; padding-top:16px; border-top: 1px solid var(--border)">
+              <button class="btn btn-ghost">← Cambia file</button>
+              <button class="btn">Importa 28 righe</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Doc UPLOAD step (mostrata di sotto come reference) -->
+        <div class="page-break">
+          <span class="label">Reference</span>
+          <span class="name">Step 1 — Upload (visualizzato qui sotto)</span>
+        </div>
+        <div class="card" style="max-width:560px">
+          <div class="card-body">
+            <div class="form-row">
+              <label class="form-label">Conto</label>
+              <select class="form-select">
+                <option>BCC</option>
+                <option>Sumup</option>
+              </select>
+              <div class="form-hint">BCC: export <code>.xls</code> (tab-separato). SumUp: export <code>.csv</code>.</div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">File estratto conto</label>
+              <input type="file" />
+              <div class="form-hint">Selezionato: export_movimenti_2026-05.xls</div>
+            </div>
+            <div class="hstack" style="margin-top:8px">
+              <button class="btn">Anteprima →</button>
+              <button class="btn btn-ghost">Annulla</button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- =========================================================
+        PAGINA 3 — /rendiconto
+      ========================================================= -->
+      <section class="page" data-page="rendiconto">
+
+        <div class="between" style="margin-bottom:24px">
+          <div>
+            <h1 class="h1">Rendiconto ETS · 2026</h1>
+            <p class="subtitle">Schema di rendiconto per cassa (D.M. 5/3/2020 — Modello D). I giroconti interni sono esclusi.</p>
+          </div>
+          <div class="hstack" style="gap:8px">
+            <label class="muted" style="font-size:12px">Anno:</label>
+            <input type="number" value="2026" class="form-input" style="width:90px; height:32px" />
+            <button class="btn btn-outline btn-sm">Aggiorna</button>
+            <button class="btn btn-outline btn-sm">
+              <svg width="14" height="14"><use href="#i-download"/></svg>
+              Esporta CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- BANNER NON CLASSIFICATI con lista inline (feature PR #22) -->
+        <details class="banner" open style="margin-bottom:24px">
+          <summary>
+            <span class="danger">9 movimenti senza voce rendiconto</span>
+            <span class="muted">(405,00 € totale)</span>
+            <span class="muted">· assegna categoria o voce qui sotto, oppure imposta il default da <a href="#" data-tab-link="categorie" style="text-decoration:underline">/categorie</a>.</span>
+          </summary>
+          <div class="body">
+            <div class="nonclass-header">
+              <div>Data</div>
+              <div>Movimento</div>
+              <div>Categoria</div>
+              <div>Voce ETS (override)</div>
+            </div>
+            <!-- 6 righe d'esempio -->
+            <div class="nonclass-row">
+              <div class="date">12/05/2026</div>
+              <div>
+                <div style="font-weight:500">SDD ENEL ENERGIA SPA</div>
+                <div class="meta">
+                  <span>BCC</span><span>·</span>
+                  <span class="badge badge-warning" style="font-size:10px; padding:1px 6px">− €&nbsp;142,50</span>
+                </div>
+              </div>
+              <div>
+                <select class="mini-select"><option value="">— Nessuna categoria —</option><option selected>Utenze</option><option>Servizi prof.</option></select>
+              </div>
+              <div>
+                <select class="mini-select"><option value="">— Voce ETS diretta (opzionale) —</option><option selected>U-A-2 · Servizi</option><option>U-A-1 · Materie prime</option></select>
+              </div>
+            </div>
+            <div class="nonclass-row">
+              <div class="date">10/05/2026</div>
+              <div>
+                <div style="font-weight:500">Bonifico DOPOSCUOLA MAGGIO — Rossi Luca</div>
+                <div class="meta">
+                  <span>BCC</span><span>·</span>
+                  <span class="badge badge-success" style="font-size:10px; padding:1px 6px">+ €&nbsp;55,00</span>
+                </div>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Nessuna categoria —</option><option>Quote iscrizione</option><option>Donazioni</option></select>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Voce ETS diretta (opzionale) —</option><option>E-A-3 · Quote associative</option><option>E-A-4 · Erog. liberali</option></select>
+              </div>
+            </div>
+            <div class="nonclass-row">
+              <div class="date">09/05/2026</div>
+              <div>
+                <div style="font-weight:500">Bonifico ROSSI MARIA — Comp. educatori</div>
+                <div class="meta">
+                  <span>BCC</span><span>·</span>
+                  <span class="badge badge-warning" style="font-size:10px; padding:1px 6px">− €&nbsp;380,00</span>
+                </div>
+              </div>
+              <div>
+                <select class="mini-select"><option value="">— Nessuna categoria —</option><option selected>Compensi educatori</option></select>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Voce ETS diretta (opzionale) —</option><option>U-A-4 · Personale</option></select>
+              </div>
+            </div>
+            <div class="nonclass-row">
+              <div class="date">07/05/2026</div>
+              <div>
+                <div style="font-weight:500">Donazione liberale — Mauro G.</div>
+                <div class="meta">
+                  <span>BCC</span><span>·</span>
+                  <span class="badge badge-success" style="font-size:10px; padding:1px 6px">+ €&nbsp;100,00</span>
+                </div>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Nessuna categoria —</option><option>Donazioni</option></select>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Voce ETS diretta (opzionale) —</option><option>E-A-4 · Erog. liberali</option></select>
+              </div>
+            </div>
+            <div class="nonclass-row">
+              <div class="date">05/05/2026</div>
+              <div>
+                <div style="font-weight:500">Acquisto libri laboratorio — Libraccio</div>
+                <div class="meta">
+                  <span>Cassa</span><span>·</span>
+                  <span class="badge badge-warning" style="font-size:10px; padding:1px 6px">− €&nbsp;48,90</span>
+                </div>
+              </div>
+              <div>
+                <select class="mini-select"><option value="">— Nessuna categoria —</option><option selected>Materiale didattico</option></select>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Voce ETS diretta (opzionale) —</option><option>U-A-1 · Materie prime</option></select>
+              </div>
+            </div>
+            <div class="nonclass-row">
+              <div class="date">03/05/2026</div>
+              <div>
+                <div style="font-weight:500">Spesa OBI — material consumo lab.</div>
+                <div class="meta">
+                  <span>Cassa</span><span>·</span>
+                  <span class="badge badge-warning" style="font-size:10px; padding:1px 6px">− €&nbsp;28,60</span>
+                </div>
+              </div>
+              <div>
+                <select class="mini-select"><option value="">— Nessuna categoria —</option><option selected>Materiale di consumo</option></select>
+              </div>
+              <div>
+                <select class="mini-select"><option value="" selected>— Voce ETS diretta (opzionale) —</option><option>U-A-1 · Materie prime</option></select>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Avviso giroconti (separato, più piccolo) -->
+        <div class="card" style="background: var(--surface-2); padding: 8px 16px; font-size:12px; color:var(--muted-text); margin-bottom:24px">
+          4 giroconti esclusi (€&nbsp;1.420,00).
+        </div>
+
+        <!-- Tabelle USCITE + ENTRATE -->
+        <div class="rendiconto-grid">
+          <!-- USCITE -->
+          <div class="card">
+            <div class="card-header">
+              <h2>USCITE — Totale €&nbsp;5.872,40</h2>
+            </div>
+            <div class="card-body flush">
+              <table class="rend-table">
+                <thead>
+                  <tr>
+                    <th style="text-align:left; padding:10px 14px; font-size:11.5px; color:var(--muted-text); font-weight:500; text-transform:uppercase">Voce</th>
+                    <th style="width:120px; text-align:right; padding:10px 14px; font-size:11.5px; color:var(--muted-text); font-weight:500">2026</th>
+                    <th style="width:120px; text-align:right; padding:10px 14px; font-size:11.5px; color:var(--muted-text); font-weight:500">2025</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="section-title"><td colspan="3">A) Uscite da attività di interesse generale</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1)</span>Materie prime, sussidiarie, di consumo e merci</td><td class="amount">€&nbsp;328,40</td><td class="amount empty">— €&nbsp;</td></tr>
+                  <tr class="voce"><td><span class="voce-num">2)</span>Servizi</td><td class="amount">€&nbsp;1.842,50</td><td class="amount empty">— €&nbsp;</td></tr>
+                  <tr class="voce"><td><span class="voce-num">3)</span>Godimento beni di terzi</td><td class="amount empty">—</td><td class="amount empty">— €&nbsp;</td></tr>
+                  <tr class="voce"><td><span class="voce-num">4)</span>Personale</td><td class="amount">€&nbsp;3.420,00</td><td class="amount empty">— €&nbsp;</td></tr>
+                  <tr class="voce"><td><span class="voce-num">5)</span>Ammortamenti e svalutazioni</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">6)</span>Oneri diversi di gestione</td><td class="amount">€&nbsp;281,50</td><td class="amount empty">—</td></tr>
+                  <tr class="section-tot"><td>Totale sezione A</td><td class="amount">€&nbsp;5.872,40</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">B) Uscite da attività diverse</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1-6)</span>(varie)</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="section-tot"><td>Totale sezione B</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">C) Uscite da attività di raccolta fondi</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1)</span>Spese raccolta fondi abituali</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">2)</span>Spese raccolta fondi occasionali</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">3)</span>Altre spese</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="section-tot"><td>Totale sezione C</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">D) Uscite da attività finanziarie e patrimoniali</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1-3)</span>(varie)</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">E) Uscite di supporto generale</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1)</span>Materie prime, sussidiarie, di consumo</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">2)</span>Servizi</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>TOTALE ONERI E COSTI</td>
+                    <td class="amount">€&nbsp;5.872,40</td>
+                    <td class="amount empty">—</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- ENTRATE -->
+          <div class="card">
+            <div class="card-header">
+              <h2>ENTRATE — Totale €&nbsp;7.108,00</h2>
+            </div>
+            <div class="card-body flush">
+              <table class="rend-table">
+                <thead>
+                  <tr>
+                    <th style="text-align:left; padding:10px 14px; font-size:11.5px; color:var(--muted-text); font-weight:500; text-transform:uppercase">Voce</th>
+                    <th style="width:120px; text-align:right; padding:10px 14px; font-size:11.5px; color:var(--muted-text); font-weight:500">2026</th>
+                    <th style="width:120px; text-align:right; padding:10px 14px; font-size:11.5px; color:var(--muted-text); font-weight:500">2025</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="section-title"><td colspan="3">A) Entrate da attività di interesse generale</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1)</span>Proventi da quote associative e apporti dei fondatori</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">2)</span>Proventi dagli associati per attività mutuali</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">3)</span>Erogazioni liberali</td><td class="amount">€&nbsp;850,00</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">4)</span>Proventi del 5 per mille</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">5)</span>Contributi da soggetti privati</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">6)</span>Ricavi per prestazioni e cessioni</td><td class="amount">€&nbsp;6.258,00</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">7)</span>Contributi da enti pubblici</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">8-10)</span>(altri)</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="section-tot"><td>Totale sezione A</td><td class="amount">€&nbsp;7.108,00</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">B) Entrate da attività diverse</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1-5)</span>(varie)</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">C) Entrate da attività di raccolta fondi</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1)</span>Entrate raccolta fondi abituali</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">2)</span>Entrate raccolta fondi occasionali</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                  <tr class="voce"><td><span class="voce-num">3)</span>Altre entrate</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">D) Entrate da attività finanziarie e patrimoniali</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1-4)</span>(varie)</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+
+                  <tr class="section-title"><td colspan="3">E) Entrate di supporto generale</td></tr>
+                  <tr class="voce"><td><span class="voce-num">1-2)</span>(varie)</td><td class="amount empty">—</td><td class="amount empty">—</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>TOTALE ENTRATE DELLA GESTIONE</td>
+                    <td class="amount">€&nbsp;7.108,00</td>
+                    <td class="amount empty">—</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Avanzo/disavanzo -->
+        <div class="kpi-card is-primary" style="margin-top:24px; display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:16px">
+          <div>
+            <div class="label">Avanzo/Disavanzo d'esercizio</div>
+            <div class="value" style="font-size:28px">+ €&nbsp;1.235,60</div>
+          </div>
+          <div style="text-align:right; font-size:12.5px">
+            2026: €&nbsp;7.108,00 − €&nbsp;5.872,40<br />
+            2025: avanzo di — €&nbsp;
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- =========================================================
+        PAGINA 4 — /categorie
+      ========================================================= -->
+      <section class="page" data-page="categorie">
+
+        <div class="stack-sm" style="margin-bottom:24px">
+          <h1 class="h1">Categorie</h1>
+          <p class="subtitle">Mappa ciascuna categoria a una voce dello schema di rendiconto ETS. Quando registri un movimento (da Telegram, da app o dall'import estratto conto), la voce verrà applicata automaticamente — puoi comunque sovrascriverla per singolo movimento.</p>
+        </div>
+
+        <!-- ENTRATE -->
+        <div class="card" style="margin-bottom:24px">
+          <div class="card-header">
+            <h2>Entrate (6)</h2>
+          </div>
+          <div class="card-body flush">
+            <div class="cat-row">
+              <div class="name">Quote iscrizione <div style="margin-top:4px"><span class="badge badge-success">Entrata</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>E-A-3 · Proventi da quote associative</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Donazioni <div style="margin-top:4px"><span class="badge badge-success">Entrata</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>E-A-4 · Erogazioni liberali</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">5x1000 <div style="margin-top:4px"><span class="badge badge-success">Entrata</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>E-A-5 · Proventi del 5 per mille</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Contributi da enti <div style="margin-top:4px"><span class="badge badge-success">Entrata</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>E-A-7 · Contributi da enti pubblici</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Eventi e ricavi <div style="margin-top:4px"><span class="badge badge-success">Entrata</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>E-C-2 · Raccolta fondi occasionali</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Altre entrate <div style="margin-top:4px"><span class="badge badge-success">Entrata</span></div></div>
+              <select class="voce-select"><option selected>— Nessuna voce di rendiconto —</option><option>E-A-6 · Ricavi prestazioni</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- USCITE -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Uscite (12)</h2>
+          </div>
+          <div class="card-body flush">
+            <div class="cat-row">
+              <div class="name">Compensi educatori <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-4 · Personale</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Utenze <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-2 · Servizi</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Cancelleria <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-1 · Materie prime</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Materiale didattico <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-1 · Materie prime</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Materiale di consumo <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-1 · Materie prime</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Vitto e ospitalità <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-2 · Servizi</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Trasporti <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-2 · Servizi</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Servizi prof. <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-2 · Servizi</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Affitti e spese sede <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-3 · Godimento beni di terzi</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Assicurazioni <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-2 · Servizi</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Commissioni bancarie <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option>— Nessuna voce di rendiconto —</option><option selected>U-A-6 · Oneri diversi di gestione</option></select>
+            </div>
+            <div class="cat-row">
+              <div class="name">Altre uscite <div style="margin-top:4px"><span class="badge badge-warning">Uscita</span></div></div>
+              <select class="voce-select"><option selected>— Nessuna voce di rendiconto —</option><option>U-A-6 · Oneri diversi di gestione</option></select>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- =========================================================
+        PAGINA 5 — /spese-edu
+      ========================================================= -->
+      <section class="page" data-page="spese-edu">
+
+        <div class="stack-sm" style="margin-bottom:24px">
+          <h1 class="h1">Registra movimento</h1>
+          <p class="subtitle">Inserisci una spesa o un'entrata della cassa educativa. Verrà registrata a tuo nome.</p>
+        </div>
+
+        <div class="spese-grid">
+
+          <!-- FORM -->
+          <div class="card">
+            <div class="card-body">
+
+              <div class="form-row">
+                <label class="form-label">Tipo movimento</label>
+                <div class="seg two">
+                  <button class="is-active" type="button">Uscita</button>
+                  <button type="button">Entrata</button>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px">
+                <div class="form-row" style="margin-bottom:0">
+                  <label class="form-label">Importo (€)</label>
+                  <input class="form-input" type="number" step="0.01" placeholder="0,00" />
+                </div>
+                <div class="form-row" style="margin-bottom:0">
+                  <label class="form-label">Data</label>
+                  <input class="form-input" type="date" value="2026-05-13" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">Conto</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px">
+                  <button class="opt-btn is-active" type="button">Cassa</button>
+                  <button class="opt-btn" type="button">BCC</button>
+                  <button class="opt-btn" type="button">Sumup</button>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">Categoria</label>
+                <select class="form-select">
+                  <option>Nessuna categoria</option>
+                  <option>Compensi educatori</option>
+                  <option>Utenze</option>
+                  <option>Cancelleria</option>
+                  <option selected>Materiale di consumo</option>
+                  <option>Vitto e ospitalità</option>
+                  <option>Trasporti</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">Voce di rendiconto (ETS)</label>
+                <select class="form-select">
+                  <option>Usa default della categoria</option>
+                  <option selected>U-A-1 · Materie prime, sussidiarie, di consumo</option>
+                  <option>U-A-2 · Servizi</option>
+                  <option>U-A-3 · Godimento beni di terzi</option>
+                  <option>U-A-4 · Personale</option>
+                </select>
+                <div class="form-hint">Necessaria per il rendiconto ETS. Se lasci il default, viene presa dalla categoria scelta.</div>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">Descrizione</label>
+                <input class="form-input" placeholder="Es. acquisto cancelleria, rimborso pasti…" />
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">Note (opzionale)</label>
+                <textarea class="form-textarea" rows="3" placeholder="Aggiungi dettagli…"></textarea>
+              </div>
+
+              <div style="display:flex; justify-content:flex-end; margin-top:8px">
+                <button class="btn">Registra movimento</button>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ULTIMI MOVIMENTI -->
+          <div class="card" style="align-self:start">
+            <div class="card-header" style="padding-bottom:8px">
+              <h2 style="margin-bottom:2px">I miei ultimi movimenti</h2>
+              <div class="muted" style="font-size:11.5px">Ultimi 5 registrati a tuo nome</div>
+            </div>
+            <div class="card-body flush">
+              <ul class="row-divide" style="list-style:none; margin:0; padding:0">
+                <li style="padding:12px 20px">
+                  <div class="between">
+                    <span class="badge badge-warning">Uscita</span>
+                    <span class="font-mono" style="color:var(--danger); font-weight:600; font-size:13px">− €&nbsp;38,40</span>
+                  </div>
+                  <div style="font-size:12.5px; margin-top:4px">Cancelleria fogli A4 e pennarelli</div>
+                  <div class="muted" style="font-size:11.5px; margin-top:2px">11/05/2026 · Cassa · Materiale di consumo</div>
+                </li>
+                <li style="padding:12px 20px">
+                  <div class="between">
+                    <span class="badge badge-warning">Uscita</span>
+                    <span class="font-mono" style="color:var(--danger); font-weight:600; font-size:13px">− €&nbsp;62,90</span>
+                  </div>
+                  <div style="font-size:12.5px; margin-top:4px">Spesa Esselunga — colazione evento</div>
+                  <div class="muted" style="font-size:11.5px; margin-top:2px">09/05/2026 · Cassa · Vitto e ospitalità</div>
+                </li>
+                <li style="padding:12px 20px">
+                  <div class="between">
+                    <span class="badge badge-warning">Uscita</span>
+                    <span class="font-mono" style="color:var(--danger); font-weight:600; font-size:13px">− €&nbsp;18,50</span>
+                  </div>
+                  <div style="font-size:12.5px; margin-top:4px">Biglietto autobus uscita didattica</div>
+                  <div class="muted" style="font-size:11.5px; margin-top:2px">08/05/2026 · Cassa · Trasporti</div>
+                </li>
+                <li style="padding:12px 20px">
+                  <div class="between">
+                    <span class="badge badge-success">Entrata</span>
+                    <span class="font-mono" style="color:var(--success); font-weight:600; font-size:13px">+ €&nbsp;25,00</span>
+                  </div>
+                  <div style="font-size:12.5px; margin-top:4px">Iscrizione Bianchi P. — maggio</div>
+                  <div class="muted" style="font-size:11.5px; margin-top:2px">06/05/2026 · Sumup · Quote iscrizione</div>
+                </li>
+                <li style="padding:12px 20px">
+                  <div class="between">
+                    <span class="badge badge-warning">Uscita</span>
+                    <span class="font-mono" style="color:var(--danger); font-weight:600; font-size:13px">− €&nbsp;28,60</span>
+                  </div>
+                  <div style="font-size:12.5px; margin-top:4px">OBI material consumo laboratorio</div>
+                  <div class="muted" style="font-size:11.5px; margin-top:2px">03/05/2026 · Cassa · Materiale di consumo</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+</div>
+
+
+<script>
+  // Page switching + crumb
+  const PAGE_LABELS = {
+    "cassa": "Cassa e finanze",
+    "cassa-import": "Cassa / Import estratto conto",
+    "rendiconto": "Rendiconto ETS",
+    "categorie": "Categorie",
+    "spese-edu": "Registra movimento"
+  };
+  function setPage(name) {
+    document.querySelectorAll(".page").forEach((p) => {
+      p.classList.toggle("is-active", p.dataset.page === name);
+    });
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.classList.toggle("is-active", t.dataset.tab === name);
+    });
+    document.querySelectorAll(".nav-item").forEach((n) => {
+      n.classList.toggle("is-active", n.dataset.target === name);
+    });
+    const cp = document.getElementById("crumb-page");
+    if (cp) cp.textContent = PAGE_LABELS[name] || "";
+    // se la pagina è spese-edu, l'area diventa edu
+    const area = name === "spese-edu" ? "edu" : "amm";
+    document.documentElement.dataset.area = area;
+    document.querySelector(".topbar").dataset.area = area;
+    document.querySelector(".area-pill").innerHTML = area === "amm"
+      ? '<span class="dot"></span><span>Amministrazione</span>'
+      : '<span class="dot"></span><span>Attività educative</span>';
+    document.getElementById("crumb-area").textContent =
+      area === "amm" ? "Amministrazione" : "Attività educative";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelectorAll(".tab").forEach((t) => {
+    t.addEventListener("click", () => setPage(t.dataset.tab));
+  });
+  document.querySelectorAll("[data-target]").forEach((n) => {
+    n.addEventListener("click", (e) => {
+      e.preventDefault();
+      setPage(n.dataset.target);
+    });
+  });
+  document.querySelectorAll("[data-tab-link]").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      setPage(a.dataset.tabLink);
+    });
+  });
+
+  // Theme toggle
+  const themeBtn = document.getElementById("themeBtn");
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    themeBtn.innerHTML = theme === "dark"
+      ? '<svg width="16" height="16"><use href="#i-sun"/></svg>'
+      : '<svg width="16" height="16"><use href="#i-moon"/></svg>';
+  }
+  themeBtn.addEventListener("click", () => {
+    const cur = document.documentElement.dataset.theme || "light";
+    applyTheme(cur === "light" ? "dark" : "light");
+  });
+  applyTheme("light");
+</script>
+
+</body>
+</html>
