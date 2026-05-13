@@ -23,37 +23,58 @@ export default async function IscrizioneDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [iscrizione, bambini, mesi, attivita] = await Promise.all([
+
+  // Stage 1: dati indipendenti (mesi non dipende da iscrizione, usa l'id direttamente)
+  const [iscrizione, mesi, attivita, bambini] = await Promise.all([
     getIscrizione(id),
-    listBambini(),
     listMesiByIscrizione(id),
     listAttivita({ attivo: true }),
+    listBambini(),
   ]);
   if (!iscrizione) notFound();
 
-  const attivitaCorrente = await getAttivita(iscrizione.attivitaId);
+  // Determina se l'attivita corrente e' gia' nella lista delle attivita attive.
+  const attivitaCorrenteInList = attivita.find(
+    (a) => a.recordId === iscrizione.attivitaId,
+  );
+  const sessioneIdsRate = Array.from(
+    new Set(mesi.map((m) => m.sessioneId).filter(Boolean) as string[]),
+  );
+
+  // Stage 2: tutto in parallelo (getAttivita opzionale, sessioni rate, sessioni
+  // e modalita per ogni attivita del form).
+  const [attivitaCorrente, sessioniRate, sessioniLists, modalitaLists] =
+    await Promise.all([
+      attivitaCorrenteInList
+        ? Promise.resolve(attivitaCorrenteInList)
+        : getAttivita(iscrizione.attivitaId),
+      listSessioni({ recordIds: sessioneIdsRate }),
+      Promise.all(attivita.map((a) => listSessioniByAttivita(a.recordId))),
+      Promise.all(attivita.map((a) => listModalitaByAttivita(a.recordId))),
+    ]);
+
   const attivitaPerForm =
-    attivitaCorrente && !attivita.some((a) => a.recordId === attivitaCorrente.recordId)
+    attivitaCorrente && !attivitaCorrenteInList
       ? [...attivita, attivitaCorrente]
       : attivita;
 
-  const sessioniLists = await Promise.all(
-    attivitaPerForm.map((a) => listSessioniByAttivita(a.recordId)),
-  );
-  const modalitaLists = await Promise.all(
-    attivitaPerForm.map((a) => listModalitaByAttivita(a.recordId)),
-  );
   const sessioniByAttivita: Record<string, Sessione[]> = {};
   const modalitaByAttivita: Record<string, ModalitaIscrizione[]> = {};
-  attivitaPerForm.forEach((a, i) => {
+  attivita.forEach((a, i) => {
     sessioniByAttivita[a.recordId] = sessioniLists[i];
     modalitaByAttivita[a.recordId] = modalitaLists[i];
   });
+  // Se l'attivita corrente non era fra quelle attive, caricala on-demand per
+  // popolare il form (caso edge: iscrizione su attivita ora archiviata).
+  if (attivitaCorrente && !attivitaCorrenteInList) {
+    const [sess, mod] = await Promise.all([
+      listSessioniByAttivita(attivitaCorrente.recordId),
+      listModalitaByAttivita(attivitaCorrente.recordId),
+    ]);
+    sessioniByAttivita[attivitaCorrente.recordId] = sess;
+    modalitaByAttivita[attivitaCorrente.recordId] = mod;
+  }
 
-  // Cache delle sessioni linkate alle rate per la tabella
-  const sessioniRate = await listSessioni({
-    recordIds: Array.from(new Set(mesi.map((m) => m.sessioneId).filter(Boolean) as string[])),
-  });
   const sessioniById = new Map(sessioniRate.map((s) => [s.recordId, s] as const));
 
   const bambino = bambini.find((b) => b.recordId === iscrizione.bambinoId);

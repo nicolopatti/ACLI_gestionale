@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
 import type { Categoria } from "@/lib/airtable/types";
 import type { Database } from "./types.gen";
@@ -13,7 +14,7 @@ function mapCategoria(row: CategoriaRow): Categoria {
   };
 }
 
-export async function listCategorie(): Promise<Categoria[]> {
+async function _listCategorie(): Promise<Categoria[]> {
   if (!db) return [];
   const { data, error } = await db
     .from("categorie")
@@ -22,6 +23,11 @@ export async function listCategorie(): Promise<Categoria[]> {
   if (error) throw error;
   return (data ?? []).map(mapCategoria);
 }
+
+export const listCategorie = unstable_cache(_listCategorie, ["categorie:all"], {
+  revalidate: 600,
+  tags: ["categorie"],
+});
 
 export async function ensureCategoria(
   nome: string,
@@ -40,5 +46,6 @@ export async function ensureCategoria(
     .select("*")
     .single();
   if (error) throw error;
+  revalidateTag("categorie", "max");
   return mapCategoria(data);
 }
