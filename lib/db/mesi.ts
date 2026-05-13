@@ -5,6 +5,7 @@ import type { Database } from "./types.gen";
 import type {
   MezzoPagamento,
   StatoPagamento,
+  TipoAttivita,
   TipoUnita,
 } from "@/lib/config";
 
@@ -226,4 +227,44 @@ export async function deleteMesiBySessione(
     .select("id");
   if (error) throw error;
   return (data ?? []).length;
+}
+
+export interface RataPaymentContext {
+  rata: MeseIscrizione;
+  bambinoNome: string;
+  bambinoCognome: string;
+  attivitaNome: string;
+  attivitaTipo: TipoAttivita;
+  modalitaNome: string;
+}
+
+/**
+ * Recupera la rata + i metadati necessari a costruire un Movimento Entrata
+ * (nome bambino, attività, modalità) in un'unica query con join.
+ */
+export async function getRataPaymentContext(
+  rataId: string,
+): Promise<RataPaymentContext | null> {
+  if (!db) return null;
+  const { data, error } = await db
+    .from("rate")
+    .select(
+      "*, iscrizione:iscrizioni!inner(*, bambino:bambini!inner(nome,cognome), attivita:attivita!inner(nome,tipo), modalita:modalita_iscrizione!inner(nome))",
+    )
+    .eq("id", rataId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const iscrizione = data.iscrizione as unknown as {
+    bambino: { nome: string; cognome: string };
+    attivita: { nome: string; tipo: TipoAttivita };
+    modalita: { nome: string };
+  };
+  return {
+    rata: mapMese(data),
+    bambinoNome: iscrizione.bambino.nome,
+    bambinoCognome: iscrizione.bambino.cognome,
+    attivitaNome: iscrizione.attivita.nome,
+    attivitaTipo: iscrizione.attivita.tipo,
+    modalitaNome: iscrizione.modalita.nome,
+  };
 }

@@ -11,6 +11,7 @@ function mapCategoria(row: CategoriaRow): Categoria {
     recordId: row.id,
     nome: row.nome,
     tipo: row.tipo,
+    voceRendicontoDefaultId: row.voce_rendiconto_default_id ?? undefined,
   };
 }
 
@@ -48,4 +49,17 @@ export async function ensureCategoria(
   if (error) throw error;
   revalidateTag("categorie", "max");
   return mapCategoria(data);
+}
+
+export async function setVoceRendicontoDefault(
+  categoriaId: string,
+  voceRendicontoId: string | null,
+): Promise<void> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { error } = await db
+    .from("categorie")
+    .update({ voce_rendiconto_default_id: voceRendicontoId })
+    .eq("id", categoriaId);
+  if (error) throw error;
+  revalidateTag("categorie", "max");
 }
