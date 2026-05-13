@@ -186,6 +186,30 @@ export async function deleteMovimento(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function setCategoriaMovimento(
+  movimentoId: string,
+  categoriaId: string | null,
+): Promise<void> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { error } = await db
+    .from("movimenti")
+    .update({ categoria_id: categoriaId })
+    .eq("id", movimentoId);
+  if (error) throw error;
+}
+
+export async function setVoceRendicontoMovimento(
+  movimentoId: string,
+  voceRendicontoId: string | null,
+): Promise<void> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { error } = await db
+    .from("movimenti")
+    .update({ voce_rendiconto_id: voceRendicontoId })
+    .eq("id", movimentoId);
+  if (error) throw error;
+}
+
 export interface DedupCandidate {
   conto: MezzoPagamento;
   tipo: "Entrata" | "Uscita";
