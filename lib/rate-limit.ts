@@ -8,6 +8,20 @@ const LIMIT = 5;
 
 let cached: { limiter: Ratelimit | null } | null = null;
 
+function describeError(e: unknown): string {
+  if (e instanceof Error) {
+    const cause = (e as { cause?: unknown }).cause;
+    const causeMsg =
+      cause instanceof Error
+        ? `; cause=${cause.name}: ${cause.message}`
+        : cause
+          ? `; cause=${String(cause)}`
+          : "";
+    return `${e.name}: ${e.message}${causeMsg}`;
+  }
+  return String(e);
+}
+
 function getLoginLimiter(): Ratelimit | null {
   if (cached) return cached.limiter;
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -30,7 +44,7 @@ function getLoginLimiter(): Ratelimit | null {
     cached = { limiter };
     return limiter;
   } catch (e) {
-    console.warn("[rate-limit] init fallita, fail-open:", e);
+    console.warn(`[rate-limit] init fallita, fail-open: ${describeError(e)}`);
     cached = { limiter: null };
     return null;
   }
@@ -57,7 +71,7 @@ export async function checkLoginRateLimit(
     const r = await limiter.limit(key);
     return { allowed: r.success, resetAt: r.reset, remaining: r.remaining };
   } catch (e) {
-    console.warn("[rate-limit] limit() ha lanciato, fail-open:", e);
+    console.warn(`[rate-limit] limit() ha lanciato, fail-open: ${describeError(e)}`);
     return { allowed: true };
   }
 }
