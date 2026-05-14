@@ -1,3 +1,4 @@
 @AGENTS.md
 @STATUS.md
 @SECURITY_PLAN.md
+@IDEAS.md
