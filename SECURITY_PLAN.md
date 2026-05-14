@@ -20,7 +20,7 @@
 | 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 🌐 in osservazione produzione (PR #27 mergeata, finestra 24h prima del flip Report-Only → enforcing) |
 | 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 🌐 in osservazione produzione (PR #28 mergeata) |
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
-| 4 | Rate limiting su `/login` | 🟡 medio | 3h | ⏳ da fare |
+| 4 | Rate limiting su `/login` | 🟡 medio | 3h | 👀 in review (branch `claude/review-security-progress-LLf7T`) |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | ⏳ da fare |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ⏳ da fare |
 | 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ⏳ da fare |
@@ -659,6 +659,28 @@ Ogni sessione, al completamento, aggiorna questa sezione:
   - Unit-test inline su `BusinessError` + `userErrorMessage`: `userErrorMessage(new BusinessError("Email gia in uso"), "...")` → `"Email gia in uso"`; `userErrorMessage(new Error('duplicate key...'), "Errore durante il salvataggio")` → `"Errore durante il salvataggio"` (no leak); stringa raw + undefined → fallback.
   - Server smoke (`pnpm start` + `curl`): le rotte `/utenti`, `/bambini`, `/attivita`, `/presenze`, `/utenti/nuovo`, `/attivita/nuova` rispondono 307 → `/login` per unauthenticated (proxy intatto). La verifica del page-level guard contro un session-cookie di ruolo sbagliato richiede preview Vercel.
 - Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
+
+### Sessione 4 — Rate limiting su `/login`
+**Branch**: `claude/review-security-progress-LLf7T`
+**PR**: — (da aprire dopo che l'utente conferma di aver creato il DB Upstash e settato le env su Vercel)
+**Mergeata il**: —
+**Osservazione fino al**: 1 settimana dopo il deploy
+**Note**:
+- **Nuovo modulo `lib/rate-limit.ts`**: lazy init `getLoginLimiter()` che legge `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` al primo uso e cacha il risultato. Se mancanti → ritorna `null` + `console.warn` → `checkLoginRateLimit` ritorna `{ allowed: true }` (**fail-open**). Stessa cosa su errore di init o di `limiter.limit()`: try/catch + fail-open. `import "server-only"` in cima cosi' il bundler Next rompe il build se per errore il modulo viene importato in un Client Component. Limiter: `Ratelimit.slidingWindow(5, "15 m")`, prefix `rl:login`, `analytics: false` (riduce comandi Redis a meta', utile su free tier).
+- **Helper `loginRateLimitKey(ip, email)`**: pura funzione esportata che fa trim + lowercase su entrambi i pezzi e li concatena con `|`. IP vuoto -> `"unknown"`. Cosi' la chiave Redis e' deterministica: `1.2.3.4|foo@bar.it`. Unit-testata con 5 casi inline (case folding, trim, empty fallback) - tutti OK.
+- **Integrazione in `lib/actions/auth.ts:loginAction`**: `const h = await headers()` (Next 16 ha `headers()` async), estrazione `x-forwarded-for` con `split(",")[0].trim()`, chiamata `checkLoginRateLimit(loginRateLimitKey(ip, email))` **prima** di `signIn()`. Se non `allowed`, calcola minuti rimanenti da `resetAt - Date.now()` (ceil, min 1) e ritorna `{ error: "Troppi tentativi di login. Riprova tra N minuti." }` (singolare/plurale corretto). La forma del return matcha `LoginState` esistente, quindi `components/auth/login-form.tsx` lo rendera' senza modifiche nel suo `<p className="field-error">`.
+- **`.env.example`**: aggiunte `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` con commento sul fail-open quando vuote.
+- **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate (`+1` rispetto al doc storico: la differenza era un disallineamento di conteggio nelle sessioni precedenti, non un regression).
+- **Cosa serve all'utente prima del merge in produzione** (BLOCKING per attivare la protezione):
+  1. Creare un Upstash Redis (free tier) sul team, region `fra1` (co-locazione con Vercel).
+  2. Copiare `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` dalla pagina REST API del DB.
+  3. Settarli su Vercel come env vars Production + Preview.
+  4. Re-deploy.
+- **Se l'utente mergea senza settare le env**: nessun crash, nessun blocco. Il rate limiting resta off (fail-open) finche' le env vars non arrivano. Nei log Vercel comparira' un `console.warn` al primo login.
+- **Smoke test post-deploy** (da fare manualmente):
+  - 6 login con password errata dalla stessa rete sulla stessa email → al 6° tentativo deve apparire "Troppi tentativi di login. Riprova tra ~15 minuti.".
+  - 1 login corretto → passa senza messaggi.
+  - Verificare in Upstash dashboard che le chiavi `rl:login:<ip>|<email>` crescono coerentemente.
 
 ---
 
