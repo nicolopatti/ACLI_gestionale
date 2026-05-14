@@ -37,6 +37,11 @@ export const authConfig = {
       if (!auth?.user?.mustChangePassword && isOnPrimoAccesso) {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
+      // Qui dentro l'utente puo' completare il primo accesso indipendentemente
+      // dal ruolo: senza questo early-return, il gating ruoli sotto rimanda i
+      // non-admin su /dashboard o /cassa, che a loro volta richiamano il check
+      // mustChangePassword sopra e causano un loop di redirect.
+      if (isOnPrimoAccesso) return true;
       // Gating ruoli per area
       const ruolo = auth?.user?.ruolo;
       const path = nextUrl.pathname;
