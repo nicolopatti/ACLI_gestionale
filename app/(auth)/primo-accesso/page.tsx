@@ -19,7 +19,7 @@ export default async function PrimoAccessoPage() {
           <CardTitle className="text-2xl">Benvenuto{nome ? `, ${nome}` : ""}</CardTitle>
           <CardDescription>
             Per proteggere il tuo account, scegli ora una password personale.
-            Verrai disconnesso al termine: rientra con la nuova password.
+            Useremo la nuova password al prossimo accesso.
           </CardDescription>
         </CardHeader>
         <CardContent>
