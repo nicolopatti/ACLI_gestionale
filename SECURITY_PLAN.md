@@ -20,7 +20,7 @@
 | 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 🌐 in osservazione produzione (PR #27 mergeata, finestra 24h prima del flip Report-Only → enforcing) |
 | 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 🌐 in osservazione produzione (PR #28 mergeata) |
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
-| 4 | Rate limiting su `/login` | 🟡 medio | 3h | 👀 in review (branch `claude/review-security-progress-LLf7T`) |
+| 4 | Rate limiting su `/login` | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #32 mergeata, PR #33 hotfix logging) |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | ⏳ da fare |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ⏳ da fare |
 | 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ⏳ da fare |
@@ -662,25 +662,20 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 
 ### Sessione 4 — Rate limiting su `/login`
 **Branch**: `claude/review-security-progress-LLf7T`
-**PR**: — (da aprire dopo che l'utente conferma di aver creato il DB Upstash e settato le env su Vercel)
-**Mergeata il**: —
-**Osservazione fino al**: 1 settimana dopo il deploy
+**PR**: #32 mergeata in produzione (`c7ffd5d`), seguita da hotfix logging #33 (`a217d06`)
+**Mergeata il**: 2026-05-14
+**Osservazione fino al**: 2026-05-21 (1 settimana)
 **Note**:
 - **Nuovo modulo `lib/rate-limit.ts`**: lazy init `getLoginLimiter()` che legge `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` al primo uso e cacha il risultato. Se mancanti → ritorna `null` + `console.warn` → `checkLoginRateLimit` ritorna `{ allowed: true }` (**fail-open**). Stessa cosa su errore di init o di `limiter.limit()`: try/catch + fail-open. `import "server-only"` in cima cosi' il bundler Next rompe il build se per errore il modulo viene importato in un Client Component. Limiter: `Ratelimit.slidingWindow(5, "15 m")`, prefix `rl:login`, `analytics: false` (riduce comandi Redis a meta', utile su free tier).
 - **Helper `loginRateLimitKey(ip, email)`**: pura funzione esportata che fa trim + lowercase su entrambi i pezzi e li concatena con `|`. IP vuoto -> `"unknown"`. Cosi' la chiave Redis e' deterministica: `1.2.3.4|foo@bar.it`. Unit-testata con 5 casi inline (case folding, trim, empty fallback) - tutti OK.
 - **Integrazione in `lib/actions/auth.ts:loginAction`**: `const h = await headers()` (Next 16 ha `headers()` async), estrazione `x-forwarded-for` con `split(",")[0].trim()`, chiamata `checkLoginRateLimit(loginRateLimitKey(ip, email))` **prima** di `signIn()`. Se non `allowed`, calcola minuti rimanenti da `resetAt - Date.now()` (ceil, min 1) e ritorna `{ error: "Troppi tentativi di login. Riprova tra N minuti." }` (singolare/plurale corretto). La forma del return matcha `LoginState` esistente, quindi `components/auth/login-form.tsx` lo rendera' senza modifiche nel suo `<p className="field-error">`.
 - **`.env.example`**: aggiunte `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` con commento sul fail-open quando vuote.
 - **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate (`+1` rispetto al doc storico: la differenza era un disallineamento di conteggio nelle sessioni precedenti, non un regression).
-- **Cosa serve all'utente prima del merge in produzione** (BLOCKING per attivare la protezione):
-  1. Creare un Upstash Redis (free tier) sul team, region `fra1` (co-locazione con Vercel).
-  2. Copiare `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` dalla pagina REST API del DB.
-  3. Settarli su Vercel come env vars Production + Preview.
-  4. Re-deploy.
-- **Se l'utente mergea senza settare le env**: nessun crash, nessun blocco. Il rate limiting resta off (fail-open) finche' le env vars non arrivano. Nei log Vercel comparira' un `console.warn` al primo login.
-- **Smoke test post-deploy** (da fare manualmente):
-  - 6 login con password errata dalla stessa rete sulla stessa email → al 6° tentativo deve apparire "Troppi tentativi di login. Riprova tra ~15 minuti.".
-  - 1 login corretto → passa senza messaggi.
-  - Verificare in Upstash dashboard che le chiavi `rl:login:<ip>|<email>` crescono coerentemente.
+- **Episodio diagnostico al primo deploy**: al primo round di smoke test post-merge in produzione, i 6 tentativi falliti **non bloccavano** il login. I Vercel runtime logs mostravano `[rate-limit] limit() ha lan...` troncato — meaning il limiter andava in fail-open silenzioso ma la riga non rivelava il motivo. Hotfix **PR #33** (`a217d06`): nuovo helper `describeError(e)` che serializza `e.name`, `e.message`, e `e.cause` inline cosi' il log resta interpretabile anche nella tabella tronca di Vercel. Causa root: credenziali Upstash trascritte male dall'utente nelle env vars (probabile token read-only invece di full-access, o virgolette `"..."` copiate dal blocco snippet di Upstash). Dopo correzione manuale delle env vars su Vercel + redeploy, rate limiting funziona end-to-end.
+- **Smoke test post-deploy** (eseguito 2026-05-14 dopo la correzione delle env):
+  - ✅ Login normale (password corretta): passa senza messaggi extra.
+  - ✅ 6 tentativi password errata stessa email/IP: al 6° appare "Troppi tentativi di login. Riprova tra ~15 minuti.".
+  - ✅ Subito dopo il blocco, password corretta dallo stesso IP/email: bloccato (non e' una finta).
 
 ---
 
