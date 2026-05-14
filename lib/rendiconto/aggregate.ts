@@ -31,7 +31,7 @@ export interface RendicontoAggregato {
   giroconti: Movimento[];
 }
 
-const TITOLI_SEZIONE_USCITA: Record<SezioneRendiconto, string> = {
+export const TITOLI_SEZIONE_USCITA: Record<SezioneRendiconto, string> = {
   A: "A) Uscite da attività di interesse generale",
   B: "B) Uscite da attività diverse",
   C: "C) Uscite da attività di raccolta fondi",
@@ -39,7 +39,7 @@ const TITOLI_SEZIONE_USCITA: Record<SezioneRendiconto, string> = {
   E: "E) Uscite di supporto generale",
 };
 
-const TITOLI_SEZIONE_ENTRATA: Record<SezioneRendiconto, string> = {
+export const TITOLI_SEZIONE_ENTRATA: Record<SezioneRendiconto, string> = {
   A: "A) Entrate da attività di interesse generale",
   B: "B) Entrate da attività diverse",
   C: "C) Entrate da attività di raccolta fondi",
@@ -48,6 +48,35 @@ const TITOLI_SEZIONE_ENTRATA: Record<SezioneRendiconto, string> = {
 };
 
 const SEZIONI: SezioneRendiconto[] = ["A", "B", "C", "D", "E"];
+
+/**
+ * Risolve la voce di rendiconto di un movimento usando le stesse regole di
+ * `aggregaRendiconto`: prima la voce esplicita, poi il default della categoria.
+ * Restituisce undefined se il movimento è un giroconto, se non c'è voce
+ * risolvibile, o se la voce trovata ha tipo incoerente con quello del movimento.
+ */
+export function resolveVoceMovimento(
+  m: Movimento,
+  voci: VoceRendiconto[],
+  categorie: Categoria[],
+): VoceRendiconto | undefined {
+  if (m.isGiroconto) return undefined;
+  const voceById = new Map(voci.map((v) => [v.recordId, v] as const));
+  const categoriaById = new Map(
+    categorie.map((c) => [c.recordId, c] as const),
+  );
+  let voce: VoceRendiconto | undefined;
+  if (m.voceRendicontoId) voce = voceById.get(m.voceRendicontoId);
+  if (!voce && m.categoriaId) {
+    const c = categoriaById.get(m.categoriaId);
+    if (c?.voceRendicontoDefaultId) {
+      voce = voceById.get(c.voceRendicontoDefaultId);
+    }
+  }
+  if (!voce) return undefined;
+  if (voce.tipo !== m.tipo) return undefined;
+  return voce;
+}
 
 /**
  * Aggrega i movimenti per voce di rendiconto.
