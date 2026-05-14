@@ -19,7 +19,7 @@
 |---|----------|---------|--------|--------|
 | 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 🌐 in osservazione produzione (PR #27 mergeata, finestra 24h prima del flip Report-Only → enforcing) |
 | 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 🌐 in osservazione produzione (PR #28 mergeata) |
-| 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 👀 in review (branch `claude/secplan-03-auth-defense-in-depth`) |
+| 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | ⏳ da fare |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | ⏳ da fare |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ⏳ da fare |
@@ -628,8 +628,8 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 - Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
 
 ### Sessione 3 — Defense-in-depth auth checks + error message hardening
-**Branch**: `claude/secplan-03-auth-defense-in-depth` (pushato, in attesa di PR/merge)
-**Mergeata il**: —
+**Branch**: `claude/secplan-03-auth-defense-in-depth`
+**PR**: #29 mergeata in produzione (`8cf7ee3`)
 **Osservazione fino al**: 48h dopo il deploy in produzione (zero-risk client: nessuna mutazione di schema/dati, niente nuove dipendenze esterne)
 **Note**:
 - **Nuove primitive di sicurezza**:
