@@ -17,8 +17,8 @@
 
 | # | Sessione | Rischio | Effort | Status |
 |---|----------|---------|--------|--------|
-| 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 👀 in review (branch `claude/security-plan-session-1-UNFfC`) |
-| 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | ⏳ da fare |
+| 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 🌐 in osservazione produzione (PR #27 mergeata, finestra 24h prima del flip Report-Only → enforcing) |
+| 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 👀 in review (branch `claude/secplan-02-upload-hardening`) |
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | ⏳ da fare |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | ⏳ da fare |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | ⏳ da fare |
@@ -596,9 +596,9 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 ```
 
 ### Sessione 1 — HTTP security headers + CSP
-**Branch**: `claude/security-plan-session-1-UNFfC` (pushato, in attesa di PR/merge)
-**Mergeata il**: —
-**Osservazione fino al**: 24h dopo il deploy in produzione
+**Branch**: `claude/security-plan-session-1-UNFfC`
+**PR**: #27 mergeata in produzione (`3342fe9`)
+**Osservazione fino al**: 24h dopo il deploy → poi flip della key in `next.config.ts` da `Content-Security-Policy-Report-Only` a `Content-Security-Policy`
 **Note**:
 - Tutti gli header del piano applicati: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`.
 - CSP servita in **Report-Only** (header key `Content-Security-Policy-Report-Only`) come prescritto: niente blocco per ora, solo osservazione. Per attivare l'enforcing dopo 24h senza violazioni: rinominare la key in `Content-Security-Policy` in `next.config.ts`.
@@ -607,6 +607,24 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 - `'unsafe-inline'` su `script-src` mantenuto per coprire il bootstrap tema in `app/layout.tsx:54` (inline `dangerouslySetInnerHTML`). La sostituzione con nonce e' rimandata come stretch goal (incompatibile con la prerender statica usata su `/login` e `/`, richiederebbe `connection()` per forzare il dynamic render).
 - `connect-src` e `img-src` includono `https://*.supabase.co` come safety net: la service-role key gira solo server-side (`lib/db/client.ts` ha `import "server-only"`), quindi il client oggi non chiama Supabase, ma il bucket-storage e l'eventuale lookup pubblico via publishable key sono coperti senza dover toccare la CSP piu' tardi.
 - Smoke test locale (`pnpm build && pnpm start`, curl headers su `/login`, `/dashboard`, `/`): tutti i 6 header presenti, HTML emesso non contiene risorse esterne ne' inline event handler, quindi nessuna violazione attesa quando si passera' a enforcing.
+- Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
+
+### Sessione 2 — File upload hardening + CSV formula injection
+**Branch**: `claude/secplan-02-upload-hardening` (pushato, in attesa di PR/merge)
+**Mergeata il**: —
+**Osservazione fino al**: 24h dopo il deploy in produzione
+**Note**:
+- **Upload limit lato client** (`components/cassa/import-estratto-conto-client.tsx`): nuove costanti `MAX_FILE_SIZE = 5 MB` e `ALLOWED_EXTENSIONS = [.csv, .tsv, .xls, .txt]` + helper `validateUploadedFile`. Validazione invocata sia in `handleFileChange` (reset input + messaggio inline se file rifiutato) sia in `handleAnteprima` (defense-in-depth, l'utente puo' aver bypassato il primo check via drag-and-drop programmatico o altro).
+- **Upload limit lato server** (`app/(dashboard)/cassa/import/actions.ts`): nuova costante `MAX_FILE_TEXT_SIZE = 6 MB` (margine vs i 5 MB del client per coprire encoding multibyte). `parseEstrattoContoAction` rifiuta con `{ ok: false, error: "File troppo grande..." }` prima di chiamare il parser. La validazione client e' bypassabile via `curl` con cookie auth → questo check chiude il vettore DoS reale.
+- **CSV formula injection** (`lib/rendiconto/aggregate.ts:rendicontoToCsv`): nuove utility `sanitizeFormula` (prepend apostrofo se la stringa inizia per `=`, `+`, `-`, `@`, `\t`, `\r`) e `escText` (combina `sanitizeFormula` + escape CSV RFC 4180 esistente). Applicata a tutti i campi testuali: `v.voce.label`, `Totale ${sez.titolo}`, le tre righe finali ("TOTALE ONERI E COSTI" / "TOTALE ENTRATE DELLA GESTIONE" / "Avanzo/Disavanzo d'esercizio"). I campi numerici (`fmt(...)`) restano nativi cosi' che Excel/Numbers/LibreOffice possano sommarli — applicare la sanitizzazione anche a quelli avrebbe rotto i totali.
+- **Cap descrizione importata** (`lib/import/types.ts` + parsers): nuove `MAX_DESCRIZIONE_LEN = 1000` e `capDescrizione(s)` esportate da `types.ts`, invocate da entrambi i parser (BCC: dopo la concatenazione descrizione+note; SumUp: dopo `normalizeWhitespace`). Una riga con descrizione patologicamente lunga (megabyte) viene troncata prima di toccare il DB / la dedup. Il fingerprint BCC resta deterministico perche' calcolato dopo il cap.
+- Smoke test inline (`node -e` + `pnpm exec tsx`) sulle utility:
+  - `sanitizeFormula('=cmd|/c calc!A0')` → `"'=cmd|/c calc!A0"` (apostrofo, Excel non valuta)
+  - `sanitizeFormula('Materie prime')` → `"Materie prime"` (nessun cambio)
+  - `sanitizeFormula('\\t=evil')` → `"'\\t=evil"` (TAB iniziale rilevato)
+  - `escText('=danger, with comma')` → `"\"'=danger, with comma\""` (apostrofo PRIMA del CSV escape, ordine corretto)
+  - `capDescrizione('a'.repeat(5000)).length` → `1000`
+  - Render end-to-end `rendicontoToCsv` con label `=danger`: la riga output e' `A,Uscita,U-A-X,'=danger,100.00`, numero `-100.00` mantenuto raw (sommabile).
 - Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
 
 ---
