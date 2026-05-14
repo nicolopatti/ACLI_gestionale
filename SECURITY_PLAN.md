@@ -34,6 +34,18 @@ Totale stimato: 21-27h spalmate su 8 sessioni.
 
 ## Convenzioni operative
 
+### Quick start per una sessione fresh (no chat history)
+
+Una sessione che parte solo dal repo (no contesto in memoria) deve fare in ordine:
+
+1. **Bootstrap dipendenze**: `pnpm install` (la clone non ha `node_modules`; senza questo step `pnpm typecheck/lint/build` falliscono).
+2. **Identificare la sessione da fare**: leggere la tabella **Indice rapido** sopra. La prima riga con status ⏳ è quella da affrontare. La sezione `# Sessioni` più sotto ha il piano dettagliato (file toccati, step, smoke test, rollback).
+3. **Creare il branch**: `git switch -c <branch_suggerito> origin/claude/n8n-association-management-Q4pBM` (= dalla produzione corrente). **Poi `git branch --unset-upstream`** — senza questo, `git push` senza `-u` finirebbe su produzione. Imparato a caro prezzo durante le sessioni 2-3.
+4. **Implementare + test**: seguire gli step nella sessione; `pnpm typecheck && pnpm lint && pnpm build` devono restare verdi a ogni commit.
+5. **Aggiornare i doc nella stessa PR**: marcare la sessione come "👀 in review" nell'Indice rapido, aggiungere il Checkpoint con file modificati, smoke test eseguiti, build verde. Aggiornare anche `STATUS.md` (sezione "Ultimo aggiornamento" + tabella "In review").
+6. **Aprire la PR** via `mcp__github__create_pull_request`, base `claude/n8n-association-management-Q4pBM`, head il branch della sessione.
+7. **Dopo il merge** (chiesto dall'utente, mai automatico): aprire un **mini-PR docs-only** che porti lo status della sessione appena mergeata da "👀 in review" a "🌐 in osservazione produzione" con PR# e merge SHA, sia nell'Indice rapido che nel Checkpoint che in `STATUS.md`. Questo evita che la sessione successiva veda doc "stale" e duplichi il lavoro.
+
 ### Per ogni sessione
 
 1. **Branch**: nome suggerito sotto ogni sessione (`claude/secplan-NN-...`).
