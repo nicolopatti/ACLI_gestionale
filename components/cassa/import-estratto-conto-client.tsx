@@ -34,6 +34,27 @@ interface Props {
   voci: VoceOpt[];
 }
 
+// SECURITY_PLAN sessione 2: hardening upload.
+// Limite duplicato server-side in app/(dashboard)/cassa/import/actions.ts
+// (client-side e' bypassabile via curl/devtools, ma blocca i mistake comuni).
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_EXTENSIONS = [".csv", ".tsv", ".xls", ".txt"];
+
+function getFileExtension(name: string): string {
+  const idx = name.toLowerCase().lastIndexOf(".");
+  return idx >= 0 ? name.toLowerCase().slice(idx) : "";
+}
+
+function validateUploadedFile(file: File): string | null {
+  if (file.size > MAX_FILE_SIZE) {
+    return `File troppo grande (max ${MAX_FILE_SIZE / 1024 / 1024} MB).`;
+  }
+  if (!ALLOWED_EXTENSIONS.includes(getFileExtension(file.name))) {
+    return `Formato non supportato. Usa CSV/TSV/XLS/TXT.`;
+  }
+  return null;
+}
+
 interface RowOverride {
   importa: boolean;
   categoriaId: string;
@@ -67,6 +88,14 @@ export function ImportEstrattoContoClient({ categorie, voci }: Props) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    const validationError = validateUploadedFile(f);
+    if (validationError) {
+      setError(validationError);
+      setFileName("");
+      e.target.value = "";
+      return;
+    }
+    setError(null);
     setFileName(f.name);
     const name = f.name.toLowerCase();
     if (name.endsWith(".xls") || name.includes("export_")) {
@@ -84,6 +113,11 @@ export function ImportEstrattoContoClient({ categorie, voci }: Props) {
     const file = fileInput.files?.[0];
     if (!file) {
       setError("Seleziona un file");
+      return;
+    }
+    const validationError = validateUploadedFile(file);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     const text = await file.text();

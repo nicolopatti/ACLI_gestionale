@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ParsedRow, ParseResult } from "./types";
+import { capDescrizione, type ParsedRow, type ParseResult } from "./types";
 
 /**
  * Parser dell'export "Resoconto transazioni" della BCC.
@@ -59,11 +59,12 @@ export function parseBccTsv(content: string): ParseResult {
       const dataContabile = parseDateIt(cols[idx.dataContabile]);
       const importoRaw = cols[idx.importo].trim();
       const importoSigned = parseImportoIt(importoRaw);
-      const descrizione =
+      const descrizione = capDescrizione(
         normalizeWhitespace(cols[idx.descrizione]) +
-        (cols[idx.note] && cols[idx.note].trim()
-          ? ` | ${normalizeWhitespace(cols[idx.note])}`
-          : "");
+          (cols[idx.note] && cols[idx.note].trim()
+            ? ` | ${normalizeWhitespace(cols[idx.note])}`
+            : ""),
+      );
 
       const tipo: "Entrata" | "Uscita" = importoSigned < 0 ? "Uscita" : "Entrata";
       const importo = Math.abs(importoSigned);

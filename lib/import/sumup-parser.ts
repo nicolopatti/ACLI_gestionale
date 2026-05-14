@@ -1,4 +1,4 @@
-import type { ParsedRow, ParseResult } from "./types";
+import { capDescrizione, type ParsedRow, type ParseResult } from "./types";
 
 /**
  * Parser del "Resoconto transazioni" di SumUp.
@@ -56,7 +56,9 @@ export function parseSumupCsv(content: string): ParseResult {
       const importoSigned = parseImportoUs(cols[idx.importo]);
       const tipo: "Entrata" | "Uscita" =
         importoSigned < 0 ? "Uscita" : "Entrata";
-      const descrizione = normalizeWhitespace(cols[idx.riferimento] ?? "");
+      const descrizione = capDescrizione(
+        normalizeWhitespace(cols[idx.riferimento] ?? ""),
+      );
 
       righe.push({
         index: righe.length,

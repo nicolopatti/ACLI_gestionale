@@ -21,6 +21,10 @@ async function requireAdmin() {
   return session.user;
 }
 
+// SECURITY_PLAN sessione 2: client-side guard a 5 MB e' bypassabile via
+// curl/devtools, qui taglia hard. 6 MB lascia margine per encoding multibyte.
+const MAX_FILE_TEXT_SIZE = 6 * 1024 * 1024;
+
 export interface ParseAndDedupResult {
   ok: true;
   conto: MezzoPagamento;
@@ -46,6 +50,12 @@ export async function parseEstrattoContoAction(
 ): Promise<ParseAndDedupResult | ParseAndDedupError> {
   try {
     await requireAdmin();
+    if (fileText.length > MAX_FILE_TEXT_SIZE) {
+      return {
+        ok: false,
+        error: `File troppo grande (max ${MAX_FILE_TEXT_SIZE / 1024 / 1024} MB).`,
+      };
+    }
     const parsed =
       conto === "BCC" ? parseBccTsv(fileText) : parseSumupCsv(fileText);
 

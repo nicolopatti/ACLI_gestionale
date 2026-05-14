@@ -176,10 +176,27 @@ export function aggregaRendiconto(
   };
 }
 
+// SECURITY_PLAN sessione 2: CSV formula injection.
+// Quando Excel/Numbers/LibreOffice apre un CSV, se una cella inizia per
+// =, +, -, @, TAB o CR, la interpreta come formula. Un attaccante che
+// riesce a piazzare una stringa simile in `descrizione` o `voce.label`
+// puo' eseguire DDE/payload all'apertura del file. Prefissiamo un
+// apostrofo (forma testo letterale in Excel) per i campi text. I numeri
+// passano da `fmt(...)`, restano nativi cosi' che il foglio li somma.
+function sanitizeFormula(s: string): string {
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
+function escCsvCell(s: string): string {
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function escText(s: string): string {
+  return escCsvCell(sanitizeFormula(s));
+}
+
 export function rendicontoToCsv(r: RendicontoAggregato): string {
   const rows: string[] = [];
-  const esc = (s: string) =>
-    /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   const fmt = (n: number) => n.toFixed(2);
 
   rows.push(["Sezione", "Tipo", "Codice", "Voce", "Importo"].join(","));
@@ -191,7 +208,7 @@ export function rendicontoToCsv(r: RendicontoAggregato): string {
           sez.sezione,
           tipo,
           v.voce.codice,
-          esc(v.voce.label),
+          escText(v.voce.label),
           fmt(v.importo),
         ].join(","),
       );
@@ -201,7 +218,7 @@ export function rendicontoToCsv(r: RendicontoAggregato): string {
         sez.sezione,
         tipo,
         "",
-        esc(`Totale ${sez.titolo}`),
+        escText(`Totale ${sez.titolo}`),
         fmt(sez.totale),
       ].join(","),
     );
@@ -210,11 +227,15 @@ export function rendicontoToCsv(r: RendicontoAggregato): string {
   for (const s of r.uscite) flushSez(s, "Uscita");
   for (const s of r.entrate) flushSez(s, "Entrata");
 
-  rows.push(["", "Uscita", "", "TOTALE ONERI E COSTI", fmt(r.totaleUscite)].join(","));
   rows.push(
-    ["", "Entrata", "", "TOTALE ENTRATE DELLA GESTIONE", fmt(r.totaleEntrate)].join(","),
+    ["", "Uscita", "", escText("TOTALE ONERI E COSTI"), fmt(r.totaleUscite)].join(","),
   );
-  rows.push(["", "", "", "Avanzo/Disavanzo d'esercizio", fmt(r.avanzo)].join(","));
+  rows.push(
+    ["", "Entrata", "", escText("TOTALE ENTRATE DELLA GESTIONE"), fmt(r.totaleEntrate)].join(","),
+  );
+  rows.push(
+    ["", "", "", escText("Avanzo/Disavanzo d'esercizio"), fmt(r.avanzo)].join(","),
+  );
 
   return rows.join("\n");
 }
