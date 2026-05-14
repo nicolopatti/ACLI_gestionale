@@ -27,8 +27,8 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { presenzaAssente } from "@/lib/airtable/types";
-import type { Attivita, Bambino, Iscrizione, Presenza } from "@/lib/airtable/types";
+import { presenzaAssente } from "@/lib/db/types";
+import type { Attivita, Bambino, Iscrizione, Presenza } from "@/lib/db/types";
 
 interface CandidatoPresenza {
   bambino: Bambino;

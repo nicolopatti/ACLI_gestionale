@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { listBambini } from "@/lib/db/bambini";
 import { listPresenzeByBambino } from "@/lib/db/presenze";
-import { presenzaAssente } from "@/lib/airtable/types";
+import { presenzaAssente } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -20,6 +21,7 @@ export default async function StoricoPresenzePage({
 }: {
   searchParams: Promise<{ bambinoId?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const sp = await searchParams;
   const bambini = await listBambini();
   const selected = sp.bambinoId;

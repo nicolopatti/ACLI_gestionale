@@ -1,17 +1,19 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { listBambini } from "@/lib/db/bambini";
 import { listAttivita } from "@/lib/db/attivita";
 import { listSessioniByAttivita } from "@/lib/db/sessioni";
 import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
-import type { ModalitaIscrizione, Sessione } from "@/lib/airtable/types";
+import type { ModalitaIscrizione, Sessione } from "@/lib/db/types";
 
 export default async function NuovaIscrizionePage({
   searchParams,
 }: {
   searchParams: Promise<{ bambinoId?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const sp = await searchParams;
   const [bambini, attivita] = await Promise.all([
     listBambini({ soloAttivi: true }),

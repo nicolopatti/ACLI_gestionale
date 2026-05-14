@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { CalendarCheck, UserCheck, UserX } from "lucide-react";
 import { listBambini } from "@/lib/db/bambini";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
@@ -8,9 +9,9 @@ import { listSessioniByAttivita } from "@/lib/db/sessioni";
 import { GrigliaPresenze } from "@/components/presenze/griglia-presenze";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { presenzaAssente } from "@/lib/airtable/types";
+import { presenzaAssente } from "@/lib/db/types";
 import { dowToGiorno, type FasciaOraria } from "@/lib/config";
-import type { Sessione } from "@/lib/airtable/types";
+import type { Sessione } from "@/lib/db/types";
 
 function dataInRange(data: string, sessione: Sessione): boolean {
   if (!sessione.dataInizio || !sessione.dataFine) return false;
@@ -22,6 +23,7 @@ export default async function PresenzePage({
 }: {
   searchParams: Promise<{ data?: string; attivitaId?: string; fascia?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const sp = await searchParams;
   const data = sp.data || new Date().toISOString().slice(0, 10);
 

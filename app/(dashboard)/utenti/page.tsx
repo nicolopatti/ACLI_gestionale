@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { requireAdmin } from "@/lib/auth/page-guards";
 import { listUsers } from "@/lib/db/users";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import { formatDate } from "@/lib/utils";
 import { etichettaRuolo } from "@/lib/config";
 
 export default async function UtentiPage() {
+  await requireAdmin();
   const users = await listUsers();
 
   return (

@@ -1,8 +1,10 @@
 import { listBambini } from "@/lib/db/bambini";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BambinoForm } from "@/components/bambini/bambino-form";
 
 export default async function NuovoBambinoPage() {
+  await requireAdminOrCoordinatore();
   const bambini = await listBambini();
   return (
     <div className="max-w-3xl space-y-6">

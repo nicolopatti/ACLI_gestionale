@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { getEducatore } from "@/lib/db/educatori";
 import { listDisponibilitaByEducatore } from "@/lib/db/disponibilita";
 import {
@@ -24,6 +25,7 @@ export default async function EducatoreDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ mese?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const { id } = await params;
   const sp = await searchParams;
   const meseAnno =

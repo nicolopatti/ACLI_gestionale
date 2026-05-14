@@ -10,10 +10,11 @@ import {
 } from "@/lib/db/mesi";
 import { listAllMesi } from "@/lib/db/mesi";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
+import { BusinessError } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 function parseSessioneForm(formData: FormData) {

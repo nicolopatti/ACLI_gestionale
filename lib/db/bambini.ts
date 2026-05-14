@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { Bambino } from "@/lib/airtable/types";
+import type { Bambino } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 
 type BambinoRow = Database["public"]["Tables"]["bambini"]["Row"];

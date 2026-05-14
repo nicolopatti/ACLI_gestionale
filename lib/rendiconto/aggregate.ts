@@ -3,7 +3,7 @@ import type {
   Movimento,
   SezioneRendiconto,
   VoceRendiconto,
-} from "@/lib/airtable/types";
+} from "@/lib/db/types";
 
 export interface VoceAggregata {
   voce: VoceRendiconto;

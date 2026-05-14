@@ -28,10 +28,11 @@ import {
   listModalitaByAttivita,
 } from "@/lib/db/modalita-iscrizione";
 import { primoEUltimoGiornoDelMese } from "@/lib/sessioni-utils";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 function parseAttivitaForm(formData: FormData) {
@@ -92,7 +93,8 @@ export async function createAttivitaAction(_prev: unknown, formData: FormData) {
       );
     }
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[createAttivitaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
 
   revalidatePath("/attivita");
@@ -122,7 +124,8 @@ export async function updateAttivitaAction(
       fasce_orarie: d.fasceOrarie,
     });
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[updateAttivitaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
   revalidatePath("/attivita");
   revalidatePath(`/attivita/${recordId}`);
@@ -178,7 +181,8 @@ export async function deleteAttivitaAction(recordId: string) {
     await deleteModalitaByIds(modalita.map((m) => m.recordId));
     await deleteAttivita(recordId);
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante l'eliminazione" };
+    console.error("[deleteAttivitaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
   }
   revalidatePath("/attivita");
   redirect("/attivita");

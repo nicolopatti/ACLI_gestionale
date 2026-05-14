@@ -21,10 +21,11 @@ import { getAttivita } from "@/lib/db/attivita";
 import { listSessioni } from "@/lib/db/sessioni";
 import { getModalita } from "@/lib/db/modalita-iscrizione";
 import type { FasciaOraria, GiornoSettimana } from "@/lib/config";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 function parseIscrizioneForm(formData: FormData) {
@@ -98,7 +99,8 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
       })),
     );
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[createIscrizioneAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
 
   revalidatePath("/iscrizioni");
@@ -188,7 +190,8 @@ export async function updateIscrizioneAction(
       );
     }
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[updateIscrizioneAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
 
   revalidatePath("/iscrizioni");
@@ -216,7 +219,8 @@ export async function deleteIscrizioneAction(recordId: string) {
     await deleteMesiByIscrizione(recordId);
     await deleteIscrizione(recordId);
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante l'eliminazione" };
+    console.error("[deleteIscrizioneAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
   }
   revalidatePath("/iscrizioni");
   redirect("/iscrizioni");

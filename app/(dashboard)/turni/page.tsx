@@ -24,7 +24,7 @@ import { TurniGrid } from "@/components/turni/turni-grid";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { durataFasciaOre } from "@/lib/config";
-import type { Disponibilita } from "@/lib/airtable/types";
+import type { Disponibilita } from "@/lib/db/types";
 
 type Vista = "settimana" | "mese";
 

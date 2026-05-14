@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { setPresenza, upsertPresenze } from "@/lib/db/presenze";
 import { oraSchema, presenzeBatchSchema } from "@/lib/validations/presenza";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
   return session;
 }
 
@@ -27,7 +28,8 @@ export async function setPresenzaAction(input: {
   try {
     session = await requireAdmin();
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[setPresenzaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data)) {
     return { error: "Data non valida" };
@@ -52,7 +54,8 @@ export async function setPresenzaAction(input: {
       registratoDaId: session.user?.recordId,
     });
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[setPresenzaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
   revalidatePath("/presenze");
   return { ok: true };

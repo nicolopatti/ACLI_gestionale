@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Disponibilita } from "@/lib/airtable/types";
+import type { Disponibilita } from "@/lib/db/types";
 
 interface Props {
   educatoreId: string;

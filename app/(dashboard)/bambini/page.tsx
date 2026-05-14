@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { Plus } from "lucide-react";
 import { listBambini } from "@/lib/db/bambini";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
 import { listAttivita } from "@/lib/db/attivita";
 import { listAllMesi } from "@/lib/db/mesi";
 import { listPresenzeByMese } from "@/lib/db/presenze";
-import { presenzaAssente } from "@/lib/airtable/types";
-import type { Attivita, Bambino } from "@/lib/airtable/types";
+import { presenzaAssente } from "@/lib/db/types";
+import type { Attivita, Bambino } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -63,6 +64,7 @@ export default async function BambiniPage({
     attivita?: string;
   }>;
 }) {
+  await requireAdminOrCoordinatore();
   const sp = await searchParams;
   const tab: Tab = isTab(sp.tab) ? sp.tab : "tutti";
   const q = (sp.q ?? "").trim().toLowerCase();

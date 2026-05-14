@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { User } from "@/lib/airtable/types";
+import type { User } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 import type { Ruolo } from "@/lib/config";
 

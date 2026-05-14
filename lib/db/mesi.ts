@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { MeseIscrizione } from "@/lib/airtable/types";
+import type { MeseIscrizione } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 import type {
   MezzoPagamento,

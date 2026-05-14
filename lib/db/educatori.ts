@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
-import type { Educatore } from "@/lib/airtable/types";
+import type { Educatore } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 
 type EducatoreRow = Database["public"]["Tables"]["educatori"]["Row"];

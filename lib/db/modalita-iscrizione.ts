@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
-import type { ModalitaIscrizione } from "@/lib/airtable/types";
+import type { ModalitaIscrizione } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 
 type ModalitaRow = Database["public"]["Tables"]["modalita_iscrizione"]["Row"];

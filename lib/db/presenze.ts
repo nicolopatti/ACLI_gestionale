@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { Presenza } from "@/lib/airtable/types";
+import type { Presenza } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 
 type PresenzaRow = Database["public"]["Tables"]["presenze"]["Row"];

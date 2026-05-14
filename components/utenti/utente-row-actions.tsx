@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UtenteDrawer } from "./utente-drawer";
-import type { User } from "@/lib/airtable/types";
+import type { User } from "@/lib/db/types";
 
 export function UtenteRowActions({ user }: { user: User }) {
   const [open, setOpen] = useState(false);

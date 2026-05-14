@@ -13,10 +13,11 @@ import {
   listIscrizioniByModalita,
 } from "@/lib/db/iscrizioni";
 import { deleteMesiByIscrizione } from "@/lib/db/mesi";
+import { BusinessError } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 function parseModalitaForm(formData: FormData) {

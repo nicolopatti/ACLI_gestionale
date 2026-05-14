@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { Mail, Pencil, Phone, Plus } from "lucide-react";
 import { listEducatori } from "@/lib/db/educatori";
 import { listDisponibilitaByMese } from "@/lib/db/disponibilita";
@@ -14,7 +15,7 @@ import {
   unionFasceOfferte,
   unionGiorniOfferti,
 } from "@/lib/db/turni";
-import type { Disponibilita } from "@/lib/airtable/types";
+import type { Disponibilita } from "@/lib/db/types";
 
 function meseCorrenteIso(): string {
   const d = new Date();
@@ -53,6 +54,7 @@ export default async function EducatoriPage({
 }: {
   searchParams: Promise<{ id?: string; mese?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const sp = await searchParams;
   const meseAnno = sp.mese && /^\d{4}-\d{2}$/.test(sp.mese) ? sp.mese : meseCorrenteIso();
   const [yMese, mMese] = meseAnno.split("-").map(Number);

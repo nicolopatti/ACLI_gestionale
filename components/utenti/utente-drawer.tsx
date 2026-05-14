@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { RUOLI, etichettaRuolo, type Ruolo } from "@/lib/config";
 import { formatDate } from "@/lib/utils";
-import type { User } from "@/lib/airtable/types";
+import type { User } from "@/lib/db/types";
 
 interface Props {
   user: User;

@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
-import type { Categoria } from "@/lib/airtable/types";
+import type { Categoria } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 
 type CategoriaRow = Database["public"]["Tables"]["categorie"]["Row"];
