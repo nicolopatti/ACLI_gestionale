@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getBambino, listBambini } from "@/lib/db/bambini";
@@ -9,8 +10,8 @@ import { listAllModalita } from "@/lib/db/modalita-iscrizione";
 import { listMesiByIscrizioneIds } from "@/lib/db/mesi";
 import { listPresenzeByBambino } from "@/lib/db/presenze";
 import { listSessioni } from "@/lib/db/sessioni";
-import { presenzaAssente } from "@/lib/airtable/types";
-import type { MeseIscrizione } from "@/lib/airtable/types";
+import { presenzaAssente } from "@/lib/db/types";
+import type { MeseIscrizione } from "@/lib/db/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BambinoForm } from "@/components/bambini/bambino-form";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ export default async function BambinoDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const tab: Tab = isTab(sp.tab) ? sp.tab : "anagrafica";
 

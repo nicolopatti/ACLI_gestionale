@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import { Plus } from "lucide-react";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
 import { listBambini } from "@/lib/db/bambini";
 import { listAttivita } from "@/lib/db/attivita";
 import { listAllMesi } from "@/lib/db/mesi";
 import { listAllModalita } from "@/lib/db/modalita-iscrizione";
-import type { Iscrizione, MeseIscrizione } from "@/lib/airtable/types";
+import type { Iscrizione, MeseIscrizione } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -75,6 +76,7 @@ export default async function IscrizioniPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const sp = await searchParams;
   const tab: Tab = isTab(sp.tab) ? sp.tab : "tutte";
   const currentMonth = currentMonthKey();

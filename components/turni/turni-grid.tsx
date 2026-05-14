@@ -5,7 +5,7 @@ import { TurnoDialog, type EducatoreLight, type TurnoRowState } from "./turno-di
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { dowToGiorno, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
-import type { Disponibilita } from "@/lib/airtable/types";
+import type { Disponibilita } from "@/lib/db/types";
 import type { CellaAttiva } from "@/lib/db/turni";
 
 export interface TurniGridProps {

@@ -22,7 +22,7 @@ import type {
   Iscrizione,
   ModalitaIscrizione,
   Sessione,
-} from "@/lib/airtable/types";
+} from "@/lib/db/types";
 
 const SELECT_CLASS =
   "flex h-9 w-full rounded-md border border-[var(--border)] bg-transparent px-3 text-sm shadow-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--ring)]";

@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { CassaFilters } from "@/components/cassa/cassa-filters";
 import { formatDate, formatEur } from "@/lib/utils";
 import { MEZZI_PAGAMENTO, type MezzoPagamento } from "@/lib/config";
-import type { Movimento } from "@/lib/airtable/types";
+import type { Movimento } from "@/lib/db/types";
 
 interface ContoTotali {
   entrate: number;

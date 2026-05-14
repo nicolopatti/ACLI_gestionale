@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import Link from "next/link";
 import { getIscrizione } from "@/lib/db/iscrizioni";
 import { listMesiByIscrizione } from "@/lib/db/mesi";
@@ -15,13 +16,14 @@ import { MesiTable } from "@/components/iscrizioni/mesi-table";
 import { Badge } from "@/components/ui/badge";
 import { DeleteIscrizioneButton } from "@/components/iscrizioni/delete-iscrizione-button";
 import { formatEur } from "@/lib/utils";
-import type { ModalitaIscrizione, Sessione } from "@/lib/airtable/types";
+import type { ModalitaIscrizione, Sessione } from "@/lib/db/types";
 
 export default async function IscrizioneDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const { id } = await params;
 
   // Stage 1: dati indipendenti (mesi non dipende da iscrizione, usa l'id direttamente)

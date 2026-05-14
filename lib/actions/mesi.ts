@@ -10,10 +10,11 @@ import {
 } from "@/lib/db/mesi";
 import { listCategorie } from "@/lib/db/categorie";
 import { createMovimento, deleteMovimento } from "@/lib/db/movimenti";
+import { BusinessError } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 export async function segnaPagatoAction(_prev: unknown, formData: FormData) {

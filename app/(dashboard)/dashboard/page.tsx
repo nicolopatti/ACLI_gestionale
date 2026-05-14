@@ -20,8 +20,8 @@ import { listPresenzeByData } from "@/lib/db/presenze";
 import { listSessioni } from "@/lib/db/sessioni";
 import { listEducatori } from "@/lib/db/educatori";
 import { listDisponibilitaByRange } from "@/lib/db/disponibilita";
-import { presenzaAssente } from "@/lib/airtable/types";
-import type { MeseIscrizione, Movimento } from "@/lib/airtable/types";
+import { presenzaAssente } from "@/lib/db/types";
+import type { MeseIscrizione, Movimento } from "@/lib/db/types";
 import { meseAnnoSCorrenteLabel } from "@/lib/utils-dashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -524,8 +524,8 @@ function RiepilogoTurniSettimana({
   educatoriById,
   startWeek,
 }: {
-  dispWeek: import("@/lib/airtable/types").Disponibilita[];
-  educatoriById: Map<string, import("@/lib/airtable/types").Educatore>;
+  dispWeek: import("@/lib/db/types").Disponibilita[];
+  educatoriById: Map<string, import("@/lib/db/types").Educatore>;
   startWeek: string;
 }) {
   const start = new Date(`${startWeek}T00:00:00`);

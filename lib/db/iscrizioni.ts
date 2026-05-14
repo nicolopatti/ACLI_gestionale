@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { Iscrizione } from "@/lib/airtable/types";
+import type { Iscrizione } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 import type { FasciaOraria, GiornoSettimana } from "@/lib/config";
 

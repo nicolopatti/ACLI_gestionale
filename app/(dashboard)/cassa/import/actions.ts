@@ -12,11 +12,12 @@ import {
 } from "@/lib/db/movimenti";
 import type { MezzoPagamento } from "@/lib/config";
 import type { ParsedRow } from "@/lib/import/types";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") {
-    throw new Error("Non autorizzato");
+    throw new BusinessError("Non autorizzato");
   }
   return session.user;
 }
@@ -71,7 +72,8 @@ export async function parseEstrattoContoAction(
       warnings: parsed.warnings,
     };
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    console.error("[parseEstrattoContoAction]", err);
+    return { ok: false, error: userErrorMessage(err, "Errore durante l'operazione") };
   }
 }
 
@@ -123,10 +125,9 @@ export async function confermaImportAction(
     revalidatePath("/rendiconto");
     return { ok: true, inserted: created.length };
   } catch (err) {
-    return {
-      ok: false,
+    console.error("[confermaImportAction]", err);
+    return { ok: false,
       inserted: 0,
-      error: (err as Error).message,
-    };
+      error: userErrorMessage(err, "Errore durante l'operazione") };
   }
 }

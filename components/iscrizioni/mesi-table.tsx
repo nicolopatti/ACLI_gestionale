@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatEur, meseAnnoLabel } from "@/lib/utils";
-import type { MeseIscrizione, Sessione } from "@/lib/airtable/types";
+import type { MeseIscrizione, Sessione } from "@/lib/db/types";
 
 interface Props {
   mesi: MeseIscrizione[];

@@ -12,10 +12,11 @@ import {
   resetPasswordSchema,
 } from "@/lib/validations/utente";
 import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/db/users";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 export async function createUtenteAction(_prev: unknown, formData: FormData) {
@@ -46,7 +47,8 @@ export async function aggiornaUtenteAction(
   try {
     await requireAdmin();
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[aggiornaUtenteAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
   const parsed = aggiornaUtenteSchema.safeParse({
     recordId: formData.get("recordId"),
@@ -71,7 +73,8 @@ export async function aggiornaUtenteAction(
     revalidatePath("/utenti");
     return { ok: true };
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[aggiornaUtenteAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
 }
 

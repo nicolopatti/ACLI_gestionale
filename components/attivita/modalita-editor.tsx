@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import type { ModalitaIscrizione } from "@/lib/airtable/types";
+import type { ModalitaIscrizione } from "@/lib/db/types";
 
 interface Props {
   attivitaId: string;

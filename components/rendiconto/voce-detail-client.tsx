@@ -12,7 +12,7 @@ import {
 } from "@/lib/actions/movimenti";
 import { formatEur, meseAnnoLabel } from "@/lib/utils";
 import type { MezzoPagamento } from "@/lib/config";
-import type { SezioneRendiconto } from "@/lib/airtable/types";
+import type { SezioneRendiconto } from "@/lib/db/types";
 
 type Period = "all" | "month" | "quarter" | "year" | "custom";
 

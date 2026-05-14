@@ -18,8 +18,8 @@
 | # | Sessione | Rischio | Effort | Status |
 |---|----------|---------|--------|--------|
 | 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 🌐 in osservazione produzione (PR #27 mergeata, finestra 24h prima del flip Report-Only → enforcing) |
-| 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 👀 in review (branch `claude/secplan-02-upload-hardening`) |
-| 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | ⏳ da fare |
+| 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 🌐 in osservazione produzione (PR #28 mergeata) |
+| 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 👀 in review (branch `claude/secplan-03-auth-defense-in-depth`) |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | ⏳ da fare |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | ⏳ da fare |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ⏳ da fare |
@@ -625,6 +625,27 @@ Ogni sessione, al completamento, aggiorna questa sezione:
   - `escText('=danger, with comma')` → `"\"'=danger, with comma\""` (apostrofo PRIMA del CSV escape, ordine corretto)
   - `capDescrizione('a'.repeat(5000)).length` → `1000`
   - Render end-to-end `rendicontoToCsv` con label `=danger`: la riga output e' `A,Uscita,U-A-X,'=danger,100.00`, numero `-100.00` mantenuto raw (sommabile).
+- Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
+
+### Sessione 3 — Defense-in-depth auth checks + error message hardening
+**Branch**: `claude/secplan-03-auth-defense-in-depth` (pushato, in attesa di PR/merge)
+**Mergeata il**: —
+**Osservazione fino al**: 48h dopo il deploy in produzione (zero-risk client: nessuna mutazione di schema/dati, niente nuove dipendenze esterne)
+**Note**:
+- **Nuove primitive di sicurezza**:
+  - `lib/errors.ts` esporta `BusinessError extends Error` (per errori "human-readable", es. validazione di business, autorizzazione negata) + `userErrorMessage(e, fallback)` che restituisce `e.userMessage` se `e instanceof BusinessError` altrimenti `fallback`. Tutti gli altri throw (eccezioni Supabase, invarianti, timeout) finiscono nel fallback generico.
+  - `lib/auth/page-guards.ts` esporta `requireAdmin()` e `requireAdminOrCoordinatore()`: entrambi chiamano `auth()`, fanno `redirect("/login")` se non loggato, e redirect alla home di ruolo (`"/"` o `"/dashboard"`) se il ruolo e' sbagliato. Restituiscono la session se autorizzato.
+- **Defense-in-depth su 16 pagine** che prima si appoggiavano solo al `proxy.ts` per il gating ruolo:
+  - 2 pagine admin-only (`utenti/page.tsx`, `utenti/nuovo/page.tsx`): `await requireAdmin();`
+  - 14 pagine area educativa (admin + coordinatore_educativo): 3 sotto `attivita/*`, 3 sotto `bambini/*`, 3 sotto `educatori/*`, 3 sotto `iscrizioni/*`, 2 sotto `presenze/*`: `await requireAdminOrCoordinatore();`. Le 4 pagine "nuova" che erano sincrone sono state convertite in `async`.
+  - Le 9 pagine che gia' avevano `auth()` esplicito (cassa, categorie, dashboard, profilo, rendiconto, rendiconto/voce, spese-edu, turni, cassa/import) sono lasciate invariate per ridurre il diff.
+- **Error message hardening su 13 file di server action** (`lib/actions/*.ts` + `app/(dashboard)/cassa/import/actions.ts`):
+  - Tutti i `throw new Error("Non autorizzato")` nei `requireAdmin()` locali ora sono `throw new BusinessError("Non autorizzato")` (12 helper diversi).
+  - I 17 `catch (e) { return { error: (e as Error).message ... } }` sono stati riscritti come `catch (e) { console.error("[<actionName>]", e); return { error: userErrorMessage(e, "<fallback>") }; }`. Il fallback preserva il messaggio gia' specificato nell'originale (`"Errore durante il salvataggio"`, `"Errore durante l'eliminazione"`) o default `"Errore durante l'operazione"`. Cosi' `"duplicate key value violates unique constraint users_email_key"` non esce piu' dal server: l'utente vede `"Errore durante il salvataggio"`, l'admin vede lo stack nel log Vercel.
+- **Cleanup import legacy**: `lib/db/types.ts` aggiunto come re-export shim verso `lib/airtable/types`. Sweep di tutti i `@/lib/airtable/types` in `app/`, `components/`, `lib/` (eccetto `lib/airtable/*` stesso che resta intra-package) → `@/lib/db/types`. Prepara il terreno per la rimozione definitiva di `lib/airtable/` (TODO STATUS "dopo 1 settimana di osservazione").
+- Smoke test:
+  - Unit-test inline su `BusinessError` + `userErrorMessage`: `userErrorMessage(new BusinessError("Email gia in uso"), "...")` → `"Email gia in uso"`; `userErrorMessage(new Error('duplicate key...'), "Errore durante il salvataggio")` → `"Errore durante il salvataggio"` (no leak); stringa raw + undefined → fallback.
+  - Server smoke (`pnpm start` + `curl`): le rotte `/utenti`, `/bambini`, `/attivita`, `/presenze`, `/utenti/nuovo`, `/attivita/nuova` rispondono 307 → `/login` per unauthenticated (proxy intatto). La verifica del page-level guard contro un session-cookie di ruolo sbagliato richiede preview Vercel.
 - Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
 
 ---

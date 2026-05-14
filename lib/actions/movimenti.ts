@@ -9,6 +9,7 @@ import {
   setVoceRendicontoMovimento,
 } from "@/lib/db/movimenti";
 import { movimentoSchema } from "@/lib/validations/movimento";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 export interface CreaMovimentoResult {
   ok?: boolean;
@@ -20,7 +21,7 @@ async function requireEduOrAdmin() {
   const session = await auth();
   const ruolo = session?.user?.ruolo;
   if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
-    throw new Error("Non autorizzato");
+    throw new BusinessError("Non autorizzato");
   }
   return session!.user!;
 }
@@ -33,7 +34,8 @@ export async function creaMovimentoAction(
   try {
     user = await requireEduOrAdmin();
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[creaMovimentoAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
 
   const parsed = movimentoSchema.safeParse({
@@ -69,13 +71,14 @@ export async function creaMovimentoAction(
     revalidatePath("/cassa");
     return { ok: true, recordId: created.recordId };
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[creaMovimentoAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
 }
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 export async function setCategoriaMovimentoAction(

@@ -11,17 +11,18 @@ import {
   unionGiorniOfferti,
 } from "@/lib/db/turni";
 import { dowToGiorno, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 async function requireEduOrAdmin() {
   const session = await auth();
   const ruolo = session?.user?.ruolo;
   if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
-    throw new Error("Non autorizzato");
+    throw new BusinessError("Non autorizzato");
   }
 }
 
@@ -88,7 +89,8 @@ export async function salvaDisponibilitaAction(formData: FormData) {
       parsed.data.slots,
     );
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[salvaDisponibilitaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
   // Rinfresca tutte le viste che dipendono dalla Disponibilita: scheda
   // educatore, lista educatori (KPI ore mese), e griglia turni.
@@ -113,7 +115,8 @@ export async function salvaTurnoCellaAction(
   try {
     await requireEduOrAdmin();
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[salvaTurnoCellaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
 
   const data = String(formData.get("data") ?? "").trim();
@@ -165,6 +168,7 @@ export async function salvaTurnoCellaAction(
     revalidatePath("/educatori");
     return { ok: true };
   } catch (e) {
-    return { error: (e as Error).message };
+    console.error("[salvaTurnoCellaAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
   }
 }

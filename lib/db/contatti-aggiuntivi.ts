@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { ContattoAggiuntivo } from "@/lib/airtable/types";
+import type { ContattoAggiuntivo } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 import type { RuoloContatto } from "@/lib/config";
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import {
   ChevronRight,
   Drama,
@@ -11,7 +12,7 @@ import { listAttivita } from "@/lib/db/attivita";
 import { listSessioni } from "@/lib/db/sessioni";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
 import { listAllMesi } from "@/lib/db/mesi";
-import type { Sessione } from "@/lib/airtable/types";
+import type { Sessione } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -68,6 +69,7 @@ function periodoLabel(s: Sessione): string {
 }
 
 export default async function AttivitaPage() {
+  await requireAdminOrCoordinatore();
   const monthKey = currentMonthKey();
 
   const [attivita, sessioni, iscrizioni, allRate] = await Promise.all([

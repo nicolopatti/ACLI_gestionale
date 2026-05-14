@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
-import type { VoceRendiconto, SezioneRendiconto } from "@/lib/airtable/types";
+import type { VoceRendiconto, SezioneRendiconto } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 
 type VoceRow = Database["public"]["Tables"]["voci_rendiconto"]["Row"];

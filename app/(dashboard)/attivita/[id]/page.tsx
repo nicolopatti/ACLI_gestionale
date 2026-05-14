@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
 import Link from "next/link";
 import { getAttivita } from "@/lib/db/attivita";
 import { listSessioniByAttivita } from "@/lib/db/sessioni";
@@ -18,6 +19,7 @@ export default async function AttivitaDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdminOrCoordinatore();
   const { id } = await params;
   const [attivita, sessioni, iscrizioni, bambini, modalita] = await Promise.all([
     getAttivita(id),

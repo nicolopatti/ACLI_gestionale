@@ -26,10 +26,11 @@ import {
   deletePresenzeByBambino,
   listPresenzeByBambino,
 } from "@/lib/db/presenze";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new Error("Non autorizzato");
+  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
 }
 
 /**
@@ -118,7 +119,8 @@ export async function createBambinoAction(_prev: unknown, formData: FormData) {
       );
     }
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[createBambinoAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
   revalidatePath("/bambini");
   redirect(`/bambini/${createdId}`);
@@ -163,7 +165,8 @@ export async function updateBambinoAction(
       })),
     );
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante il salvataggio" };
+    console.error("[updateBambinoAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
   }
   revalidatePath("/bambini");
   revalidatePath(`/bambini/${recordId}`);
@@ -212,7 +215,8 @@ export async function deleteBambinoAction(recordId: string) {
     await deleteContattiByBambino(recordId);
     await deleteBambinoAt(recordId);
   } catch (e) {
-    return { error: (e as Error).message || "Errore durante l'eliminazione" };
+    console.error("[deleteBambinoAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
   }
   revalidatePath("/bambini");
   redirect("/bambini");

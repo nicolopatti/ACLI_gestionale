@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./client";
-import type { Sessione } from "@/lib/airtable/types";
+import type { Sessione } from "@/lib/db/types";
 import type { Database } from "./types.gen";
 import type { FasciaOraria, TipoUnita } from "@/lib/config";
 

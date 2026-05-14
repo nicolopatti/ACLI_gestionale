@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useActionFeedback } from "@/lib/hooks/use-action-feedback";
 import { MEZZI_PAGAMENTO } from "@/lib/config";
 import { meseAnnoLabel } from "@/lib/utils";
-import type { MeseIscrizione } from "@/lib/airtable/types";
+import type { MeseIscrizione } from "@/lib/db/types";
 
 function periodoLabel(m: MeseIscrizione): string {
   if (m.tipoUnita === "mese" && m.meseAnno) return meseAnnoLabel(m.meseAnno);

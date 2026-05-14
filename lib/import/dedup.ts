@@ -1,5 +1,5 @@
 import "server-only";
-import type { Movimento } from "@/lib/airtable/types";
+import type { Movimento } from "@/lib/db/types";
 import type { ParsedRow } from "./types";
 import {
   findMovimentiByFingerprints,
