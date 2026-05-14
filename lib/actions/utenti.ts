@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/lib/auth/auth";
+import { auth, unstable_update } from "@/lib/auth/auth";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import {
   aggiornaUtenteSchema,
@@ -150,7 +150,13 @@ export async function primoAccessoAction(_prev: unknown, formData: FormData) {
     must_change_password: false,
   });
 
-  // Forza un nuovo login: il JWT corrente porterebbe ancora mustChangePassword=true.
-  // signOut() lancia una NEXT_REDIRECT, quindi non torna; nessun valore da restituire dopo.
-  await signOut({ redirectTo: "/login" });
+  // Aggiorna in-place il JWT: il callback jwt() in auth.config.ts legge
+  // session.mustChangePassword quando trigger === "update" e lo copia nel
+  // token. Cosi' il proxy al prossimo redirect vede mustChangePassword=false
+  // senza richiedere logout/login. Tentare il logout dentro a una server
+  // action via signOut() risultava in produzione in un Set-Cookie non
+  // applicato dal browser, lasciando l'utente bloccato fra /dashboard e
+  // /primo-accesso.
+  await unstable_update({ user: { mustChangePassword: false } });
+  redirect("/dashboard");
 }

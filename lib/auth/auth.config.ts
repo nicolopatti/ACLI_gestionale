@@ -88,12 +88,19 @@ export const authConfig = {
         token.telegramUserId = user.telegramUserId;
         token.mustChangePassword = user.mustChangePassword;
       }
-      // Permette al client/server di abbassare il flag dopo un cambio password
-      // riuscito senza richiedere logout/login.
+      // Permette al server di abbassare il flag dopo un cambio password
+      // riuscito senza richiedere logout/login. La firma supportata e' quella
+      // di unstable_update: { user: { mustChangePassword: false } }; teniamo
+      // anche il fallback al formato piatto { mustChangePassword } per non
+      // rompere chiamate precedenti.
       if (trigger === "update" && session && typeof session === "object") {
-        const next = session as { mustChangePassword?: boolean };
-        if (typeof next.mustChangePassword === "boolean") {
-          token.mustChangePassword = next.mustChangePassword;
+        const next = session as {
+          user?: { mustChangePassword?: boolean };
+          mustChangePassword?: boolean;
+        };
+        const v = next.user?.mustChangePassword ?? next.mustChangePassword;
+        if (typeof v === "boolean") {
+          token.mustChangePassword = v;
         }
       }
       return token;
