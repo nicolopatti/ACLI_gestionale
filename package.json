@@ -24,6 +24,8 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/supabase-js": "^2.105.4",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "airtable": "^0.12.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
