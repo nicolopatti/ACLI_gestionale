@@ -11,7 +11,6 @@
     "seed:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
     "seed:categorie": "tsx --env-file=.env.local scripts/seed-categorie.ts",
     "reset-password": "tsx --env-file=.env.local scripts/reset-password.ts",
-    "migrate:airtable": "tsx --env-file=.env.local scripts/migrate-airtable-to-supabase.ts",
     "backfill:rate-movimenti": "tsx --env-file=.env.local scripts/backfill-rate-movimenti.ts"
   },
   "dependencies": {
@@ -26,7 +25,6 @@
     "@supabase/supabase-js": "^2.105.4",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
-    "airtable": "^0.12.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
