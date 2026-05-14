@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth/auth";
 import {
   createMovimento,
   setCategoriaMovimento,
+  setStatoMovimento,
   setVoceRendicontoMovimento,
 } from "@/lib/db/movimenti";
 import { movimentoSchema } from "@/lib/validations/movimento";
@@ -94,5 +95,22 @@ export async function setVoceRendicontoMovimentoAction(
   await requireAdmin();
   await setVoceRendicontoMovimento(movimentoId, voceRendicontoId);
   revalidatePath("/rendiconto");
+  revalidatePath("/rendiconto/voce/[code]", "page");
+  revalidatePath("/cassa");
+}
+
+export async function softDeleteMovimentoAction(movimentoId: string) {
+  await requireAdmin();
+  await setStatoMovimento(movimentoId, "errato");
+  revalidatePath("/rendiconto");
+  revalidatePath("/rendiconto/voce/[code]", "page");
+  revalidatePath("/cassa");
+}
+
+export async function restoreMovimentoAction(movimentoId: string) {
+  await requireAdmin();
+  await setStatoMovimento(movimentoId, "valido");
+  revalidatePath("/rendiconto");
+  revalidatePath("/rendiconto/voce/[code]", "page");
   revalidatePath("/cassa");
 }

@@ -210,6 +210,18 @@ export async function setVoceRendicontoMovimento(
   if (error) throw error;
 }
 
+export async function setStatoMovimento(
+  movimentoId: string,
+  stato: "valido" | "errato" | "corretto",
+): Promise<void> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { error } = await db
+    .from("movimenti")
+    .update({ stato })
+    .eq("id", movimentoId);
+  if (error) throw error;
+}
+
 export interface DedupCandidate {
   conto: MezzoPagamento;
   tipo: "Entrata" | "Uscita";

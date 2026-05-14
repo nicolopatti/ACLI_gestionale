@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { listMovimentiInRange } from "@/lib/db/movimenti";
@@ -43,7 +44,6 @@ export default async function RendicontoPage({
   const r = aggregaRendiconto(anno, movAnno, voci, categorie);
   const rPrec = aggregaRendiconto(annoPrec, movAnnoPrec, voci, categorie);
 
-  // Mappa codice → importo anno precedente per la colonna affiancata
   const importoPrecPerCodice = new Map<string, number>();
   for (const sez of [...rPrec.uscite, ...rPrec.entrate]) {
     for (const v of sez.voci) {
@@ -112,11 +112,11 @@ export default async function RendicontoPage({
             </span>
           </summary>
           <div className="border-t border-[var(--danger)]/20 bg-[var(--background)]">
-            <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2 text-[11px] uppercase tracking-wide text-[var(--muted-foreground)] border-b border-[var(--border)]/60">
-              <div className="col-span-2">Data</div>
-              <div className="col-span-3">Movimento</div>
-              <div className="col-span-3">Categoria</div>
-              <div className="col-span-4">Voce ETS (override)</div>
+            <div className="nonclass-header">
+              <div>Data</div>
+              <div>Movimento</div>
+              <div>Categoria</div>
+              <div>Voce ETS (override)</div>
             </div>
             <ul>
               {r.nonClassificati.map((m) => {
@@ -161,7 +161,7 @@ export default async function RendicontoPage({
         </div>
       ) : null}
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="rendiconto-grid">
         <Card>
           <div className="px-5 py-3 border-b border-[var(--border)]">
             <h2 className="font-serif text-[15px] font-medium">
@@ -169,16 +169,12 @@ export default async function RendicontoPage({
             </h2>
           </div>
           <CardContent className="p-0">
-            <table className="w-full text-[12.5px]">
-              <thead className="text-[var(--muted-foreground)]">
-                <tr className="border-b border-[var(--border)]">
-                  <th className="px-3 py-2 text-left font-medium">Voce</th>
-                  <th className="px-3 py-2 text-right font-medium w-28">
-                    {anno}
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium w-28">
-                    {annoPrec}
-                  </th>
+            <table className="rend-table">
+              <thead>
+                <tr>
+                  <th>Voce</th>
+                  <th className="amount">{anno}</th>
+                  <th className="amount">{annoPrec}</th>
                 </tr>
               </thead>
               <tbody>
@@ -187,18 +183,21 @@ export default async function RendicontoPage({
                     key={sez.sezione}
                     sez={sez}
                     importoPrec={importoPrecPerCodice}
+                    anno={anno}
                   />
                 ))}
-                <tr className="bg-[var(--muted)]/60 font-semibold">
-                  <td className="px-3 py-2">TOTALE ONERI E COSTI</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatEur(r.totaleUscite)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatEur(rPrec.totaleUscite)}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>TOTALE ONERI E COSTI</td>
+                  <td className="amount">{formatEur(r.totaleUscite)}</td>
+                  <td className="amount">
+                    {rPrec.totaleUscite > 0
+                      ? formatEur(rPrec.totaleUscite)
+                      : "—"}
                   </td>
                 </tr>
-              </tbody>
+              </tfoot>
             </table>
           </CardContent>
         </Card>
@@ -210,16 +209,12 @@ export default async function RendicontoPage({
             </h2>
           </div>
           <CardContent className="p-0">
-            <table className="w-full text-[12.5px]">
-              <thead className="text-[var(--muted-foreground)]">
-                <tr className="border-b border-[var(--border)]">
-                  <th className="px-3 py-2 text-left font-medium">Voce</th>
-                  <th className="px-3 py-2 text-right font-medium w-28">
-                    {anno}
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium w-28">
-                    {annoPrec}
-                  </th>
+            <table className="rend-table">
+              <thead>
+                <tr>
+                  <th>Voce</th>
+                  <th className="amount">{anno}</th>
+                  <th className="amount">{annoPrec}</th>
                 </tr>
               </thead>
               <tbody>
@@ -228,18 +223,21 @@ export default async function RendicontoPage({
                     key={sez.sezione}
                     sez={sez}
                     importoPrec={importoPrecPerCodice}
+                    anno={anno}
                   />
                 ))}
-                <tr className="bg-[var(--muted)]/60 font-semibold">
-                  <td className="px-3 py-2">TOTALE ENTRATE DELLA GESTIONE</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatEur(r.totaleEntrate)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatEur(rPrec.totaleEntrate)}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>TOTALE ENTRATE DELLA GESTIONE</td>
+                  <td className="amount">{formatEur(r.totaleEntrate)}</td>
+                  <td className="amount">
+                    {rPrec.totaleEntrate > 0
+                      ? formatEur(rPrec.totaleEntrate)
+                      : "—"}
                   </td>
                 </tr>
-              </tbody>
+              </tfoot>
             </table>
           </CardContent>
         </Card>
@@ -275,58 +273,58 @@ export default async function RendicontoPage({
 function SezioneRows({
   sez,
   importoPrec,
+  anno,
 }: {
   sez: ReturnType<typeof aggregaRendiconto>["uscite"][number];
   importoPrec: Map<string, number>;
+  anno: number;
 }) {
+  const totPrec = sez.voci.reduce(
+    (s, v) => s + (importoPrec.get(v.voce.codice) ?? 0),
+    0,
+  );
   return (
     <>
-      <tr>
-        <td
-          colSpan={3}
-          className="px-3 pt-3 pb-1 text-[12px] uppercase tracking-wide text-[var(--muted-foreground)]"
-        >
-          {sez.titolo}
-        </td>
+      <tr className="section-title">
+        <td colSpan={3}>{sez.titolo}</td>
       </tr>
-      {sez.voci.map((v) => (
-        <tr
-          key={v.voce.recordId}
-          className="border-b border-[var(--border)]/40"
-        >
-          <td className="px-3 py-1.5">
-            <span className="text-[var(--muted-foreground)] font-mono mr-1.5">
-              {v.voce.numero})
-            </span>
-            {v.voce.label}
-          </td>
-          <td className="px-3 py-1.5 text-right font-mono tabular-nums">
-            {v.importo > 0 ? formatEur(v.importo) : "—"}
-          </td>
-          <td className="px-3 py-1.5 text-right font-mono tabular-nums text-[var(--muted-foreground)]">
-            {(() => {
-              const prev = importoPrec.get(v.voce.codice) ?? 0;
-              return prev > 0 ? formatEur(prev) : "—";
-            })()}
-          </td>
-        </tr>
-      ))}
-      <tr className="border-b border-[var(--border)]/60">
-        <td className="px-3 py-1.5 font-medium text-[var(--muted-foreground)]">
-          Totale sezione {sez.sezione}
+      {sez.voci.map((v) => {
+        const has = v.count > 0;
+        const prev = importoPrec.get(v.voce.codice) ?? 0;
+        return (
+          <tr key={v.voce.recordId} className="voce" data-voce={v.voce.codice}>
+            <td className="voce-label">
+              <span className="voce-label-inner">
+                <span className="voce-num">{v.voce.numero})</span>
+                <span className="voce-label-text">{v.voce.label}</span>
+                {has ? (
+                  <Link
+                    href={`/rendiconto/voce/${v.voce.codice}?anno=${anno}`}
+                    className="voce-detail-btn"
+                    title="Apri dettaglio movimenti"
+                  >
+                    Vedi dettaglio
+                    <ArrowRight className="w-[11px] h-[11px]" />
+                  </Link>
+                ) : null}
+              </span>
+            </td>
+            <td className={`amount${has ? "" : " empty"}`}>
+              {has ? formatEur(v.importo) : "—"}
+            </td>
+            <td className={`amount${prev > 0 ? "" : " empty"}`}>
+              {prev > 0 ? formatEur(prev) : "—"}
+            </td>
+          </tr>
+        );
+      })}
+      <tr className="section-tot">
+        <td>Totale sezione {sez.sezione}</td>
+        <td className={`amount${sez.totale > 0 ? "" : " empty"}`}>
+          {sez.totale > 0 ? formatEur(sez.totale) : "—"}
         </td>
-        <td className="px-3 py-1.5 text-right font-mono tabular-nums font-medium">
-          {formatEur(sez.totale)}
-        </td>
-        <td className="px-3 py-1.5 text-right font-mono tabular-nums text-[var(--muted-foreground)]">
-          {/* totale sezione anno precedente: somma dei codici noti */}
-          {(() => {
-            const tot = sez.voci.reduce(
-              (s, v) => s + (importoPrec.get(v.voce.codice) ?? 0),
-              0,
-            );
-            return tot > 0 ? formatEur(tot) : "—";
-          })()}
+        <td className={`amount${totPrec > 0 ? "" : " empty"}`}>
+          {totPrec > 0 ? formatEur(totPrec) : "—"}
         </td>
       </tr>
     </>
