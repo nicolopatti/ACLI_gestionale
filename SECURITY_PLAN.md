@@ -17,7 +17,7 @@
 
 | # | Sessione | Rischio | Effort | Status |
 |---|----------|---------|--------|--------|
-| 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | ⏳ da fare |
+| 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 👀 in review (branch `claude/security-plan-session-1-UNFfC`) |
 | 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | ⏳ da fare |
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | ⏳ da fare |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | ⏳ da fare |
@@ -594,6 +594,20 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 **Osservazione fino al**: YYYY-MM-DD
 **Note**: <eventuali deviazioni dal piano, problemi incontrati, lessons learned>
 ```
+
+### Sessione 1 — HTTP security headers + CSP
+**Branch**: `claude/security-plan-session-1-UNFfC` (pushato, in attesa di PR/merge)
+**Mergeata il**: —
+**Osservazione fino al**: 24h dopo il deploy in produzione
+**Note**:
+- Tutti gli header del piano applicati: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`.
+- CSP servita in **Report-Only** (header key `Content-Security-Policy-Report-Only`) come prescritto: niente blocco per ora, solo osservazione. Per attivare l'enforcing dopo 24h senza violazioni: rinominare la key in `Content-Security-Policy` in `next.config.ts`.
+- Direttive CSP: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`.
+- In sviluppo (`NODE_ENV=development`) `script-src` aggiunge `'unsafe-eval'` perche' React lo usa per ricostruire stack trace (lo dichiara la doc Next 16 in `node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`).
+- `'unsafe-inline'` su `script-src` mantenuto per coprire il bootstrap tema in `app/layout.tsx:54` (inline `dangerouslySetInnerHTML`). La sostituzione con nonce e' rimandata come stretch goal (incompatibile con la prerender statica usata su `/login` e `/`, richiederebbe `connection()` per forzare il dynamic render).
+- `connect-src` e `img-src` includono `https://*.supabase.co` come safety net: la service-role key gira solo server-side (`lib/db/client.ts` ha `import "server-only"`), quindi il client oggi non chiama Supabase, ma il bucket-storage e l'eventuale lookup pubblico via publishable key sono coperti senza dover toccare la CSP piu' tardi.
+- Smoke test locale (`pnpm build && pnpm start`, curl headers su `/login`, `/dashboard`, `/`): tutti i 6 header presenti, HTML emesso non contiene risorse esterne ne' inline event handler, quindi nessuna violazione attesa quando si passera' a enforcing.
+- Build verde: `pnpm typecheck && pnpm lint && pnpm build` puliti, 29 rotte invariate.
 
 ---
 
