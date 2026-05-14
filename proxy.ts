@@ -9,5 +9,12 @@ export default proxy;
 
 export const config = {
   // Esegui il proxy su tutto tranne asset statici e gli endpoint NextAuth.
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  // Il pattern `\\..+$` esclude qualsiasi path che termina con un'estensione
+  // (es. /logo-acli.png, /apple-icon.png, /sitemap.xml): senza questo, il
+  // gating di authConfig.authorized considera "non loggato" -> 307 verso
+  // /login anche per le immagini, rompendo il rendering del logo sulla
+  // pagina di login.
+  matcher: [
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..+$).*)",
+  ],
 };
