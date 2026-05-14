@@ -76,11 +76,9 @@ export function MovimentoDaClassificareRow({
   const tipoLabel = movimento.tipo === "Entrata" ? "+" : "−";
 
   return (
-    <li className="px-4 py-3 grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3 lg:items-center text-[12.5px] border-b border-[var(--border)]/40 last:border-b-0">
-      <div className="lg:col-span-2 font-mono text-[12px] text-[var(--muted-foreground)]">
-        {movimento.dataMovimento ?? "—"}
-      </div>
-      <div className="lg:col-span-3 min-w-0">
+    <li className="nonclass-row">
+      <div className="date">{movimento.dataMovimento ?? "—"}</div>
+      <div className="min-w-0">
         <div
           className="truncate font-medium"
           title={movimento.descrizione ?? ""}
@@ -91,7 +89,7 @@ export function MovimentoDaClassificareRow({
             </span>
           )}
         </div>
-        <div className="text-[11px] text-[var(--muted-foreground)] flex items-center gap-1.5 mt-0.5">
+        <div className="meta">
           <span>{movimento.conto}</span>
           <span>·</span>
           <Badge
@@ -102,12 +100,12 @@ export function MovimentoDaClassificareRow({
           </Badge>
         </div>
       </div>
-      <div className="lg:col-span-3">
+      <div>
         <select
           value={categoriaValue}
           onChange={handleCategoriaChange}
           disabled={pending}
-          className="border border-[var(--border)] rounded h-8 px-2 text-[12px] bg-[var(--background)] w-full"
+          className="mini-select"
         >
           <option value="">— Nessuna categoria —</option>
           {categorie.map((c) => (
@@ -117,12 +115,12 @@ export function MovimentoDaClassificareRow({
           ))}
         </select>
       </div>
-      <div className="lg:col-span-4">
+      <div>
         <select
           value={voceValue}
           onChange={handleVoceChange}
           disabled={pending}
-          className="border border-[var(--border)] rounded h-8 px-2 text-[12px] bg-[var(--background)] w-full"
+          className="mini-select"
         >
           <option value="">— Voce ETS diretta (opzionale) —</option>
           {voci.map((v) => (
