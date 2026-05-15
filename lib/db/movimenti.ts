@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
 import type { Movimento, OrigineMovimento } from "@/lib/db/types";
 import type { Database } from "./types.gen";
@@ -41,7 +42,7 @@ export interface ListMovimentiOpts {
   limit?: number;
 }
 
-export async function listMovimenti(
+async function _listMovimenti(
   opts: ListMovimentiOpts = {},
 ): Promise<Movimento[]> {
   if (!db) return [];
@@ -62,11 +63,16 @@ export async function listMovimenti(
 }
 
 /**
- * Lista movimenti in un intervallo inclusivo `[daData, aData]` (date ISO).
- * Pensata per aggregati di rendiconto: estrae fino a 10000 movimenti per non
- * troncare gli aggregati anno per il volume corrente dell'associazione.
+ * Cached. La cache key include automaticamente `opts`. Invalidata su qualsiasi
+ * mutazione (create/delete/setStato/setCategoria/setVoceRendiconto) via
+ * `revalidateTag("movimenti", "max")`. TTL di sicurezza 5 min.
  */
-export async function listMovimentiInRange(
+export const listMovimenti = unstable_cache(_listMovimenti, ["movimenti:list"], {
+  revalidate: 300,
+  tags: ["movimenti"],
+});
+
+async function _listMovimentiInRange(
   daData: string,
   aData: string,
 ): Promise<Movimento[]> {
@@ -82,6 +88,76 @@ export async function listMovimentiInRange(
   if (error) throw error;
   return (data ?? []).map(mapMovimento);
 }
+
+/**
+ * Lista movimenti in un intervallo inclusivo `[daData, aData]` (date ISO).
+ * Pensata per aggregati di rendiconto: estrae fino a 10000 movimenti per non
+ * troncare gli aggregati anno per il volume corrente dell'associazione.
+ */
+export const listMovimentiInRange = unstable_cache(
+  _listMovimentiInRange,
+  ["movimenti:range"],
+  { revalidate: 300, tags: ["movimenti"] },
+);
+
+export interface ContoTotali {
+  entrate: number;
+  uscite: number;
+  saldo: number;
+}
+
+export interface SaldiPerContoOpts {
+  /**
+   * Restringe il calcolo all'anno solare specificato (YYYY).
+   * Senza filtro, aggrega su tutto lo storico.
+   */
+  anno?: number;
+  /**
+   * Restringe il calcolo ai soli movimenti registrati da uno specifico
+   * `telegram_user_id` (volontari non-admin sulla pagina `/cassa`).
+   */
+  telegramUserId?: string;
+}
+
+async function _saldiPerConto(
+  opts: SaldiPerContoOpts = {},
+): Promise<Record<MezzoPagamento, ContoTotali>> {
+  const empty: ContoTotali = { entrate: 0, uscite: 0, saldo: 0 };
+  const init: Record<MezzoPagamento, ContoTotali> = {
+    Cassa: { ...empty },
+    BCC: { ...empty },
+    Sumup: { ...empty },
+  };
+  if (!db) return init;
+  const { data, error } = await db.rpc("saldi_per_conto", {
+    anno_filtro: opts.anno ?? null,
+    telegram_user_filtro: opts.telegramUserId ?? null,
+  });
+  if (error) throw error;
+  const out: Record<MezzoPagamento, ContoTotali> = init;
+  for (const row of data ?? []) {
+    const k = row.conto as MezzoPagamento;
+    if (k === "Cassa" || k === "BCC" || k === "Sumup") {
+      out[k] = {
+        entrate: Number(row.entrate),
+        uscite: Number(row.uscite),
+        saldo: Number(row.saldo),
+      };
+    }
+  }
+  return out;
+}
+
+/**
+ * RPC Postgres `saldi_per_conto`: aggrega entrate/uscite/saldo per conto
+ * lato DB invece di scaricare 1000 movimenti e fare reduce in JS. Esclude
+ * automaticamente movimenti `stato = 'errato'` e giroconti.
+ * Filtri opzionali: anno solare, telegram_user_id.
+ */
+export const saldiPerConto = unstable_cache(_saldiPerConto, ["movimenti:saldi"], {
+  revalidate: 300,
+  tags: ["movimenti"],
+});
 
 export interface CreaMovimentoInput {
   tipo: "Entrata" | "Uscita";
@@ -144,6 +220,7 @@ export async function createMovimento(
     .select("*")
     .single();
   if (error) throw error;
+  revalidateTag("movimenti", "max");
   return mapMovimento(data);
 }
 
@@ -166,6 +243,7 @@ export async function createMovimentiBatch(
   );
   const { data, error } = await db.from("movimenti").insert(rows).select("*");
   if (error) throw error;
+  revalidateTag("movimenti", "max");
   return (data ?? []).map(mapMovimento);
 }
 
@@ -184,6 +262,7 @@ export async function deleteMovimento(id: string): Promise<void> {
   if (!db) throw new Error("Supabase client non configurato");
   const { error } = await db.from("movimenti").delete().eq("id", id);
   if (error) throw error;
+  revalidateTag("movimenti", "max");
 }
 
 export async function setCategoriaMovimento(
@@ -196,6 +275,7 @@ export async function setCategoriaMovimento(
     .update({ categoria_id: categoriaId })
     .eq("id", movimentoId);
   if (error) throw error;
+  revalidateTag("movimenti", "max");
 }
 
 export async function setVoceRendicontoMovimento(
@@ -208,6 +288,7 @@ export async function setVoceRendicontoMovimento(
     .update({ voce_rendiconto_id: voceRendicontoId })
     .eq("id", movimentoId);
   if (error) throw error;
+  revalidateTag("movimenti", "max");
 }
 
 export async function setStatoMovimento(
@@ -220,6 +301,7 @@ export async function setStatoMovimento(
     .update({ stato })
     .eq("id", movimentoId);
   if (error) throw error;
+  revalidateTag("movimenti", "max");
 }
 
 export interface DedupCandidate {
@@ -233,6 +315,7 @@ export interface DedupCandidate {
 /**
  * Cerca movimenti già registrati che potrebbero matchare una riga di estratto
  * conto (stesso conto, stesso segno/tipo, stesso importo, data entro range).
+ * Non cached: il flow di import deve vedere sempre lo stato fresco del DB.
  */
 export async function findMovimentiForDedup(
   c: DedupCandidate,
@@ -254,6 +337,7 @@ export async function findMovimentiForDedup(
 /**
  * Recupera tutti i movimenti già importati con uno dei fingerprint dati,
  * per evitare doppi import dello stesso file estratto conto.
+ * Non cached: vedi sopra.
  */
 export async function findMovimentiByFingerprints(
   conto: MezzoPagamento,
@@ -267,28 +351,4 @@ export async function findMovimentiByFingerprints(
     .in("fingerprint_bank", fingerprints);
   if (error) throw error;
   return (data ?? []).map(mapMovimento);
-}
-
-export async function totaliPerConto(): Promise<
-  Record<MezzoPagamento, { entrate: number; uscite: number; saldo: number }>
-> {
-  const movimenti = await listMovimenti({ limit: 1000 });
-  const init = { entrate: 0, uscite: 0, saldo: 0 };
-  const tot: Record<
-    MezzoPagamento,
-    { entrate: number; uscite: number; saldo: number }
-  > = {
-    Cassa: { ...init },
-    BCC: { ...init },
-    Sumup: { ...init },
-  };
-  for (const m of movimenti) {
-    if (m.isGiroconto) continue;
-    if (m.tipo === "Entrata") tot[m.conto].entrate += m.importo;
-    else tot[m.conto].uscite += m.importo;
-  }
-  for (const k of Object.keys(tot) as MezzoPagamento[]) {
-    tot[k].saldo = tot[k].entrate - tot[k].uscite;
-  }
-  return tot;
 }

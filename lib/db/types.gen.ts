@@ -799,6 +799,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      saldi_per_conto: {
+        Args: {
+          anno_filtro?: number | null
+          telegram_user_filtro?: string | null
+        }
+        Returns: {
+          conto: string
+          entrate: number
+          uscite: number
+          saldo: number
+        }[]
+      }
       upsert_movimento_from_sheet: {
         Args: {
           mov_categoria: string

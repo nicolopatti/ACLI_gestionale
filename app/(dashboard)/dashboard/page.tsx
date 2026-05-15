@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/auth/auth";
 import { listBambini } from "@/lib/db/bambini";
-import { listMovimenti } from "@/lib/db/movimenti";
+import { listMovimenti, saldiPerConto } from "@/lib/db/movimenti";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
 import { listAttivita } from "@/lib/db/attivita";
 import { listAllMesi } from "@/lib/db/mesi";
@@ -21,7 +21,7 @@ import { listSessioni } from "@/lib/db/sessioni";
 import { listEducatori } from "@/lib/db/educatori";
 import { listDisponibilitaByRange } from "@/lib/db/disponibilita";
 import { presenzaAssente } from "@/lib/db/types";
-import type { MeseIscrizione, Movimento } from "@/lib/db/types";
+import type { MeseIscrizione } from "@/lib/db/types";
 import { meseAnnoSCorrenteLabel } from "@/lib/utils-dashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,16 +131,19 @@ function DashboardBlocksSkeleton() {
 async function AdminBlock() {
   const currentMonth = meseAnnoCorrente();
 
-  const [bambini, movimenti, iscrizioni, allRate, attivita] = await Promise.all([
-    listBambini({ soloAttivi: true }),
-    listMovimenti({ limit: 1000 }),
-    listIscrizioni(),
-    listAllMesi(),
-    listAttivita(),
-  ]);
+  const [bambini, movimenti, iscrizioni, allRate, attivita, saldi] =
+    await Promise.all([
+      listBambini({ soloAttivi: true }),
+      listMovimenti({ limit: 1000 }),
+      listIscrizioni(),
+      listAllMesi(),
+      listAttivita(),
+      // Saldo totale via RPC: aggrega tutto lo storico escludendo giroconti
+      // e movimenti `stato='errato'`. Sessione 7 SECURITY_PLAN.
+      saldiPerConto(),
+    ]);
 
-  const totali = aggregaPerConto(movimenti);
-  const saldoTotale = MEZZI_PAGAMENTO.reduce((s, k) => s + totali[k].saldo, 0);
+  const saldoTotale = MEZZI_PAGAMENTO.reduce((s, k) => s + saldi[k].saldo, 0);
 
   const movimentiMese = movimenti.filter(
     (m) => m.dataMovimento && m.dataMovimento.startsWith(currentMonth),
@@ -603,21 +606,6 @@ function RiepilogoTurniSettimana({
       })}
     </div>
   );
-}
-
-function aggregaPerConto(movimenti: Movimento[]) {
-  type Tot = { entrate: number; uscite: number; saldo: number };
-  const tot: Record<string, Tot> = {
-    Cassa: { entrate: 0, uscite: 0, saldo: 0 },
-    BCC: { entrate: 0, uscite: 0, saldo: 0 },
-    Sumup: { entrate: 0, uscite: 0, saldo: 0 },
-  };
-  for (const m of movimenti) {
-    if (m.tipo === "Entrata") tot[m.conto].entrate += m.importo;
-    else tot[m.conto].uscite += m.importo;
-  }
-  for (const k of MEZZI_PAGAMENTO) tot[k].saldo = tot[k].entrate - tot[k].uscite;
-  return tot as Record<(typeof MEZZI_PAGAMENTO)[number], Tot>;
 }
 
 function Stat({
