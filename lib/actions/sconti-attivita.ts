@@ -21,12 +21,17 @@ async function requireAdmin() {
 }
 
 function parseScontoForm(formData: FormData) {
+  // I campi opzionali (es. `descrizione`) possono essere `null` quando l'input
+  // non viene reso nel form (lo sconti-editor non ha campo descrizione).
+  // Normalizziamo a stringa vuota: lo schema Zod `optionalString` accetta
+  // `""` ma non `null`, e darebbe il messaggio default "Invalid input".
+  const s = (k: string) => String(formData.get(k) ?? "");
   return {
-    attivitaId: formData.get("attivitaId"),
-    nome: formData.get("nome"),
-    tipo: formData.get("tipo"),
-    valore: formData.get("valore"),
-    descrizione: formData.get("descrizione"),
+    attivitaId: s("attivitaId"),
+    nome: s("nome"),
+    tipo: s("tipo"),
+    valore: s("valore"),
+    descrizione: s("descrizione"),
     ordering: formData.get("ordering") ?? 0,
     attivo:
       formData.get("attivo") === "on" ||
