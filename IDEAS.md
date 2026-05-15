@@ -161,3 +161,129 @@ scripts/admin-disable-mfa.ts
 - **Conversazione di brainstorming**: 2026-05-14, sessione su branch `claude/add-credentials-vault-zWY77`.
 - **Sessione SECURITY_PLAN correlata**: Sessione 6 "Audit log applicativo" — questa idea **anticipa** la creazione della tabella `public.audit_log` cosi' che la Sessione 6 si riduca ad estenderne le call site, niente DDL nuovo.
 - **Schema critico da riusare**: `lib/auth/auth.config.ts:18-39` (callback `authorized` con pattern `must_change_password` -> redirect `/primo-accesso`) e' il template esatto da clonare per `mfa_enabled_at` -> redirect `/credenziali/setup`. `lib/rate-limit.ts` e' il template per `getMfaLimiter()`. `lib/auth/page-guards.ts` e' il template per `requireVaultMfaFresh()`.
+
+---
+
+## 2. Fatture da pagare (promemoria scadenze)
+
+**Stato**: 💭 idea / non pianificata
+**Brainstorming**: 2026-05-15
+**Effort stimato**: 4-5h MVP, 2-3h ciascuna le estensioni future
+**Rischio**: basso (nuova tabella isolata, nessuna modifica a flussi esistenti)
+**Branch riservato**: `claude/add-unpaid-invoices-section-DbtyA`
+
+### Contesto
+
+Nuova sezione admin-only `/fatture-da-pagare` come **promemoria delle fatture/bollette/spese non ancora pagate**. L'utente vuole un posto dove segnare "questa cosa va pagata entro il X" e poi spuntarla quando paga, cosi' da non dimenticarsene.
+
+**Differenza con il resto del sistema**:
+- `Movimenti` registra i pagamenti **gia' avvenuti** (cassa, BCC, SumUp).
+- `Rate` (`MesiIscrizione`) sono le quote che i bambini devono pagare **all'associazione** (lato entrate).
+- `FattureDaPagare` e' il nuovo lato simmetrico: le spese che **l'associazione deve** a fornitori esterni (Enel, BCC commissioni, cooperative educatori, manutenzione, gite, ecc.), prima che diventino `Movimento Uscita`.
+
+**Flow desiderato**: registro una fattura -> appare in lista con scadenza -> quando pago, clicco "Segna pagata" -> dialog (importo effettivo, data, conto Cassa/BCC/SumUp, note) -> il sistema crea un `Movimento` di tipo Uscita sul conto scelto e linka la fattura via `movimento_id`. Stesso pattern di `segnaPagatoAction` per le rate (PR #21).
+
+### Decisioni di design da chiudere con l'utente prima di partire
+
+Da confermare via `AskUserQuestion` all'inizio della sessione operativa:
+
+| Tema | Default proposto | Alternative |
+|---|---|---|
+| Scope MVP | Lista CRUD + "Segna pagata" -> crea Movimento | Solo lista senza creazione movimento (utente registra il movimento a mano) |
+| Categorie/voce ETS sulla fattura | Opzionale, suggerita dalla `categoria` -> `voce_rendiconto_default_id` come per i movimenti | Obbligatoria al momento della creazione |
+| Fatture ricorrenti (bollette mensili) | Out of scope MVP, da fare in mini-sessione successiva (template + cron N8N o scheduled function) | Includere nel MVP con campo `ricorrenza` (monthly/quarterly/yearly) |
+| Allegato PDF | Out of scope MVP (richiede Supabase Storage bucket + RLS) | Includere con Storage |
+| Notifiche promemoria | Out of scope MVP. Sfruttare bot Telegram esistente in sessione successiva: cron giornaliero che pinga admin con "fatture in scadenza nei prossimi 7gg" | Email via Resend / similar |
+| Dashboard widget | "Prossime scadenze" (top 5 ordinate per data) nel blocco admin `/dashboard`, accanto al saldo | Solo lista isolata su `/fatture-da-pagare` |
+| Permessi | Admin + volontario_cassa (lettura + creazione + segna pagata). Coordinatore_educativo escluso. | Solo admin |
+| Stato "scaduta" | Calcolato (data_scadenza < oggi AND stato='da_pagare') — non persistito | Persistito con cron che aggiorna `stato='scaduta'` |
+
+### Schema (1 migration Supabase via MCP)
+
+```sql
+CREATE TYPE public.fattura_da_pagare_stato AS ENUM ('da_pagare', 'pagata', 'annullata');
+
+CREATE TABLE public.fatture_da_pagare (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  fornitore text NOT NULL,
+  descrizione text NULL,
+  importo numeric(10,2) NOT NULL CHECK (importo > 0),
+  data_scadenza date NOT NULL,
+  data_emissione date NULL,
+  numero_documento text NULL,
+  stato public.fattura_da_pagare_stato NOT NULL DEFAULT 'da_pagare',
+  conto_previsto public.mezzo_pagamento NULL,
+  categoria_id uuid REFERENCES public.categorie(id) ON DELETE SET NULL,
+  voce_rendiconto_id uuid REFERENCES public.voci_rendiconto(id) ON DELETE SET NULL,
+  movimento_id text REFERENCES public.movimenti(id) ON DELETE SET NULL,
+  pagata_il date NULL,
+  pagata_da uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  note text NULL
+);
+CREATE INDEX idx_fatture_stato_scadenza ON public.fatture_da_pagare(stato, data_scadenza);
+CREATE INDEX idx_fatture_movimento ON public.fatture_da_pagare(movimento_id);
+ALTER TABLE public.fatture_da_pagare ENABLE ROW LEVEL SECURITY;
+```
+
+Note sullo schema:
+- `importo` come `numeric(10,2)` allineato a `movimenti.importo` e `rate.importo`.
+- `conto_previsto` riusa l'enum `public.mezzo_pagamento` esistente (Cassa/BCC/Sumup).
+- `movimento_id` FK testuale verso `movimenti.id` (PK testuale `app_xxx`/Telegram id). `ON DELETE SET NULL` cosi' se elimino il movimento la fattura torna "da pagare" senza orfani.
+- `categoria_id` e `voce_rendiconto_id` propagati al `Movimento` creato al "segna pagata", come fa gia' `creaMovimentoAction` da `/spese-edu`.
+- Index composto `(stato, data_scadenza)` per la query principale: "fatture da pagare in scadenza".
+
+### Architettura file (alta)
+
+```
+lib/db/fatture-da-pagare.ts    list / get / create / update / delete / segnaPagata / annulla
+lib/actions/fatture.ts          createFatturaAction, updateFatturaAction, deleteFatturaAction,
+                                segnaFatturaPagataAction (con dialog confermato),
+                                annullaFatturaAction
+app/(dashboard)/fatture-da-pagare/
+  page.tsx                      lista con KPI + filtri
+  nuova/page.tsx                form crea
+  [id]/page.tsx                 detail con storico cambi (via audit_log) + segna pagata
+components/fatture/
+  fatture-list.tsx              tabella con badge stato, ordinamento data_scadenza ASC
+  fattura-form.tsx              form crea/modifica
+  segna-pagata-dialog.tsx       importo, data, conto, note (clone di segna-pagato-dialog rate)
+  fatture-dashboard-widget.tsx  componente "prossime scadenze" per /dashboard
+```
+
+### Integrazione con sistema esistente
+
+- **Sidebar amm**: nuova voce "Fatture da pagare" con icona `Receipt` o `FileWarning` (lucide-react). Subito sotto "Cassa".
+- **Dashboard widget**: nel blocco admin di `/dashboard/page.tsx`, accanto ai KPI saldo, una card "Prossime scadenze" che lista le 5 fatture `da_pagare` ordinate per `data_scadenza` ASC. Badge rosso per quelle gia' scadute (`data_scadenza < CURRENT_DATE`). Click -> `/fatture-da-pagare/[id]`.
+- **Rendiconto ETS**: nessun impatto. Le fatture non pagate **non entrano** nel rendiconto (e' un rendiconto per cassa, conta solo l'effettivo pagato). La fattura entra nel rendiconto solo nel momento in cui viene segnata pagata e crea un Movimento.
+- **Import estratto conto BCC/SumUp**: potenziale matching automatico fattura<->movimento importato. **Out of scope MVP** ma da tenere in mente: quando importo un estratto conto, se trovo un movimento Uscita di importo X con descrizione che matcha un fornitore di una fattura `da_pagare`, propongo il match. Riusa la logica di dedup di `lib/import/dedup.ts`.
+- **Audit log (Sessione 6 SECURITY_PLAN, gia' implementata)**: tutte le action sulla fattura (`fattura.create`, `fattura.update`, `fattura.delete`, `fattura.segna_pagata`, `fattura.annulla_pagamento`) producono entry. La pagina detail `/fatture-da-pagare/[id]` puo' mostrare lo storico via `select * from audit_log where entity_type='fattura' and entity_id=:id order by at desc`.
+
+### Smoke test pianificati
+
+- [ ] Admin crea una fattura -> appare in lista con badge "da pagare" giallo, data_scadenza visibile.
+- [ ] La fattura scaduta (data passata) ha badge rosso "scaduta".
+- [ ] Admin "Segna pagata" -> dialog -> conferma -> appare un Movimento Uscita su `/cassa` sul conto scelto, importo + descrizione coerenti, voce ETS popolata.
+- [ ] La fattura nella lista ora ha badge verde "pagata", la riga e' linkata al movimento.
+- [ ] Annulla pagamento -> il movimento viene cancellato (o soft-deleted con `stato='errato'`), la fattura torna `da_pagare`.
+- [ ] Volontario_cassa accede a `/fatture-da-pagare`, vede la lista, puo' crearne una, ma **non** puo' eliminarla (decisione di design da confermare).
+- [ ] Coordinatore_educativo accede a `/fatture-da-pagare` -> 307 redirect (proxy gating).
+- [ ] Dashboard widget mostra le 5 prossime scadenze ordinate, badge corretto per scadute.
+
+### Punti aperti da rivedere prima di partire
+
+- [ ] Decidere se "Segna pagata" crea sempre un Movimento o se l'admin puo' anche segnarla pagata "fuori bilancio" (es. pagata in contanti senza ricevuta, non tracciata in cassa). Default proposto: **sempre crea movimento** per integrita' contabile.
+- [ ] Decidere il comportamento del `delete` su una fattura gia' pagata: blocco (come per le rate pagate, vedi `hasAnyRataPagataForSessione`) o cascade del movimento? Default proposto: **blocco** con messaggio "Annulla prima il pagamento".
+- [ ] **Future-future work**: fatture ricorrenti. Schema-side basta un campo `template_id uuid REFERENCES fatture_da_pagare_template(id)`. Implementare con tabella separata `fatture_da_pagare_template` + cron/scheduled function di Supabase che ogni 1° del mese crea le istanze.
+- [ ] **Future-future work**: allegato PDF della fattura su Supabase Storage. Bucket privato + RLS policy admin-only + URL firmato temporaneo per download. Costa ~1h.
+- [ ] **Future-future work**: notifiche Telegram. Cron giornaliero -> bot pinga admin con "Hai N fatture in scadenza nei prossimi 7gg, totale EUR X". Riusa `telegram_user_id` gia' presente su `public.users` + `TELEGRAM_BOT_TOKEN`.
+- [ ] **Future-future work**: matching automatico con bank import. Da progettare insieme alla logica di auto-classifier (`lib/import/auto-classify.ts`).
+
+### Riferimenti
+
+- **Conversazione di brainstorming**: 2026-05-15.
+- **Pattern simile da clonare**: la logica `segnaPagatoAction`/`annullaPagamentoAction` su `lib/actions/mesi.ts` (PR #21) — stesso flow "segna pagata -> crea Movimento -> link via FK". Riusa la stessa primitive per evitare di duplicare la logica di creazione movimento.
+- **UI di riferimento**: `/iscrizioni/[id]` (tabella rate con "Segna pagato" inline) e il dialog componente `components/iscrizioni/segna-pagato-dialog.tsx` (verificare path esatto) — riadattare il dialog per accettare "fornitore" invece di "bambino" e "fattura" invece di "rata".
+- **Index composto**: `(stato, data_scadenza)` e' lo stesso pattern usato su `rate(stato_pagamento, scadenza)` (verificare). Query principale: `where stato = 'da_pagare' order by data_scadenza asc`.
