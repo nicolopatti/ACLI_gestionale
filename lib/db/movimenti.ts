@@ -130,8 +130,8 @@ async function _saldiPerConto(
   };
   if (!db) return init;
   const { data, error } = await db.rpc("saldi_per_conto", {
-    anno_filtro: opts.anno ?? null,
-    telegram_user_filtro: opts.telegramUserId ?? null,
+    anno_filtro: opts.anno ?? undefined,
+    telegram_user_filtro: opts.telegramUserId ?? undefined,
   });
   if (error) throw error;
   const out: Record<MezzoPagamento, ContoTotali> = init;
