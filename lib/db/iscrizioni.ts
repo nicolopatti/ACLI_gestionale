@@ -8,6 +8,7 @@ type IscrizioneRow = Database["public"]["Tables"]["iscrizioni"]["Row"];
 
 type IscrizioneRowWithRel = IscrizioneRow & {
   iscrizioni_sessioni?: { sessione_id: string }[];
+  iscrizioni_sconti?: { sconto_id: string }[];
   rate?: { id: string }[];
 };
 
@@ -22,12 +23,14 @@ function mapIscrizione(row: IscrizioneRowWithRel): Iscrizione {
     giorniSettimana: (row.giorni_settimana ?? []) as GiornoSettimana[],
     fasceOrarie: (row.fasce_orarie ?? []) as FasciaOraria[],
     sessioniSelteIds: (row.iscrizioni_sessioni ?? []).map((x) => x.sessione_id),
+    scontiIds: (row.iscrizioni_sconti ?? []).map((x) => x.sconto_id),
     note: row.note ?? undefined,
     rateIds: (row.rate ?? []).map((r) => r.id),
   };
 }
 
-const REL_SELECT = "*, iscrizioni_sessioni(sessione_id), rate(id)";
+const REL_SELECT =
+  "*, iscrizioni_sessioni(sessione_id), iscrizioni_sconti(sconto_id), rate(id)";
 
 export async function listIscrizioni(opts?: {
   bambinoId?: string;
@@ -101,6 +104,7 @@ export type IscrizioneInput = {
   giorniSettimana: GiornoSettimana[];
   fasceOrarie: FasciaOraria[];
   sessioniSelteIds: string[];
+  scontiIds?: string[];
   note?: string;
 };
 
@@ -127,6 +131,33 @@ async function syncSessioniScelte(
   if (insErr) throw insErr;
 }
 
+/**
+ * Allinea il set di sconti applicati a una iscrizione al `scontiIds` passato.
+ * Stessa strategia di syncSessioniScelte: delete + insert. Le righe `rate`
+ * di tipo 'sconto' vengono gestite separatamente dall'action chiamante (vedi
+ * `deleteRateByTipoRiga` + ricrea con `createMesi`).
+ */
+async function syncScontiSelti(
+  iscrizioneId: string,
+  scontiIds: string[],
+): Promise<void> {
+  if (!db) return;
+  const { error: delErr } = await db
+    .from("iscrizioni_sconti")
+    .delete()
+    .eq("iscrizione_id", iscrizioneId);
+  if (delErr) throw delErr;
+  if (scontiIds.length === 0) return;
+  const uniq = Array.from(new Set(scontiIds));
+  const { error: insErr } = await db.from("iscrizioni_sconti").insert(
+    uniq.map((sconto_id) => ({
+      iscrizione_id: iscrizioneId,
+      sconto_id,
+    })),
+  );
+  if (insErr) throw insErr;
+}
+
 export async function createIscrizione(
   input: IscrizioneInput,
 ): Promise<Iscrizione> {
@@ -146,6 +177,7 @@ export async function createIscrizione(
     .single();
   if (error) throw error;
   await syncSessioniScelte(data.id, input.sessioniSelteIds);
+  await syncScontiSelti(data.id, input.scontiIds ?? []);
   const full = await getIscrizione(data.id);
   if (!full) throw new Error("Iscrizione appena creata non trovata");
   return full;
@@ -170,6 +202,7 @@ export async function updateIscrizione(
     .eq("id", recordId);
   if (error) throw error;
   await syncSessioniScelte(recordId, input.sessioniSelteIds);
+  await syncScontiSelti(recordId, input.scontiIds ?? []);
   const full = await getIscrizione(recordId);
   if (!full) throw new Error("Iscrizione non trovata dopo update");
   return full;

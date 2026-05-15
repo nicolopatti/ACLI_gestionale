@@ -3,6 +3,7 @@ import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "./client";
 import type { ModalitaIscrizione } from "@/lib/db/types";
 import type { Database } from "./types.gen";
+import type { TipoPrezzo } from "@/lib/config";
 
 type ModalitaRow = Database["public"]["Tables"]["modalita_iscrizione"]["Row"];
 
@@ -12,6 +13,7 @@ function mapModalita(row: ModalitaRow): ModalitaIscrizione {
     attivitaId: row.attivita_id,
     nome: row.nome,
     importo: Number(row.importo),
+    tipoPrezzo: row.tipo_prezzo as TipoPrezzo,
     descrizione: row.descrizione ?? undefined,
     attivo: row.attivo,
   };
@@ -69,6 +71,7 @@ export async function createModalita(input: {
   attivitaId: string;
   nome: string;
   importo: number;
+  tipoPrezzo?: TipoPrezzo;
   descrizione?: string;
   attivo?: boolean;
 }): Promise<ModalitaIscrizione> {
@@ -79,6 +82,7 @@ export async function createModalita(input: {
       attivita_id: input.attivitaId,
       nome: input.nome,
       importo: input.importo,
+      tipo_prezzo: input.tipoPrezzo ?? "per_sessione",
       descrizione: input.descrizione,
       attivo: input.attivo ?? true,
     })
@@ -94,6 +98,7 @@ export async function updateModalita(
   fields: Partial<{
     nome: string;
     importo: number;
+    tipo_prezzo: TipoPrezzo;
     descrizione: string;
     attivo: boolean;
   }>,

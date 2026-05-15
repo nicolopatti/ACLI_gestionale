@@ -6,6 +6,7 @@ import type {
   MezzoPagamento,
   StatoPagamento,
   TipoAttivita,
+  TipoRigaRata,
   TipoUnita,
 } from "@/lib/config";
 
@@ -28,6 +29,8 @@ function mapMese(row: RataRow): MeseIscrizione {
     mezzoPagamento:
       (row.mezzo_pagamento as MezzoPagamento | null) ?? undefined,
     movimentoCollegatoId: row.movimento_id ?? undefined,
+    tipoRiga: row.tipo_riga as TipoRigaRata,
+    descrizioneRiga: row.descrizione_riga ?? undefined,
     note: row.note ?? undefined,
   };
 }
@@ -91,30 +94,78 @@ export async function getMese(recordId: string): Promise<MeseIscrizione | null> 
   return data ? mapMese(data) : null;
 }
 
+/**
+ * Crea N rate in batch. Tutti i campi specifici (sessioneId/tipoUnita/
+ * chiavePeriodo) sono opzionali: le righe `pacchetto`/`quota_iscrizione`/
+ * `sconto` non sono legate a una sessione e li lasciano NULL. La policy
+ * `tipoRiga` (default `'sessione'` lato applicativo come lato DB) discrimina
+ * il tipo.
+ */
 export async function createMesi(
   input: Array<{
     iscrizioneId: string;
-    sessioneId: string;
-    tipoUnita: TipoUnita;
-    chiavePeriodo: string;
+    sessioneId?: string | null;
+    tipoUnita?: TipoUnita | null;
+    chiavePeriodo?: string | null;
     importoDovuto: number;
-    meseAnno?: string;
+    meseAnno?: string | null;
+    tipoRiga?: TipoRigaRata;
+    descrizioneRiga?: string | null;
   }>,
 ): Promise<MeseIscrizione[]> {
   if (!db) throw new Error("Supabase client non configurato");
   if (input.length === 0) return [];
   const rows = input.map((m) => ({
     iscrizione_id: m.iscrizioneId,
-    sessione_id: m.sessioneId,
-    tipo_unita: m.tipoUnita,
-    chiave_periodo: m.chiavePeriodo,
+    sessione_id: m.sessioneId ?? null,
+    tipo_unita: m.tipoUnita ?? null,
+    chiave_periodo: m.chiavePeriodo ?? null,
     importo_dovuto: m.importoDovuto,
     stato_pagamento: "non_pagato" as const,
     mese_anno: m.meseAnno ?? null,
+    tipo_riga: m.tipoRiga ?? ("sessione" as const),
+    descrizione_riga: m.descrizioneRiga ?? null,
   }));
   const { data, error } = await db.from("rate").insert(rows).select("*");
   if (error) throw error;
   return (data ?? []).map(mapMese);
+}
+
+/**
+ * True se l'iscrizione ha almeno una rata pagata o parziale (qualunque
+ * tipo_riga). Usata dal `wipe-and-recreate` su cambio policy.
+ */
+export async function hasAnyRataPagata(iscrizioneId: string): Promise<boolean> {
+  if (!db) return false;
+  const { data, error } = await db
+    .from("rate")
+    .select("id")
+    .eq("iscrizione_id", iscrizioneId)
+    .in("stato_pagamento", ["pagato", "parziale"])
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Cancella selettivamente le rate di un'iscrizione per `tipo_riga`. Utile in
+ * `updateIscrizioneAction` per: rimuovere la quota quando l'utente la
+ * deseleziona, oppure resettare tutti gli sconti prima di ricrearli col
+ * nuovo set selezionato.
+ */
+export async function deleteRateByTipoRiga(
+  iscrizioneId: string,
+  tipoRiga: TipoRigaRata,
+): Promise<number> {
+  if (!db) return 0;
+  const { data, error } = await db
+    .from("rate")
+    .delete()
+    .eq("iscrizione_id", iscrizioneId)
+    .eq("tipo_riga", tipoRiga)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length;
 }
 
 export async function updateMese(

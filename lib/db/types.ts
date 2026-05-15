@@ -6,6 +6,9 @@ import type {
   Ruolo,
   StatoPagamento,
   TipoAttivita,
+  TipoPrezzo,
+  TipoRigaRata,
+  TipoSconto,
   TipoUnita,
 } from "@/lib/config";
 
@@ -87,6 +90,12 @@ export interface Attivita {
    * Se vuoto, l'attività non popola la griglia turni.
    */
   fasceOrarie: FasciaOraria[];
+  /**
+   * Quota di iscrizione una-tantum (€). Se valorizzata, il form di iscrizione
+   * espone una checkbox per applicarla; al check viene materializzata come
+   * rata `tipo_riga = 'quota_iscrizione'`.
+   */
+  quotaIscrizione?: number;
   sessioniIds: string[];
   iscrizioniIds: string[];
   modalitaIds: string[];
@@ -114,7 +123,25 @@ export interface ModalitaIscrizione {
   attivitaId: string;
   nome: string;
   importo: number;
+  /**
+   * Politica di prezzo:
+   *  - per_sessione: l'importo è unitario, viene moltiplicato per le sessioni scelte.
+   *  - flat: l'importo è il prezzo totale del pacchetto, indipendente dalle sessioni.
+   */
+  tipoPrezzo: TipoPrezzo;
   descrizione?: string;
+  attivo: boolean;
+}
+
+export interface ScontoAttivita {
+  recordId: string;
+  attivitaId: string;
+  nome: string;
+  tipo: TipoSconto;
+  /** Valore: % se tipo=percentuale (0-100), € se tipo=fisso (sempre > 0). */
+  valore: number;
+  descrizione?: string;
+  ordering: number;
   attivo: boolean;
 }
 
@@ -128,6 +155,8 @@ export interface Iscrizione {
   giorniSettimana: GiornoSettimana[];
   fasceOrarie: FasciaOraria[];
   sessioniSelteIds: string[];
+  /** Id degli sconti applicati a questa iscrizione (regole su `sconti_attivita`). */
+  scontiIds: string[];
   note?: string;
   rateIds: string[];
 }
@@ -146,6 +175,14 @@ export interface MeseIscrizione {
   dataPagamento?: string;
   mezzoPagamento?: MezzoPagamento;
   movimentoCollegatoId?: string;
+  /**
+   * Tipo di riga. Per backward-compat le 16 rate storiche sono "sessione".
+   * Le righe nuove possono essere pacchetto/quota_iscrizione/sconto e in quel
+   * caso `sessioneId` è null, `descrizioneRiga` contiene l'etichetta umana.
+   */
+  tipoRiga: TipoRigaRata;
+  /** Etichetta umana per righe non legate a una sessione (pacchetto/quota/sconto). */
+  descrizioneRiga?: string;
   note?: string;
 }
 
