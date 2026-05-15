@@ -5,30 +5,34 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createModalitaAction,
-  deleteModalitaAction,
-  getDeleteModalitaImpactAction,
-} from "@/lib/actions/modalita-iscrizione";
+  createScontoAction,
+  deleteScontoAction,
+  getDeleteScontoImpactAction,
+} from "@/lib/actions/sconti-attivita";
 import { ActionButton } from "@/components/ui/action-button";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import type { ModalitaIscrizione } from "@/lib/db/types";
+import type { ScontoAttivita } from "@/lib/db/types";
 
 interface Props {
   attivitaId: string;
-  modalita: ModalitaIscrizione[];
+  sconti: ScontoAttivita[];
 }
 
-export function ModalitaEditor({ attivitaId, modalita }: Props) {
+function formatValoreSconto(sc: ScontoAttivita): string {
+  return sc.tipo === "percentuale" ? `${sc.valore}%` : formatEur(sc.valore);
+}
+
+export function ScontiEditor({ attivitaId, sconti }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState<
     { error?: string; ok?: boolean } | undefined,
     FormData
-  >(createModalitaAction, undefined);
+  >(createScontoAction, undefined);
   const [success, setSuccess] = useState(false);
   const hasError = !!state?.error;
 
@@ -37,7 +41,7 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
     if (state?.ok) {
       formRef.current?.reset();
       setSuccess(true);
-      toast.success("Modalità aggiunta");
+      toast.success("Sconto aggiunto");
       const id = setTimeout(() => setSuccess(false), 1400);
       return () => clearTimeout(id);
     }
@@ -46,57 +50,59 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
 
   return (
     <div className="space-y-4">
-      {modalita.length === 0 ? (
+      {sconti.length === 0 ? (
         <p className="text-sm text-[var(--muted-foreground)]">
-          Nessuna modalità configurata. Aggiungine almeno una prima di poter creare iscrizioni.
+          Nessuno sconto configurato. Aggiungine uno per offrirlo come
+          checkbox al momento dell&apos;iscrizione (es. &quot;Fratello iscritto&quot;,
+          &quot;Early bird&quot;).
         </p>
       ) : (
         <ul className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
-          {modalita.map((m) => (
+          {sconti.map((sc) => (
             <li
-              key={m.recordId}
+              key={sc.recordId}
               className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
             >
               <div className="flex flex-col">
                 <span className="font-medium">
-                  {m.nome}
-                  {m.tipoPrezzo === "flat" && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      pacchetto
-                    </Badge>
-                  )}
-                  {!m.attivo && (
+                  {sc.nome}
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {sc.tipo === "percentuale" ? "%" : "€"}
+                  </Badge>
+                  {!sc.attivo && (
                     <Badge variant="outline" className="ml-2 text-xs">
-                      disattivata
+                      disattivato
                     </Badge>
                   )}
                 </span>
-                {m.descrizione && (
+                {sc.descrizione && (
                   <span className="text-xs text-[var(--muted-foreground)]">
-                    {m.descrizione}
+                    {sc.descrizione}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
-                  {formatEur(m.importo)}
-                  <span className="text-xs text-[var(--muted-foreground)] ml-1">
-                    {m.tipoPrezzo === "flat" ? "totale" : "/sessione"}
-                  </span>
+                  −{formatValoreSconto(sc)}
                 </span>
                 <DeleteConfirmDialog
                   triggerVariant="ghost"
                   triggerIconOnly
-                  triggerLabel="Elimina modalità"
-                  title={`Elimina modalità "${m.nome}"`}
-                  description="Le iscrizioni che usano questa modalità (e le loro rate) verranno eliminate a cascata, perché senza modalità l'iscrizione resterebbe senza prezzo."
-                  successToast="Modalità eliminata"
+                  triggerLabel="Elimina sconto"
+                  title={`Elimina sconto "${sc.nome}"`}
+                  description="Se lo sconto è già stato applicato a una o più iscrizioni l'eliminazione viene bloccata: in quel caso disattivalo invece di cancellarlo per nasconderlo senza perdere lo storico."
+                  successToast="Sconto eliminato"
                   loadImpact={async () => {
-                    const i = await getDeleteModalitaImpactAction(m.recordId);
-                    return [{ label: "Iscrizioni che la usano", count: i.iscrizioni }];
+                    const i = await getDeleteScontoImpactAction(sc.recordId);
+                    return [
+                      { label: "Iscrizioni che lo applicano", count: i.iscrizioni },
+                    ];
                   }}
                   onConfirm={async () => {
-                    await deleteModalitaAction(m.recordId, attivitaId);
+                    const r = await deleteScontoAction(sc.recordId, attivitaId);
+                    if (r && "error" in r && r.error) {
+                      toast.error(r.error);
+                    }
                     router.refresh();
                   }}
                 />
@@ -112,67 +118,60 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
         className="grid gap-3 rounded-md border border-[var(--border)] p-3 md:grid-cols-12"
       >
         <input type="hidden" name="attivitaId" value={attivitaId} />
-        <div className="md:col-span-4 space-y-1">
-          <Label className="text-xs" htmlFor="modalita-nome">Nome modalità</Label>
+        <div className="md:col-span-5 space-y-1">
+          <Label className="text-xs" htmlFor="sconto-nome">Nome sconto</Label>
           <Input
-            id="modalita-nome"
+            id="sconto-nome"
             name="nome"
-            placeholder='es. "Mensile 14-16 (3 giorni)"'
-            required
-          />
-        </div>
-        <div className="md:col-span-2 space-y-1">
-          <Label className="text-xs" htmlFor="modalita-importo">Importo (€)</Label>
-          <Input
-            id="modalita-importo"
-            name="importo"
-            type="number"
-            step="0.01"
-            min="0"
+            placeholder='es. "Fratello iscritto"'
             required
           />
         </div>
         <fieldset className="md:col-span-3 space-y-1">
-          <legend className="text-xs">Tipo prezzo</legend>
+          <legend className="text-xs">Tipo</legend>
           <div className="flex gap-3 text-sm">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="radio"
-                name="tipoPrezzo"
-                value="per_sessione"
+                name="tipo"
+                value="fisso"
                 defaultChecked
               />
-              Per sessione
+              Valore fisso (€)
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="radio"
-                name="tipoPrezzo"
-                value="flat"
+                name="tipo"
+                value="percentuale"
               />
-              Pacchetto (flat)
+              Percentuale (%)
             </label>
           </div>
         </fieldset>
-        <div className="md:col-span-3 space-y-1">
-          <Label className="text-xs" htmlFor="modalita-descrizione">Descrizione</Label>
+        <div className="md:col-span-2 space-y-1">
+          <Label className="text-xs" htmlFor="sconto-valore">Valore</Label>
           <Input
-            id="modalita-descrizione"
-            name="descrizione"
-            placeholder="opzionale"
+            id="sconto-valore"
+            name="valore"
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
           />
         </div>
-        <div className="md:col-span-12 flex">
+        <div className="md:col-span-2 flex items-end">
           <ActionButton
             type="submit"
             pending={pending}
             success={success}
             error={hasError && !pending}
             pendingText="Aggiungo…"
-            successText="Aggiunta ✓"
+            successText="Aggiunto ✓"
             idleIcon={<Plus className="h-4 w-4" />}
+            className="w-full"
           >
-            Aggiungi modalità
+            Aggiungi
           </ActionButton>
         </div>
         {state?.error && (
@@ -186,12 +185,9 @@ export function ModalitaEditor({ attivitaId, modalita }: Props) {
       </form>
 
       <p className="text-xs text-[var(--muted-foreground)]">
-        <strong>Per sessione</strong>: prezzo unitario, viene moltiplicato per
-        il numero di sessioni scelte (es. 50€/mese × 10 mesi = 500€).
-        <br />
-        <strong>Pacchetto (flat)</strong>: prezzo fisso del pacchetto,
-        indipendente dal numero di sessioni (es. 100€ per tutto il percorso
-        di 4 settimane).
+        Ogni sconto appare come checkbox nel form di iscrizione. L&apos;utente
+        sceglie quali applicare a quella specifica iscrizione. La percentuale
+        si applica su <strong>prezzo modalità + quota iscrizione</strong>.
       </p>
     </div>
   );

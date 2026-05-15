@@ -142,6 +142,22 @@ export function AttivitaForm({ attivita }: Props) {
             defaultValue={attivita?.dataFine ?? ""}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="quotaIscrizione">Quota iscrizione (€)</Label>
+          <Input
+            id="quotaIscrizione"
+            name="quotaIscrizione"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="opzionale"
+            defaultValue={attivita?.quotaIscrizione ?? ""}
+          />
+          <p className="text-xs text-[var(--muted-foreground)]">
+            Quota una-tantum (es. 15€). Se valorizzata, può essere applicata
+            tramite checkbox al momento dell&apos;iscrizione.
+          </p>
+        </div>
         <div className="flex items-center gap-2 pt-6">
           <Checkbox
             id="attivo"
