@@ -43,21 +43,14 @@ export async function dedupParsedRows(
     existingByFingerprint.map((m) => [m.fingerprintBank, m] as const),
   );
 
-  // 2. Per ogni riga: prima dedup intra-file, poi contro il DB, poi fuzzy
-  // match per (conto, tipo, importo, data±3gg). Il check intra-file e'
-  // essenziale: lo UNIQUE INDEX `movimenti_fingerprint_bank_uidx` rolla
-  // back l'intero batch se anche una sola riga collide. Senza il check,
-  // un export con due righe identiche (commissione mensile ripetuta,
-  // riga duplicata da bug dell'export, ecc.) farebbe fallire la conferma
-  // con il messaggio generico "Errore durante l'operazione".
-  const seenInFile = new Set<string>();
+  // 2. Per ogni riga: dedup contro il DB, poi fuzzy match per
+  // (conto, tipo, importo, data±3gg). Non si fa dedup intra-file:
+  // due righe identiche dentro l'export sono reali e legittime (es.
+  // commissioni POS multiple sullo stesso giorno per lo stesso importo).
+  // E' compito del parser produrre fingerprint deterministicamente unici
+  // anche per righe identiche (vedi `bcc-parser.ts` con occurrence index).
   const results: RowMatch[] = [];
   for (const r of righe) {
-    if (seenInFile.has(r.fingerprint)) {
-      results.push({ status: "duplicate", candidati: [] });
-      continue;
-    }
-    seenInFile.add(r.fingerprint);
     const fpHit = fingerprintMap.get(r.fingerprint);
     if (fpHit) {
       results.push({ status: "duplicate", candidati: [fpHit] });
