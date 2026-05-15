@@ -6,6 +6,11 @@ import {
   saldiPerConto,
 } from "@/lib/db/movimenti";
 import { listCategorie } from "@/lib/db/categorie";
+import { listVociRendiconto } from "@/lib/db/voci-rendiconto";
+import {
+  TITOLI_SEZIONE_ENTRATA,
+  TITOLI_SEZIONE_USCITA,
+} from "@/lib/rendiconto/aggregate";
 import {
   Table,
   TableBody,
@@ -20,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CassaFilters } from "@/components/cassa/cassa-filters";
 import { DeleteMovimentoButton } from "@/components/cassa/delete-movimento-button";
+import { EditMovimentoButton } from "@/components/cassa/edit-movimento-button";
 import { ChartEntrateUscite } from "@/components/cassa/chart-entrate-uscite";
 import { AnnoSwitcher } from "@/components/cassa/anno-switcher";
 import { formatDate, formatEur } from "@/lib/utils";
@@ -83,10 +89,11 @@ export default async function CassaPage({
   const anno = parseAnno(sp.anno);
   const annoCorrente = new Date().getFullYear();
 
-  const [movimenti, categorie, totaliStorico, totaliAnno, meseData] =
+  const [movimenti, categorie, voci, totaliStorico, totaliAnno, meseData] =
     await Promise.all([
       listMovimenti({ ...(isAdmin ? {} : { telegramUserId }), limit: 1000 }),
       listCategorie(),
+      listVociRendiconto(),
       // KPI Risultato netto = storico totale (= attuale "Saldo totale", che
       // esclude giroconti). Indipendente dal selettore anno.
       saldiPerConto(isAdmin ? {} : { telegramUserId }),
@@ -100,6 +107,21 @@ export default async function CassaPage({
       entrateUscitePerMese(anno, isAdmin ? undefined : telegramUserId),
     ]);
   const categoriaById = new Map(categorie.map((c) => [c.recordId, c] as const));
+  // Voci passate al bottone "modifica classificazione" come array piatto;
+  // filtraggio per tipo del movimento e raggruppamento per sezione avvengono
+  // nel componente client.
+  const vociOptions = voci.map((v) => ({
+    id: v.recordId,
+    codice: v.codice,
+    tipo: v.tipo,
+    sezione: v.sezione,
+    label: v.label,
+  }));
+  const categorieOptions = categorie.map((c) => ({
+    id: c.recordId,
+    nome: c.nome,
+    tipo: c.tipo,
+  }));
 
   // Risultato netto = somma dei 3 conti rendiconto (storico).
   const risultatoNetto: ContoTotali = MEZZI_PAGAMENTO.reduce(
@@ -319,10 +341,27 @@ export default async function CassaPage({
                     {isAdmin && <TableCell>{m.volontario ?? "—"}</TableCell>}
                     {isAdmin && (
                       <TableCell className="w-[1%] whitespace-nowrap text-right">
-                        <DeleteMovimentoButton
-                          movimentoId={m.recordId}
-                          descrizione={m.descrizione}
-                        />
+                        <div className="flex items-center justify-end gap-1">
+                          <EditMovimentoButton
+                            movimentoId={m.recordId}
+                            tipo={m.tipo}
+                            importo={m.importo}
+                            descrizione={m.descrizione}
+                            currentCategoriaId={m.categoriaId}
+                            currentVoceRendicontoId={m.voceRendicontoId}
+                            categorie={categorieOptions}
+                            voci={vociOptions}
+                            sezioniTitoli={
+                              m.tipo === "Uscita"
+                                ? TITOLI_SEZIONE_USCITA
+                                : TITOLI_SEZIONE_ENTRATA
+                            }
+                          />
+                          <DeleteMovimentoButton
+                            movimentoId={m.recordId}
+                            descrizione={m.descrizione}
+                          />
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
