@@ -21,8 +21,8 @@
 | 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 🌐 in osservazione produzione (PR #28 mergeata) |
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #32 mergeata, PR #33 hotfix logging) |
-| 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 👀 in review (branch `claude/secplan-05-jwt-session-invalidation`) |
-| 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ⏳ da fare |
+| 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #43 mergeata) |
+| 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | 👀 in review (branch `claude/secplan-06-audit-log`) |
 | 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ⏳ da fare |
 | 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare |
 
@@ -679,9 +679,9 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 
 ### Sessione 5 — JWT maxAge + session invalidation on password change
 **Branch**: `claude/secplan-05-jwt-session-invalidation`
-**PR**: #43 (in review)
-**Mergeata il**: —
-**Osservazione fino al**: 1 settimana dal deploy in produzione
+**PR**: #43 mergeata in produzione (`23e327b`)
+**Mergeata il**: 2026-05-15
+**Osservazione fino al**: 2026-05-22 (1 settimana)
 **Note**:
 - **Migration Supabase** `add_users_password_version`: `ALTER TABLE public.users ADD COLUMN password_version integer NOT NULL DEFAULT 1;` — applicata via MCP `apply_migration` sul progetto `aikforfebngrqfzdkowo`. Generati nuovi tipi via `generate_typescript_types` e aggiornato `lib/db/types.gen.ts` di conseguenza (Row/Insert/Update di `users`).
 - **Type `User` di dominio** (`lib/db/types.ts`): aggiunto campo `passwordVersion: number` con JSDoc che spiega l'invariante (monotonicamente crescente, incrementata ad ogni cambio password).
@@ -708,6 +708,33 @@ Ogni sessione, al completamento, aggiorna questa sezione:
   - [ ] Login normale -> continua a funzionare per 24h.
   - [ ] Coordinatore_educativo appena creato: login con temp -> /primo-accesso -> cambia password -> atterra /dashboard senza re-login (verifica che l'unstable_update funzioni anche con passwordVersion).
 - **Caveat noto**: tutti gli utenti gia' loggati al momento del deploy avranno un JWT senza `passwordVersion`. Il check li sloggerà al primo refresh post-deploy: dovranno re-loggare una volta sola. Comunicato come "Caveat" nella PR.
+- **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
+
+### Sessione 6 — Audit log applicativo
+**Branch**: `claude/secplan-06-audit-log`
+**PR**: #44 (in review)
+**Mergeata il**: —
+**Osservazione fino al**: 48h dopo il deploy in produzione (volume atteso ~50-100 righe/giorno)
+**Note**:
+- **Migration Supabase** `create_audit_log`: nuova tabella `public.audit_log` con `id uuid PK`, `at timestamptz DEFAULT now()`, `user_id uuid REFERENCES users ON DELETE SET NULL`, `user_email text`, `action text NOT NULL`, `entity_type text`, `entity_id text`, `diff jsonb`, `ip text`, `user_agent text`. Tre indici: `(at DESC)`, `(user_id)`, `(entity_type, entity_id)`. RLS abilitata senza policy (service-role key bypassa, anon e' bloccato).
+- **Helper `lib/db/audit-log.ts`**: `logAudit(entry)` fire-and-forget. Legge `headers()` per IP (`x-forwarded-for` primo elemento) e User-Agent. Catch interno: errori sono swallowati con `console.error` per non rompere mai la business action sottostante. Type-safe via `Json` cast su `diff`.
+- **Invariante anti-leak**: `logAudit` NON registra mai password in chiaro, hash, token, OTP. Solo metadati. Il `diff` e' una mappa di campi non sensibili scelti esplicitamente dal chiamante (es. `{importoPagato, dataPagamento, mezzoPagamento}` per una rata pagata).
+- **Action coperte** (10 totali):
+  - `lib/actions/utenti.ts`: `user.create`, `user.update`, `user.password.reset.admin`, `user.password.changed` (self), `user.first_login.password_set` (self).
+  - `lib/actions/auth.ts`: `auth.login.success`, `auth.login.fail` (con reason), `auth.login.rate_limited`, `auth.logout`.
+  - `lib/actions/movimenti.ts`: `movimento.create`, `movimento.set_categoria`, `movimento.set_voce_rendiconto`, `movimento.soft_delete`, `movimento.restore`.
+  - `lib/actions/mesi.ts`: `rata.segna_pagato`, `rata.annulla_pagamento`.
+  - `app/(dashboard)/cassa/import/actions.ts`: `movimenti.bulk_import` (con count righeProposte/inserite + conto).
+- **Refactor `requireAdmin` / `requireEduOrAdmin`** in tutti i file action: ora ritornano la `session` (era `void`) cosi' possiamo passare `userId`/`userEmail` direttamente a `logAudit` senza una seconda chiamata `auth()`.
+- **Login flow audit**: il `try { signIn() } catch (error)` di NextAuth lancia `NEXT_REDIRECT` quando il login riesce (per propagare il redirect a `/dashboard`); l'`AuthError` con `type === "CredentialsSignin"` quando fallisce. Audit: rate-limited prima, fail con reason dentro al catch, success dentro al catch ramo "non AuthError" prima del re-throw del NEXT_REDIRECT.
+- **Smoke test pianificato post-merge in produzione**:
+  - [ ] Login fallito -> riga in `audit_log` con `action: "auth.login.fail"`, `user_email`, `diff.reason: "credentials"`, `ip`, `user_agent`.
+  - [ ] Crea movimento da `/spese-edu` -> riga con `action: "movimento.create"`, `entity_id` valido, `diff` con tipo/importo/conto/data.
+  - [ ] Admin resetta password di utente B -> riga con `action: "user.password.reset.admin"`, `entity_id` = B, `diff.targetEmail`.
+  - [ ] Self cambia password da `/profilo` -> riga con `action: "user.password.changed"`, `userId` = self.
+  - [ ] Verifica `select diff from audit_log where action like 'user.password%'` -> nessuna password leakata (manualmente).
+- **Pagina admin di visualizzazione**: rimandata a sessione futura (non blocca questa).
+- **Rollback**: `git revert <merge-commit>` rimuove le chiamate `logAudit` dal codice. Tabella `audit_log` resta in DB inutilizzata, nessuna azione distruttiva. Per ripulire eventualmente: `TRUNCATE TABLE public.audit_log;` (opzionale).
 - **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
 
 ---

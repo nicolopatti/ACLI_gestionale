@@ -10,6 +10,7 @@ import {
   createMovimentiBatch,
   type CreaMovimentoInput,
 } from "@/lib/db/movimenti";
+import { logAudit } from "@/lib/db/audit-log";
 import type { MezzoPagamento } from "@/lib/config";
 import type { ParsedRow } from "@/lib/import/types";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
@@ -121,6 +122,17 @@ export async function confermaImportAction(
       note: r.note,
     }));
     const created = await createMovimentiBatch(inputs);
+    await logAudit({
+      userId: user.recordId,
+      userEmail: user.email,
+      action: "movimenti.bulk_import",
+      entityType: "movimento",
+      diff: {
+        conto: input.conto,
+        righeProposte: input.righe.length,
+        inserite: created.length,
+      },
+    });
     revalidatePath("/cassa");
     revalidatePath("/rendiconto");
     return { ok: true, inserted: created.length };

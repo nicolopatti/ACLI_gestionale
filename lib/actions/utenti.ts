@@ -18,15 +18,17 @@ import {
   incrementPasswordVersion,
   updateUser,
 } from "@/lib/db/users";
+import { logAudit } from "@/lib/db/audit-log";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  return session;
 }
 
 export async function createUtenteAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  const adminSession = await requireAdmin();
   const parsed = nuovoUtenteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -35,12 +37,20 @@ export async function createUtenteAction(_prev: unknown, formData: FormData) {
   const existing = await getUserByEmail(d.email);
   if (existing) return { error: "Email già usata" };
   const passwordHash = await hashPassword(d.password);
-  await createUser({
+  const created = await createUser({
     email: d.email,
     passwordHash,
     nome: d.nome,
     ruolo: d.ruolo,
     telegramUserId: d.telegramUserId,
+  });
+  await logAudit({
+    userId: adminSession.user?.recordId,
+    userEmail: adminSession.user?.email,
+    action: "user.create",
+    entityType: "user",
+    entityId: created.recordId,
+    diff: { email: created.email, nome: created.nome, ruolo: created.ruolo },
   });
   revalidatePath("/utenti");
   redirect("/utenti");
@@ -50,8 +60,9 @@ export async function aggiornaUtenteAction(
   _prev: { ok?: boolean; error?: string } | undefined,
   formData: FormData,
 ): Promise<{ ok?: boolean; error?: string }> {
+  let adminSession;
   try {
-    await requireAdmin();
+    adminSession = await requireAdmin();
   } catch (e) {
     console.error("[aggiornaUtenteAction]", e);
     return { error: userErrorMessage(e, "Errore durante l'operazione") };
@@ -76,6 +87,14 @@ export async function aggiornaUtenteAction(
         ? { telegram_user_id: d.telegramUserId }
         : { telegram_user_id: "" }),
     });
+    await logAudit({
+      userId: adminSession.user?.recordId,
+      userEmail: adminSession.user?.email,
+      action: "user.update",
+      entityType: "user",
+      entityId: d.recordId,
+      diff: { nome: d.nome, ruolo: d.ruolo, attivo: d.attivo },
+    });
     revalidatePath("/utenti");
     return { ok: true };
   } catch (e) {
@@ -85,7 +104,7 @@ export async function aggiornaUtenteAction(
 }
 
 export async function resetPasswordAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  const adminSession = await requireAdmin();
   const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -101,6 +120,14 @@ export async function resetPasswordAction(_prev: unknown, formData: FormData) {
   // Invalida tutte le sessioni attive dell'utente target: al prossimo
   // refresh il JWT non combacia piu' col DB e si fa redirect a /login.
   await incrementPasswordVersion(recordId);
+  await logAudit({
+    userId: adminSession.user?.recordId,
+    userEmail: adminSession.user?.email,
+    action: "user.password.reset.admin",
+    entityType: "user",
+    entityId: recordId,
+    diff: { targetEmail: target.email },
+  });
   revalidatePath("/utenti");
   return { ok: true };
 }
@@ -133,6 +160,13 @@ export async function cambiaPasswordAction(_prev: unknown, formData: FormData) {
   // perche' altrimenti anche questa sessione verrebbe sloggata.
   const next = await incrementPasswordVersion(recordId);
   await unstable_update({ user: { passwordVersion: next } });
+  await logAudit({
+    userId: recordId,
+    userEmail: user.email,
+    action: "user.password.changed",
+    entityType: "user",
+    entityId: recordId,
+  });
   return { ok: true };
 }
 
@@ -176,6 +210,13 @@ export async function primoAccessoAction(_prev: unknown, formData: FormData) {
   // fra /dashboard e /primo-accesso.
   await unstable_update({
     user: { mustChangePassword: false, passwordVersion: next },
+  });
+  await logAudit({
+    userId: recordId,
+    userEmail: user.email,
+    action: "user.first_login.password_set",
+    entityType: "user",
+    entityId: recordId,
   });
   redirect("/dashboard");
 }

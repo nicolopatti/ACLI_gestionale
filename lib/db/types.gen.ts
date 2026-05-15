@@ -56,6 +56,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          at: string
+          diff: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          at?: string
+          diff?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          at?: string
+          diff?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bambini: {
         Row: {
           attivo: boolean

@@ -10,15 +10,17 @@ import {
 } from "@/lib/db/mesi";
 import { listCategorie } from "@/lib/db/categorie";
 import { createMovimento, deleteMovimento } from "@/lib/db/movimenti";
+import { logAudit } from "@/lib/db/audit-log";
 import { BusinessError } from "@/lib/errors";
 
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  return session;
 }
 
 export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const parsed = segnaPagatoSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -40,8 +42,7 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
       ctx.rata.chiavePeriodo ? ` (${ctx.rata.chiavePeriodo})` : ""
     }`;
 
-    const session = await auth();
-    const volontario = session?.user?.name ?? undefined;
+    const volontario = admin.user?.name ?? undefined;
 
     const movimento = await createMovimento({
       tipo: "Entrata",
@@ -65,6 +66,20 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
       movimento_collegato: [movimento.id],
     });
 
+    await logAudit({
+      userId: admin.user?.recordId,
+      userEmail: admin.user?.email,
+      action: "rata.segna_pagato",
+      entityType: "rata",
+      entityId: d.meseId,
+      diff: {
+        importoPagato: d.importoPagato,
+        dataPagamento: d.dataPagamento,
+        mezzoPagamento: d.mezzoPagamento,
+        movimentoId: movimento.recordId,
+      },
+    });
+
     revalidatePath("/iscrizioni");
     revalidatePath("/cassa");
     return { ok: true };
@@ -75,7 +90,7 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
 }
 
 export async function annullaPagamentoAction(meseId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const rata = await getMese(meseId);
   if (rata?.movimentoCollegatoId) {
     try {
@@ -88,6 +103,14 @@ export async function annullaPagamentoAction(meseId: string) {
     importo_pagato: 0,
     stato_pagamento: "non_pagato",
     movimento_collegato: [],
+  });
+  await logAudit({
+    userId: admin.user?.recordId,
+    userEmail: admin.user?.email,
+    action: "rata.annulla_pagamento",
+    entityType: "rata",
+    entityId: meseId,
+    diff: { movimentoEliminatoId: rata?.movimentoCollegatoId ?? null },
   });
   revalidatePath("/iscrizioni");
   revalidatePath("/cassa");
