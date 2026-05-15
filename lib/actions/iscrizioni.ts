@@ -521,8 +521,16 @@ export async function getDeleteIscrizioneImpactAction(
   return { rate: rate.length };
 }
 
-export async function deleteIscrizioneAction(recordId: string) {
+export async function deleteIscrizioneAction(
+  recordId: string,
+  options?: { redirectTo?: string },
+) {
   const admin = await requireAdmin();
+  // Recupera attivitaId prima della cancellazione per poter rivalidare la
+  // lista per-attivita (la chiamata da `/iscrizioni/attivita/[id]` resta
+  // altrimenti su una vista stale).
+  const iscr = await getIscrizione(recordId);
+  const attivitaId = iscr?.attivitaId;
   try {
     // Cascade: prima cancella tutte le rate, poi l'iscrizione, così la
     // tabella Rate non resta con record orfani che falsificano report e saldi.
@@ -540,5 +548,7 @@ export async function deleteIscrizioneAction(recordId: string) {
     return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
   }
   revalidatePath("/iscrizioni");
-  redirect("/iscrizioni");
+  if (attivitaId) revalidatePath(`/iscrizioni/attivita/${attivitaId}`);
+  const target = options?.redirectTo ?? "/iscrizioni";
+  redirect(target);
 }

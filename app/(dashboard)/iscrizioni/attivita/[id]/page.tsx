@@ -19,9 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { SegnaPagatoDialog } from "@/components/iscrizioni/segna-pagato-dialog";
+import { IscrizioneRow } from "@/components/iscrizioni/iscrizione-row";
 import { cn, formatEur } from "@/lib/utils";
 
 type StatoIscrizione = "attiva" | "ritardo" | "completata" | "anagrafica";
@@ -67,19 +65,6 @@ function prossimaRataNonPagata(rate: MeseIscrizione[]): MeseIscrizione | undefin
         b.chiavePeriodo ?? b.descrizioneRiga ?? "",
       ),
     )[0];
-}
-
-function statoBadge(stato: StatoIscrizione) {
-  switch (stato) {
-    case "attiva":
-      return <Badge variant="success">Attiva</Badge>;
-    case "ritardo":
-      return <Badge variant="destructive">In ritardo</Badge>;
-    case "completata":
-      return <Badge variant="secondary">Completata</Badge>;
-    case "anagrafica":
-      return <Badge variant="outline">Solo anagrafica</Badge>;
-  }
 }
 
 export default async function IscrizioniByAttivitaPage({
@@ -256,19 +241,22 @@ export default async function IscrizioniByAttivitaPage({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[36px] p-1" aria-label="Espandi" />
                 <TableHead>Bambino</TableHead>
                 <TableHead>Modalità</TableHead>
                 <TableHead className="text-right">Importo modalità</TableHead>
                 <TableHead className="w-[200px]">Avanzamento</TableHead>
                 <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azione</TableHead>
+                <TableHead className="w-[1%] whitespace-nowrap text-right">
+                  Azioni
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center text-[var(--muted-foreground)] py-8"
                   >
                     {iscrizioni.length === 0
@@ -277,75 +265,20 @@ export default async function IscrizioniByAttivitaPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((row) => {
-                  const i = row.iscrizione;
-                  const b = bambinoById.get(i.bambinoId);
-                  const m = modalitaById.get(i.modalitaId);
-                  const fullName = b ? `${b.cognome} ${b.nome}`.trim() : "—";
-                  const tone =
-                    row.stato === "ritardo"
-                      ? "danger"
-                      : row.stato === "completata"
-                        ? "success"
-                        : "primary";
-                  return (
-                    <TableRow key={i.recordId}>
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          {b ? <Avatar name={fullName} size="md" /> : null}
-                          <Link
-                            href={`/iscrizioni/${i.recordId}`}
-                            className="font-medium hover:underline"
-                          >
-                            {fullName}
-                          </Link>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-[13px] text-[var(--ink-2)]">
-                        {m?.nome ?? "—"}
-                        {m?.tipoPrezzo === "flat" && (
-                          <Badge variant="secondary" className="ml-2 text-[10px]">
-                            pacchetto
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {m ? formatEur(m.importo) : "—"}
-                        {m && (
-                          <span className="text-xs text-[var(--muted-foreground)] ml-1">
-                            {m.tipoPrezzo === "flat" ? "tot." : "/sess."}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {row.totale === 0 ? (
-                          <span className="text-[12px] text-[var(--muted-foreground)]">
-                            Nessuna rata
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[12px] tabular-nums w-12 shrink-0">
-                              {row.pagati}/{row.totale}
-                            </span>
-                            <Progress
-                              value={row.pagati}
-                              max={row.totale}
-                              tone={tone}
-                              className="flex-1"
-                              label={`${row.pagati} rate pagate su ${row.totale}`}
-                            />
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>{statoBadge(row.stato)}</TableCell>
-                      <TableCell className="text-right">
-                        {row.prossimaRata ? (
-                          <SegnaPagatoDialog mese={row.prossimaRata} />
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                filtered.map((row) => (
+                  <IscrizioneRow
+                    key={row.iscrizione.recordId}
+                    iscrizione={row.iscrizione}
+                    rate={row.rate}
+                    pagati={row.pagati}
+                    totaleRate={row.totale}
+                    stato={row.stato}
+                    prossimaRata={row.prossimaRata}
+                    bambino={bambinoById.get(row.iscrizione.bambinoId)}
+                    modalita={modalitaById.get(row.iscrizione.modalitaId)}
+                    redirectAfterDelete={`/iscrizioni/attivita/${id}`}
+                  />
+                ))
               )}
             </TableBody>
           </Table>
