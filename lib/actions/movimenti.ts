@@ -8,6 +8,7 @@ import {
   setStatoMovimento,
   setVoceRendicontoMovimento,
 } from "@/lib/db/movimenti";
+import { logAudit } from "@/lib/db/audit-log";
 import { movimentoSchema } from "@/lib/validations/movimento";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
@@ -67,6 +68,20 @@ export async function creaMovimentoAction(
       telegramUserId: user.telegramUserId,
       origine: "app",
     });
+    await logAudit({
+      userId: user.recordId,
+      userEmail: user.email,
+      action: "movimento.create",
+      entityType: "movimento",
+      entityId: created.recordId,
+      diff: {
+        tipo: parsed.data.tipo,
+        importo: parsed.data.importo,
+        conto: parsed.data.conto,
+        dataMovimento: parsed.data.dataMovimento,
+        origine: "app",
+      },
+    });
     revalidatePath("/spese-edu");
     revalidatePath("/cassa");
     return { ok: true, recordId: created.recordId };
@@ -79,14 +94,23 @@ export async function creaMovimentoAction(
 async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  return session;
 }
 
 export async function setCategoriaMovimentoAction(
   movimentoId: string,
   categoriaId: string | null,
 ) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await setCategoriaMovimento(movimentoId, categoriaId);
+  await logAudit({
+    userId: admin.user?.recordId,
+    userEmail: admin.user?.email,
+    action: "movimento.set_categoria",
+    entityType: "movimento",
+    entityId: movimentoId,
+    diff: { categoriaId },
+  });
   revalidatePath("/rendiconto");
   revalidatePath("/cassa");
 }
@@ -95,24 +119,48 @@ export async function setVoceRendicontoMovimentoAction(
   movimentoId: string,
   voceRendicontoId: string | null,
 ) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await setVoceRendicontoMovimento(movimentoId, voceRendicontoId);
+  await logAudit({
+    userId: admin.user?.recordId,
+    userEmail: admin.user?.email,
+    action: "movimento.set_voce_rendiconto",
+    entityType: "movimento",
+    entityId: movimentoId,
+    diff: { voceRendicontoId },
+  });
   revalidatePath("/rendiconto");
   revalidatePath("/rendiconto/voce/[code]", "page");
   revalidatePath("/cassa");
 }
 
 export async function softDeleteMovimentoAction(movimentoId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await setStatoMovimento(movimentoId, "errato");
+  await logAudit({
+    userId: admin.user?.recordId,
+    userEmail: admin.user?.email,
+    action: "movimento.soft_delete",
+    entityType: "movimento",
+    entityId: movimentoId,
+    diff: { newStato: "errato" },
+  });
   revalidatePath("/rendiconto");
   revalidatePath("/rendiconto/voce/[code]", "page");
   revalidatePath("/cassa");
 }
 
 export async function restoreMovimentoAction(movimentoId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await setStatoMovimento(movimentoId, "valido");
+  await logAudit({
+    userId: admin.user?.recordId,
+    userEmail: admin.user?.email,
+    action: "movimento.restore",
+    entityType: "movimento",
+    entityId: movimentoId,
+    diff: { newStato: "valido" },
+  });
   revalidatePath("/rendiconto");
   revalidatePath("/rendiconto/voce/[code]", "page");
   revalidatePath("/cassa");
