@@ -22,8 +22,8 @@
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #32 mergeata, PR #33 hotfix logging) |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #43 mergeata) |
-| 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | 👀 in review (branch `claude/secplan-06-audit-log`) |
-| 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ⏳ da fare |
+| 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #44 mergeata) |
+| 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | 👀 in review (branch `claude/secplan-07-performance`) |
 | 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare |
 
 Totale stimato: 21-27h spalmate su 8 sessioni.
@@ -712,9 +712,9 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 
 ### Sessione 6 — Audit log applicativo
 **Branch**: `claude/secplan-06-audit-log`
-**PR**: #44 (in review)
-**Mergeata il**: —
-**Osservazione fino al**: 48h dopo il deploy in produzione (volume atteso ~50-100 righe/giorno)
+**PR**: #44 mergeata in produzione (`70e5b9d`)
+**Mergeata il**: 2026-05-15
+**Osservazione fino al**: 2026-05-17 (48h)
 **Note**:
 - **Migration Supabase** `create_audit_log`: nuova tabella `public.audit_log` con `id uuid PK`, `at timestamptz DEFAULT now()`, `user_id uuid REFERENCES users ON DELETE SET NULL`, `user_email text`, `action text NOT NULL`, `entity_type text`, `entity_id text`, `diff jsonb`, `ip text`, `user_agent text`. Tre indici: `(at DESC)`, `(user_id)`, `(entity_type, entity_id)`. RLS abilitata senza policy (service-role key bypassa, anon e' bloccato).
 - **Helper `lib/db/audit-log.ts`**: `logAudit(entry)` fire-and-forget. Legge `headers()` per IP (`x-forwarded-for` primo elemento) e User-Agent. Catch interno: errori sono swallowati con `console.error` per non rompere mai la business action sottostante. Type-safe via `Json` cast su `diff`.
@@ -735,6 +735,42 @@ Ogni sessione, al completamento, aggiorna questa sezione:
   - [ ] Verifica `select diff from audit_log where action like 'user.password%'` -> nessuna password leakata (manualmente).
 - **Pagina admin di visualizzazione**: rimandata a sessione futura (non blocca questa).
 - **Rollback**: `git revert <merge-commit>` rimuove le chiamate `logAudit` dal codice. Tabella `audit_log` resta in DB inutilizzata, nessuna azione distruttiva. Per ripulire eventualmente: `TRUNCATE TABLE public.audit_log;` (opzionale).
+- **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
+
+### Sessione 7 — Performance: caching esteso + RPC aggregati
+**Branch**: `claude/secplan-07-performance`
+**PR**: #45 (in review)
+**Mergeata il**: —
+**Osservazione fino al**: 48h dopo il deploy in produzione
+**Note**:
+- **RPC Postgres `saldi_per_conto`** applicata via MCP (`create_saldi_per_conto_rpc`):
+  ```sql
+  CREATE OR REPLACE FUNCTION public.saldi_per_conto(
+    anno_filtro int DEFAULT NULL,
+    telegram_user_filtro text DEFAULT NULL
+  )
+  RETURNS TABLE(conto text, entrate numeric, uscite numeric, saldo numeric)
+  LANGUAGE sql STABLE AS $$ ... GROUP BY conto $$;
+  ```
+  Esclude automaticamente `stato='errato'` e `is_giroconto=true`. Filtri opzionali per anno solare e per `telegram_user_id` (per gating non-admin su `/cassa`).
+- **`lib/db/movimenti.ts`**:
+  - Nuovo wrapper `saldiPerConto(opts?: { anno?: number; telegramUserId?: string })` -> `Record<MezzoPagamento, { entrate, uscite, saldo }>`. Inizializza tutti e tre i conti a zero (anche se la RPC non ritorna righe per un conto inutilizzato): cosi' i caller non devono gestire l'absent-key case.
+  - `listMovimenti`, `listMovimentiInRange`, `saldiPerConto` ora sono avvolti in `unstable_cache` con tag `["movimenti"]` (TTL 5 min di sicurezza, ma comunque invalidato su mutation).
+  - `createMovimento`, `createMovimentiBatch`, `deleteMovimento`, `setCategoriaMovimento`, `setVoceRendicontoMovimento`, `setStatoMovimento` chiamano `revalidateTag("movimenti", "max")` subito dopo il commit DB.
+  - `totaliPerConto` cancellata (era dead code, sostituita da `saldiPerConto`).
+  - `findMovimentiForDedup` e `findMovimentiByFingerprints` **non** cached: il flow di bank import deve vedere sempre lo stato fresco.
+- **`app/(dashboard)/cassa/page.tsx`**: i 4 KPI per conto + il "saldo totale" usano `saldiPerConto(isAdmin ? {} : { telegramUserId })` invece di aggregare in JS i 1000 movimenti caricati. `aggregaPerConto` rimossa dalla pagina; `aggregaTotale` rimane usata solo per il footer "periodo" (subset filtrato lato client).
+  - **Bug fix collaterale**: prima il dashboard sommava i giroconti (l'`aggregaPerConto` locale non filtrava `isGiroconto`); la RPC li esclude. Sulla `/cassa` lo stesso filter era già fatto in JS, il risultato non cambia.
+- **`app/(dashboard)/dashboard/page.tsx`**: il KPI "Saldo totale" del blocco admin usa `saldiPerConto()` invece dell'aggregato locale (che ignorava i giroconti, ora corretto via RPC). `entrateMese`/`usciteMese` restano aggregati lato JS dai 1000 movimenti caricati (refactor risparmiato per non bombardare di cambi: l'aggregato JS funziona finche' il volume movimenti < 1000/mese).
+- **Cache invalidation flow**:
+  - `revalidateTag("movimenti", "max")` -> tutti i wrap di `unstable_cache` con tag `movimenti` (list, range, saldi) vengono invalidati.
+  - Si propaga al primo render successivo: la dashboard si vede col saldo aggiornato senza dover aspettare il TTL.
+- **Smoke test pianificato**:
+  - [ ] `/cassa` mostra gli stessi numeri di KPI di prima del merge (verifica numerica).
+  - [ ] `/dashboard` "Saldo totale" coerente con `/cassa`.
+  - [ ] Crea un movimento da `/spese-edu` -> aspetta un attimo -> `/cassa` mostra il saldo aggiornato (cache invalidata).
+  - [ ] Cancella un movimento (`movimento.soft_delete`) -> `/cassa` mostra il saldo aggiornato.
+- **Rollback**: `git revert <merge-commit>` ripristina il codice JS. La RPC `saldi_per_conto` resta in DB inutilizzata (nessuna azione distruttiva necessaria).
 - **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
 
 ---

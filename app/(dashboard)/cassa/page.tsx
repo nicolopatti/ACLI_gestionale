@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth/auth";
-import { listMovimenti } from "@/lib/db/movimenti";
+import { listMovimenti, saldiPerConto } from "@/lib/db/movimenti";
 import { listCategorie } from "@/lib/db/categorie";
 import {
   Table,
@@ -27,22 +27,6 @@ interface ContoTotali {
 
 function emptyContoTotali(): ContoTotali {
   return { entrate: 0, uscite: 0, saldo: 0 };
-}
-
-function aggregaPerConto(
-  movimenti: Movimento[],
-): Record<MezzoPagamento, ContoTotali> {
-  const tot: Record<MezzoPagamento, ContoTotali> = {
-    Cassa: emptyContoTotali(),
-    BCC: emptyContoTotali(),
-    Sumup: emptyContoTotali(),
-  };
-  for (const m of movimenti) {
-    if (m.tipo === "Entrata") tot[m.conto].entrate += m.importo;
-    else tot[m.conto].uscite += m.importo;
-  }
-  for (const k of MEZZI_PAGAMENTO) tot[k].saldo = tot[k].entrate - tot[k].uscite;
-  return tot;
 }
 
 function aggregaTotale(
@@ -85,17 +69,25 @@ export default async function CassaPage({
   const contoSel = isConto(sp.conto) ? sp.conto : undefined;
   const categoriaSel = sp.categoria ?? "";
 
-  const [movimenti, categorie] = await Promise.all([
+  const [movimenti, categorie, totaliConto] = await Promise.all([
     listMovimenti({ ...(isAdmin ? {} : { telegramUserId }), limit: 1000 }),
     listCategorie(),
+    // KPI per conto via RPC Postgres: aggrega tutto lo storico (non i soli
+    // 1000 movimenti caricati per la tabella) escludendo giroconti e
+    // movimenti `stato='errato'`. Sessione 7 SECURITY_PLAN.
+    saldiPerConto(isAdmin ? {} : { telegramUserId }),
   ]);
   const categoriaById = new Map(categorie.map((c) => [c.recordId, c] as const));
 
-  // KPI per conto = unfiltered (saldo reale di ciascun conto).
-  // I giroconti sono trasferimenti interni e NON contribuiscono ai saldi.
-  const movimentiContabili = movimenti.filter((m) => !m.isGiroconto);
-  const totaliConto = aggregaPerConto(movimentiContabili);
-  const totaleGenerale = aggregaTotale(movimentiContabili);
+  // Saldo totale = somma dei tre conti (gia' al netto dei giroconti).
+  const totaleGenerale: ContoTotali = MEZZI_PAGAMENTO.reduce(
+    (acc, k) => ({
+      entrate: acc.entrate + totaliConto[k].entrate,
+      uscite: acc.uscite + totaliConto[k].uscite,
+      saldo: acc.saldo + totaliConto[k].saldo,
+    }),
+    emptyContoTotali(),
+  );
 
   // Movimenti filtrati per la tabella + footer periodo
   const filtered = movimenti.filter((m) => {
