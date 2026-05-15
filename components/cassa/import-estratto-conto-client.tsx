@@ -128,6 +128,9 @@ export function ImportEstrattoContoClient({ categorie, voci }: Props) {
         return;
       }
       setParseResult(res);
+      // Il server puo' aver rilevato un conto diverso da quello selezionato
+      // (auto-detect basato sul contenuto del file). Allinea lo state UI.
+      if (res.conto !== conto) setConto(res.conto);
       // Inizializza overrides dalle suggerimenti
       const init: RowOverride[] = res.righe.map((r, i) => {
         const sugg = res.suggerimenti[i];
