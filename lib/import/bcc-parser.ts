@@ -68,6 +68,17 @@ export function parseBccTsv(content: string): ParseResult {
   ) + 1;
 
   const righe: ParsedRow[] = [];
+  // Per ogni chiave `(dataValuta, importoSigned, descrizione)` teniamo il
+  // contatore delle occorrenze viste finora nel file. Due righe legittime
+  // identiche (es. 5 commissioni POS da 1,50€ nello stesso giorno) sono
+  // perfettamente reali su BCC: senza un contatore in fingerprint, lo
+  // UNIQUE INDEX `(conto, fingerprint_bank)` farebbe fallire l'insert
+  // batch. La 1a occorrenza usa l'hash storico (no suffisso) per non
+  // invalidare i fingerprint gia' in DB; dalla 2a in poi si aggiunge
+  // `|#N`. L'ordine di apparizione nel file BCC e' stabile (sort per
+  // data crescente), quindi re-importare lo stesso file produce gli
+  // stessi fingerprint → dedup contro DB intercetta i re-import.
+  const occurrenceByKey = new Map<string, number>();
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split("\t");
     if (cols.length < minColsNeeded) {
@@ -93,6 +104,10 @@ export function parseBccTsv(content: string): ParseResult {
       const tipo: "Entrata" | "Uscita" = importoSigned < 0 ? "Uscita" : "Entrata";
       const importo = Math.abs(importoSigned);
 
+      const key = `${dataValuta}|${importoSigned.toFixed(2)}|${descrizione.toLowerCase()}`;
+      const occurrence = occurrenceByKey.get(key) ?? 0;
+      occurrenceByKey.set(key, occurrence + 1);
+
       righe.push({
         index: righe.length,
         conto: "BCC",
@@ -101,7 +116,12 @@ export function parseBccTsv(content: string): ParseResult {
         importo,
         tipo,
         descrizione,
-        fingerprint: bccFingerprint(dataValuta, importoSigned, descrizione),
+        fingerprint: bccFingerprint(
+          dataValuta,
+          importoSigned,
+          descrizione,
+          occurrence,
+        ),
       });
     } catch (err) {
       warnings.push(
@@ -137,7 +157,12 @@ function bccFingerprint(
   dataValuta: string,
   importoSigned: number,
   descrizione: string,
+  occurrence: number,
 ): string {
-  const normalized = `bcc|${dataValuta}|${importoSigned.toFixed(2)}|${descrizione.toLowerCase()}`;
+  const base = `bcc|${dataValuta}|${importoSigned.toFixed(2)}|${descrizione.toLowerCase()}`;
+  // Retrocompat: la 1a occorrenza mantiene l'hash storico (i record in DB
+  // pre-PR-fix sono nati senza suffisso). Solo dalla 2a in poi appendiamo
+  // `|#N` per garantire unicita' su righe identiche legittime.
+  const normalized = occurrence === 0 ? base : `${base}|#${occurrence}`;
   return createHash("sha1").update(normalized).digest("hex");
 }
