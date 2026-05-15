@@ -33,7 +33,7 @@ export async function dedupParsedRows(
 ): Promise<RowMatch[]> {
   if (righe.length === 0) return [];
 
-  // 1. Dedup per fingerprint (re-import dello stesso file).
+  // 1. Dedup per fingerprint contro il DB (re-import dello stesso file).
   const fingerprints = righe.map((r) => r.fingerprint);
   const existingByFingerprint = await findMovimentiByFingerprints(
     conto,
@@ -43,9 +43,21 @@ export async function dedupParsedRows(
     existingByFingerprint.map((m) => [m.fingerprintBank, m] as const),
   );
 
-  // 2. Per ogni riga non-duplicate, lookup per (conto, tipo, importo, data±3gg).
+  // 2. Per ogni riga: prima dedup intra-file, poi contro il DB, poi fuzzy
+  // match per (conto, tipo, importo, data±3gg). Il check intra-file e'
+  // essenziale: lo UNIQUE INDEX `movimenti_fingerprint_bank_uidx` rolla
+  // back l'intero batch se anche una sola riga collide. Senza il check,
+  // un export con due righe identiche (commissione mensile ripetuta,
+  // riga duplicata da bug dell'export, ecc.) farebbe fallire la conferma
+  // con il messaggio generico "Errore durante l'operazione".
+  const seenInFile = new Set<string>();
   const results: RowMatch[] = [];
   for (const r of righe) {
+    if (seenInFile.has(r.fingerprint)) {
+      results.push({ status: "duplicate", candidati: [] });
+      continue;
+    }
+    seenInFile.add(r.fingerprint);
     const fpHit = fingerprintMap.get(r.fingerprint);
     if (fpHit) {
       results.push({ status: "duplicate", candidati: [fpHit] });
