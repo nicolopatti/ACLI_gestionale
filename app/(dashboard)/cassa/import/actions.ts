@@ -179,8 +179,19 @@ export async function confermaImportAction(
     return { ok: true, inserted: created.length };
   } catch (err) {
     console.error("[confermaImportAction]", err);
-    return { ok: false,
+    const code = (err as { code?: string }).code;
+    if (code === "23505") {
+      return {
+        ok: false,
+        inserted: 0,
+        error:
+          "Una o piu' righe selezionate hanno un fingerprint gia' presente in DB o duplicato all'interno del file. Deseleziona i duplicati (badge \"Duplicato\") e riprova.",
+      };
+    }
+    return {
+      ok: false,
       inserted: 0,
-      error: userErrorMessage(err, "Errore durante l'operazione") };
+      error: userErrorMessage(err, "Errore durante l'operazione"),
+    };
   }
 }
