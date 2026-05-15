@@ -50,6 +50,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           ruolo: user.ruolo,
           telegramUserId: user.telegramUserId,
           mustChangePassword: user.mustChangePassword,
+          passwordVersion: user.passwordVersion,
         };
       },
     }),

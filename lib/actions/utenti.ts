@@ -11,7 +11,13 @@ import {
   primoAccessoSchema,
   resetPasswordSchema,
 } from "@/lib/validations/utente";
-import { createUser, getUserByEmail, getUserById, updateUser } from "@/lib/db/users";
+import {
+  createUser,
+  getUserByEmail,
+  getUserById,
+  incrementPasswordVersion,
+  updateUser,
+} from "@/lib/db/users";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
 async function requireAdmin() {
@@ -92,6 +98,9 @@ export async function resetPasswordAction(_prev: unknown, formData: FormData) {
     password_hash: passwordHash,
     must_change_password: true,
   });
+  // Invalida tutte le sessioni attive dell'utente target: al prossimo
+  // refresh il JWT non combacia piu' col DB e si fa redirect a /login.
+  await incrementPasswordVersion(recordId);
   revalidatePath("/utenti");
   return { ok: true };
 }
@@ -118,6 +127,12 @@ export async function cambiaPasswordAction(_prev: unknown, formData: FormData) {
     password_hash: passwordHash,
     must_change_password: false,
   });
+  // Sessione 5 SECURITY_PLAN: incrementa la versione di autenticazione cosi'
+  // tutte le altre sessioni attive (browser secondari, dispositivi mobili)
+  // vengono invalidate al prossimo refresh. Allinea poi il JWT corrente
+  // perche' altrimenti anche questa sessione verrebbe sloggata.
+  const next = await incrementPasswordVersion(recordId);
+  await unstable_update({ user: { passwordVersion: next } });
   return { ok: true };
 }
 
@@ -150,13 +165,17 @@ export async function primoAccessoAction(_prev: unknown, formData: FormData) {
     must_change_password: false,
   });
 
-  // Aggiorna in-place il JWT: il callback jwt() in auth.config.ts legge
-  // session.mustChangePassword quando trigger === "update" e lo copia nel
-  // token. Cosi' il proxy al prossimo redirect vede mustChangePassword=false
-  // senza richiedere logout/login. Tentare il logout dentro a una server
-  // action via signOut() risultava in produzione in un Set-Cookie non
-  // applicato dal browser, lasciando l'utente bloccato fra /dashboard e
-  // /primo-accesso.
-  await unstable_update({ user: { mustChangePassword: false } });
+  // Sessione 5 SECURITY_PLAN: incrementa la versione di autenticazione cosi'
+  // qualsiasi sessione attiva con la password temporanea (rara qui ma
+  // possibile via reset admin -> primo accesso) viene invalidata.
+  const next = await incrementPasswordVersion(recordId);
+  // Aggiorna in-place il JWT corrente: abbassa il flag mustChangePassword
+  // e allinea passwordVersion alla nuova versione DB. Tentare il logout
+  // dentro a una server action via signOut() risultava in produzione in
+  // un Set-Cookie non applicato dal browser, lasciando l'utente bloccato
+  // fra /dashboard e /primo-accesso.
+  await unstable_update({
+    user: { mustChangePassword: false, passwordVersion: next },
+  });
   redirect("/dashboard");
 }

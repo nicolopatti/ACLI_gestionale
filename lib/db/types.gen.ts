@@ -679,6 +679,7 @@ export type Database = {
           must_change_password: boolean
           nome: string
           password_hash: string
+          password_version: number
           ruolo: Database["public"]["Enums"]["ruolo"]
           telegram_user_id: string | null
         }
@@ -691,6 +692,7 @@ export type Database = {
           must_change_password?: boolean
           nome: string
           password_hash: string
+          password_version?: number
           ruolo?: Database["public"]["Enums"]["ruolo"]
           telegram_user_id?: string | null
         }
@@ -703,6 +705,7 @@ export type Database = {
           must_change_password?: boolean
           nome?: string
           password_hash?: string
+          password_version?: number
           ruolo?: Database["public"]["Enums"]["ruolo"]
           telegram_user_id?: string | null
         }

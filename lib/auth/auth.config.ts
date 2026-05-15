@@ -1,9 +1,11 @@
 import type { NextAuthConfig } from "next-auth";
 import type { Ruolo } from "@/lib/config";
+import { getPasswordVersion } from "@/lib/db/users";
 
 /**
  * Config edge-safe di Auth.js: nessun import che dipende da Node-only
  * (bcrypt, fs, ecc.) per essere compatibile con il runtime edge di proxy.ts.
+ * `getPasswordVersion` usa Supabase client (compatibile edge).
  */
 export const authConfig = {
   pages: {
@@ -11,7 +13,11 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 14, // 14 giorni
+    // Sessione 5 SECURITY_PLAN: ridotto da 14gg a 24h. Una compromissione
+    // del JWT (token rubato via XSS / cookie leak) e' sfruttabile fino a
+    // questo limite. L'invalidazione esplicita su cambio password e'
+    // gestita dal check `passwordVersion` nel callback jwt qui sotto.
+    maxAge: 60 * 60 * 24, // 24 ore
   },
   providers: [], // i provider veri sono in lib/auth/auth.ts
   callbacks: {
@@ -79,7 +85,7 @@ export const authConfig = {
       // Ruolo sconosciuto: nega accesso
       return false;
     },
-    jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.userId = user.recordId;
         token.ruolo = user.ruolo;
@@ -87,20 +93,56 @@ export const authConfig = {
         token.nome = user.nome;
         token.telegramUserId = user.telegramUserId;
         token.mustChangePassword = user.mustChangePassword;
+        token.passwordVersion = user.passwordVersion;
       }
       // Permette al server di abbassare il flag dopo un cambio password
       // riuscito senza richiedere logout/login. La firma supportata e' quella
-      // di unstable_update: { user: { mustChangePassword: false } }; teniamo
-      // anche il fallback al formato piatto { mustChangePassword } per non
-      // rompere chiamate precedenti.
+      // di unstable_update: { user: { mustChangePassword: false, passwordVersion: N } };
+      // teniamo anche il fallback al formato piatto per non rompere chiamate
+      // precedenti.
       if (trigger === "update" && session && typeof session === "object") {
         const next = session as {
-          user?: { mustChangePassword?: boolean };
+          user?: { mustChangePassword?: boolean; passwordVersion?: number };
           mustChangePassword?: boolean;
+          passwordVersion?: number;
         };
-        const v = next.user?.mustChangePassword ?? next.mustChangePassword;
-        if (typeof v === "boolean") {
-          token.mustChangePassword = v;
+        const mcp = next.user?.mustChangePassword ?? next.mustChangePassword;
+        if (typeof mcp === "boolean") {
+          token.mustChangePassword = mcp;
+        }
+        const pv = next.user?.passwordVersion ?? next.passwordVersion;
+        if (typeof pv === "number") {
+          token.passwordVersion = pv;
+        }
+      }
+      // Sessione 5 SECURITY_PLAN: invalidazione sessione su cambio password.
+      // Ad ogni request che non sia il login iniziale o un update server-side,
+      // confronta la `passwordVersion` del token con quella corrente sul DB.
+      // Mismatch -> ritorna null, il proxy redirezione l'utente a /login.
+      // Se la query fallisce (DB irraggiungibile, utente cancellato) lasciamo
+      // passare: l'invalidazione non deve bloccare gli utenti per un problema
+      // infrastrutturale (fail-open coerente con il rate-limit di /login).
+      if (
+        trigger !== "signIn" &&
+        trigger !== "update" &&
+        typeof token.userId === "string"
+      ) {
+        const current = await getPasswordVersion(token.userId);
+        if (
+          current !== null &&
+          typeof token.passwordVersion === "number" &&
+          current !== token.passwordVersion
+        ) {
+          return null;
+        }
+        // Token vecchio senza passwordVersion (pre-Sessione 5): forziamo
+        // re-login una volta sola. Tutti gli utenti gia' loggati passeranno
+        // di qui al primo refresh dopo il deploy.
+        if (
+          current !== null &&
+          typeof token.passwordVersion !== "number"
+        ) {
+          return null;
         }
       }
       return token;
@@ -114,6 +156,9 @@ export const authConfig = {
         session.user.telegramUserId = token.telegramUserId as string | undefined;
         session.user.mustChangePassword = token.mustChangePassword as
           | boolean
+          | undefined;
+        session.user.passwordVersion = token.passwordVersion as
+          | number
           | undefined;
       }
       return session;

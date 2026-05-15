@@ -8,6 +8,7 @@ declare module "next-auth" {
     ruolo: Ruolo;
     telegramUserId?: string;
     mustChangePassword?: boolean;
+    passwordVersion?: number;
   }
 
   interface Session {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       ruolo: Ruolo;
       telegramUserId?: string;
       mustChangePassword?: boolean;
+      passwordVersion?: number;
     } & DefaultSession["user"];
   }
 }
@@ -28,5 +30,6 @@ declare module "next-auth/jwt" {
     ruolo?: Ruolo;
     telegramUserId?: string;
     mustChangePassword?: boolean;
+    passwordVersion?: number;
   }
 }
