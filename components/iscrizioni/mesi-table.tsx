@@ -17,9 +17,26 @@ interface Props {
 }
 
 function periodoLabel(m: MeseIscrizione, sessione?: Sessione): string {
+  // Le righe pacchetto/quota_iscrizione/sconto non hanno sessione: l'etichetta
+  // umana viaggia in descrizione_riga.
+  if (m.descrizioneRiga) return m.descrizioneRiga;
   if (sessione?.etichetta) return sessione.etichetta;
   if (m.tipoUnita === "mese" && m.meseAnno) return meseAnnoLabel(m.meseAnno);
   return m.chiavePeriodo ?? m.meseAnno ?? "—";
+}
+
+function tipoRigaBadge(m: MeseIscrizione) {
+  switch (m.tipoRiga) {
+    case "pacchetto":
+      return <Badge variant="secondary" className="ml-2 text-[10px]">pacchetto</Badge>;
+    case "quota_iscrizione":
+      return <Badge variant="outline" className="ml-2 text-[10px]">quota</Badge>;
+    case "sconto":
+      return <Badge variant="destructive" className="ml-2 text-[10px]">sconto</Badge>;
+    case "sessione":
+    default:
+      return null;
+  }
 }
 
 export function MesiTable({ mesi, sessioniById }: Props) {
@@ -38,12 +55,23 @@ export function MesiTable({ mesi, sessioniById }: Props) {
       <TableBody>
         {mesi.map((m) => {
           const sessione = m.sessioneId ? sessioniById?.get(m.sessioneId) : undefined;
+          const isSconto = m.tipoRiga === "sconto";
+          // Sconti: importo negativo, niente flow di pagamento, niente azione.
           return (
             <TableRow key={m.recordId}>
-              <TableCell className="font-medium capitalize">{periodoLabel(m, sessione)}</TableCell>
-              <TableCell>{formatEur(m.importoDovuto)}</TableCell>
+              <TableCell className="font-medium capitalize">
+                {periodoLabel(m, sessione)}
+                {tipoRigaBadge(m)}
+              </TableCell>
+              <TableCell
+                className={isSconto ? "text-[var(--destructive)] tabular-nums" : "tabular-nums"}
+              >
+                {formatEur(m.importoDovuto)}
+              </TableCell>
               <TableCell>
-                {m.statoPagamento === "pagato" ? (
+                {isSconto ? (
+                  <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                ) : m.statoPagamento === "pagato" ? (
                   <Badge variant="success">Pagato {formatEur(m.importoPagato)}</Badge>
                 ) : m.statoPagamento === "parziale" ? (
                   <Badge variant="warning">Parziale</Badge>
@@ -54,7 +82,9 @@ export function MesiTable({ mesi, sessioniById }: Props) {
               <TableCell>{formatDate(m.dataPagamento)}</TableCell>
               <TableCell>{m.mezzoPagamento ?? "—"}</TableCell>
               <TableCell className="text-right">
-                {m.statoPagamento !== "pagato" && <SegnaPagatoDialog mese={m} />}
+                {!isSconto && m.statoPagamento !== "pagato" && (
+                  <SegnaPagatoDialog mese={m} />
+                )}
               </TableCell>
             </TableRow>
           );

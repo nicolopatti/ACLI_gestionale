@@ -4,9 +4,14 @@ import { listBambini } from "@/lib/db/bambini";
 import { listAttivita } from "@/lib/db/attivita";
 import { listSessioniByAttivita } from "@/lib/db/sessioni";
 import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
+import { listScontiByAttivita } from "@/lib/db/sconti-attivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
-import type { ModalitaIscrizione, Sessione } from "@/lib/db/types";
+import type {
+  ModalitaIscrizione,
+  ScontoAttivita,
+  Sessione,
+} from "@/lib/db/types";
 
 export default async function NuovaIscrizionePage({
   searchParams,
@@ -20,17 +25,18 @@ export default async function NuovaIscrizionePage({
     listAttivita({ attivo: true }),
   ]);
 
-  const sessioniLists = await Promise.all(
-    attivita.map((a) => listSessioniByAttivita(a.recordId)),
-  );
-  const modalitaLists = await Promise.all(
-    attivita.map((a) => listModalitaByAttivita(a.recordId)),
-  );
+  const [sessioniLists, modalitaLists, scontiLists] = await Promise.all([
+    Promise.all(attivita.map((a) => listSessioniByAttivita(a.recordId))),
+    Promise.all(attivita.map((a) => listModalitaByAttivita(a.recordId))),
+    Promise.all(attivita.map((a) => listScontiByAttivita(a.recordId))),
+  ]);
   const sessioniByAttivita: Record<string, Sessione[]> = {};
   const modalitaByAttivita: Record<string, ModalitaIscrizione[]> = {};
+  const scontiByAttivita: Record<string, ScontoAttivita[]> = {};
   attivita.forEach((a, i) => {
     sessioniByAttivita[a.recordId] = sessioniLists[i];
     modalitaByAttivita[a.recordId] = modalitaLists[i];
+    scontiByAttivita[a.recordId] = scontiLists[i];
   });
 
   return (
@@ -67,6 +73,7 @@ export default async function NuovaIscrizionePage({
               attivita={attivita}
               sessioniByAttivita={sessioniByAttivita}
               modalitaByAttivita={modalitaByAttivita}
+              scontiByAttivita={scontiByAttivita}
               defaultBambinoId={sp.bambinoId}
             />
           </CardContent>

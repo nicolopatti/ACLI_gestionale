@@ -15,6 +15,13 @@ export const attivitaSchema = z
     autoGeneraSessioniMensili: z.coerce.boolean().default(false),
     giorniSettimana: z.array(giornoEnum).default([]),
     fasceOrarie: z.array(z.string().trim().min(1)).default([]),
+    // Quota iscrizione una-tantum opzionale (es. 15 €). Stringa vuota -> undefined.
+    quotaIscrizione: z
+      .preprocess(
+        (v) => (v === "" || v == null ? undefined : v),
+        z.coerce.number().nonnegative("La quota deve essere >= 0"),
+      )
+      .optional(),
   })
   .superRefine((val, ctx) => {
     if (val.tipo !== "doposcuola") {

@@ -1,34 +1,34 @@
 import Link from "next/link";
 import { requireAdminOrCoordinatore } from "@/lib/auth/page-guards";
-import { Plus } from "lucide-react";
+import {
+  ChevronRight,
+  Drama,
+  GraduationCap,
+  Plus,
+  Train,
+  type LucideIcon,
+} from "lucide-react";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
-import { listBambini } from "@/lib/db/bambini";
 import { listAttivita } from "@/lib/db/attivita";
 import { listAllMesi } from "@/lib/db/mesi";
-import { listAllModalita } from "@/lib/db/modalita-iscrizione";
 import type { Iscrizione, MeseIscrizione } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { SegnaPagatoDialog } from "@/components/iscrizioni/segna-pagato-dialog";
 import { cn, formatEur } from "@/lib/utils";
+import type { TipoAttivita } from "@/lib/config";
 
-type StatoIscrizione = "attiva" | "ritardo" | "completata" | "anagrafica";
-type Tab = "tutte" | "attive" | "ritardo" | "completate";
+const ICON_BY_TIPO: Record<TipoAttivita, LucideIcon> = {
+  doposcuola: GraduationCap,
+  laboratorio: Drama,
+  locomotiva: Train,
+};
 
-function isTab(v: string | undefined): v is Tab {
-  return v === "tutte" || v === "attive" || v === "ritardo" || v === "completate";
-}
+const TONE_BY_TIPO: Record<TipoAttivita, { bg: string; ink: string }> = {
+  doposcuola: { bg: "bg-[var(--primary-soft)]", ink: "text-[var(--primary-soft-ink)]" },
+  laboratorio: { bg: "bg-[var(--accent-soft)]", ink: "text-[var(--accent-soft-ink)]" },
+  locomotiva: { bg: "bg-[var(--info-soft)]", ink: "text-[var(--info-soft-ink)]" },
+};
 
 function currentMonthKey(): string {
   return new Date().toISOString().slice(0, 7);
@@ -36,128 +36,94 @@ function currentMonthKey(): string {
 
 function rataInRitardo(r: MeseIscrizione, currentMonth: string): boolean {
   if (r.statoPagamento === "pagato") return false;
-  // Per chiavi YYYY-MM il confronto stringa è corretto. Per chiavi
-  // diverse (settimanali/giornaliere) il confronto resta sufficiente
-  // come approssimazione MVP.
+  // Le righe sconto hanno importo negativo: non sono "in ritardo".
+  if (r.tipoRiga === "sconto") return false;
+  // Per pacchetto/quota_iscrizione manca chiave_periodo: trattate come
+  // dovute al momento corrente, quindi NON in ritardo finche' non pagate.
   if (!r.chiavePeriodo) return false;
   return r.chiavePeriodo.slice(0, 7) < currentMonth;
 }
 
-function derivaStatoIscrizione(rate: MeseIscrizione[], currentMonth: string): StatoIscrizione {
-  if (rate.length === 0) return "anagrafica";
-  const hasRitardo = rate.some((r) => rataInRitardo(r, currentMonth));
-  if (hasRitardo) return "ritardo";
-  const tutteCompletate = rate.every((r) => r.statoPagamento === "pagato");
-  if (tutteCompletate) return "completata";
-  return "attiva";
+interface AttivitaCardData {
+  attivitaId: string;
+  attivitaNome: string;
+  attivitaTipo: TipoAttivita;
+  iscritti: number;
+  totaleIncassato: number;
+  rateInRitardo: number;
 }
 
-function prossimaRataNonPagata(rate: MeseIscrizione[]): MeseIscrizione | undefined {
-  return rate
-    .filter((r) => r.statoPagamento !== "pagato")
-    .sort((a, b) => (a.chiavePeriodo ?? "").localeCompare(b.chiavePeriodo ?? ""))[0];
-}
-
-function statoBadge(stato: StatoIscrizione) {
-  switch (stato) {
-    case "attiva":
-      return <Badge variant="success">Attiva</Badge>;
-    case "ritardo":
-      return <Badge variant="destructive">In ritardo</Badge>;
-    case "completata":
-      return <Badge variant="secondary">Completata</Badge>;
-    case "anagrafica":
-      return <Badge variant="outline">Solo anagrafica</Badge>;
-  }
-}
-
-export default async function IscrizioniPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
+export default async function IscrizioniPage() {
   await requireAdminOrCoordinatore();
-  const sp = await searchParams;
-  const tab: Tab = isTab(sp.tab) ? sp.tab : "tutte";
   const currentMonth = currentMonthKey();
 
-  const [iscrizioni, bambini, attivita, allRate, modalita] = await Promise.all([
+  const [iscrizioni, attivita, allRate] = await Promise.all([
     listIscrizioni(),
-    listBambini(),
     listAttivita(),
     listAllMesi(),
-    listAllModalita(),
   ]);
 
-  const bambinoById = new Map(bambini.map((b) => [b.recordId, b] as const));
-  const attivitaById = new Map(attivita.map((a) => [a.recordId, a] as const));
-  const modalitaById = new Map(modalita.map((m) => [m.recordId, m] as const));
-
-  const rateByIscrizione = new Map<string, MeseIscrizione[]>();
+  // Aggrego per attivita.
+  const byAttivita = new Map<string, {
+    iscrizioni: Iscrizione[];
+    rate: MeseIscrizione[];
+  }>();
+  for (const i of iscrizioni) {
+    const cur = byAttivita.get(i.attivitaId) ?? { iscrizioni: [], rate: [] };
+    cur.iscrizioni.push(i);
+    byAttivita.set(i.attivitaId, cur);
+  }
+  const iscrizioniIds = new Set(iscrizioni.map((i) => i.recordId));
   for (const r of allRate) {
-    const arr = rateByIscrizione.get(r.iscrizioneId) ?? [];
-    arr.push(r);
-    rateByIscrizione.set(r.iscrizioneId, arr);
+    if (!iscrizioniIds.has(r.iscrizioneId)) continue;
+    const iscr = iscrizioni.find((i) => i.recordId === r.iscrizioneId);
+    if (!iscr) continue;
+    const cur = byAttivita.get(iscr.attivitaId);
+    if (cur) cur.rate.push(r);
   }
 
-  type Row = {
-    iscrizione: Iscrizione;
-    rate: MeseIscrizione[];
-    pagati: number;
-    totale: number;
-    stato: StatoIscrizione;
-    prossimaRata?: MeseIscrizione;
-  };
+  const cards: AttivitaCardData[] = [];
+  for (const a of attivita) {
+    const agg = byAttivita.get(a.recordId);
+    if (!agg || agg.iscrizioni.length === 0) continue;
+    const totaleIncassato = agg.rate
+      .filter((r) => r.statoPagamento === "pagato")
+      .reduce((acc, r) => acc + (r.importoPagato ?? 0), 0);
+    const rateInRitardo = agg.rate.filter((r) =>
+      rataInRitardo(r, currentMonth),
+    ).length;
+    cards.push({
+      attivitaId: a.recordId,
+      attivitaNome: a.nome,
+      attivitaTipo: a.tipo,
+      iscritti: agg.iscrizioni.length,
+      totaleIncassato,
+      rateInRitardo,
+    });
+  }
 
-  const rows: Row[] = iscrizioni.map((i) => {
-    const rate = rateByIscrizione.get(i.recordId) ?? [];
-    const pagati = rate.filter((r) => r.statoPagamento === "pagato").length;
-    return {
-      iscrizione: i,
-      rate,
-      pagati,
-      totale: rate.length,
-      stato: derivaStatoIscrizione(rate, currentMonth),
-      prossimaRata: prossimaRataNonPagata(rate),
-    };
+  // Ordina: attivita con iscrizioni in ritardo prima, poi per numero iscritti.
+  cards.sort((a, b) => {
+    if (a.rateInRitardo !== b.rateInRitardo)
+      return b.rateInRitardo - a.rateInRitardo;
+    return b.iscritti - a.iscritti;
   });
 
-  const counts = {
-    tutte: rows.length,
-    attive: rows.filter((r) => r.stato === "attiva").length,
-    ritardo: rows.filter((r) => r.stato === "ritardo").length,
-    completate: rows.filter((r) => r.stato === "completata").length,
-  };
-
-  const filtered = rows
-    .filter((r) => {
-      if (tab === "tutte") return true;
-      if (tab === "attive") return r.stato === "attiva";
-      if (tab === "ritardo") return r.stato === "ritardo";
-      if (tab === "completate") return r.stato === "completata";
-      return true;
-    })
-    .sort((a, b) => {
-      // ritardo > attiva > completata; poi per data iscrizione discendente
-      const order: Record<StatoIscrizione, number> = {
-        ritardo: 0,
-        attiva: 1,
-        anagrafica: 2,
-        completata: 3,
-      };
-      const o = order[a.stato] - order[b.stato];
-      if (o !== 0) return o;
-      return (b.iscrizione.dataIscrizione ?? "").localeCompare(a.iscrizione.dataIscrizione ?? "");
-    });
-
-  function tabHref(t: Tab): string {
-    return t === "tutte" ? "/iscrizioni" : `?tab=${t}`;
-  }
+  // Attivita attive senza iscrizioni: card "vuota" sotto le altre.
+  const attivitaConIscrizioniIds = new Set(cards.map((c) => c.attivitaId));
+  const attivitaVuote = attivita.filter(
+    (a) => a.attivo && !attivitaConIscrizioniIds.has(a.recordId),
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Iscrizioni</h1>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Iscrizioni</h1>
+          <p className="text-[13px] text-[var(--muted-foreground)] mt-0.5">
+            Seleziona un&apos;attività per gestirne gli iscritti
+          </p>
+        </div>
         <Button asChild>
           <Link href="/iscrizioni/nuova">
             <Plus className="h-4 w-4" /> Nuova iscrizione
@@ -165,120 +131,132 @@ export default async function IscrizioniPage({
         </Button>
       </div>
 
-      <div className="flex gap-0.5 border-b border-[var(--border)]">
-        {(
-          [
-            ["tutte", "Tutte"],
-            ["attive", "Attive"],
-            ["ritardo", "In ritardo"],
-            ["completate", "Completate"],
-          ] as const
-        ).map(([key, label]) => (
-          <Link
-            key={key}
-            href={tabHref(key)}
-            data-active={tab === key}
-            className={cn(
-              "px-3.5 py-2.5 text-[13px] font-medium text-[var(--muted-foreground)]",
-              "border-b-2 border-transparent -mb-px",
-              "hover:text-[var(--ink-2)] transition-colors no-underline",
-              "data-[active=true]:text-[var(--ink)] data-[active=true]:border-[var(--primary)]",
-            )}
-          >
-            {label}
-            <span className="ml-1.5 text-[11px] text-[var(--muted-2)] tabular-nums font-normal">
-              {counts[key]}
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Bambino</TableHead>
-                <TableHead>Attività</TableHead>
-                <TableHead>Modalità</TableHead>
-                <TableHead className="text-right">Importo / sess.</TableHead>
-                <TableHead className="w-[200px]">Avanzamento</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azione</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-[var(--muted-foreground)] py-8">
-                    Nessuna iscrizione corrisponde al filtro.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((row) => {
-                  const i = row.iscrizione;
-                  const b = bambinoById.get(i.bambinoId);
-                  const a = attivitaById.get(i.attivitaId);
-                  const m = modalitaById.get(i.modalitaId);
-                  const fullName = b ? `${b.cognome} ${b.nome}`.trim() : "—";
-                  const tone =
-                    row.stato === "ritardo"
-                      ? "danger"
-                      : row.stato === "completata"
-                        ? "success"
-                        : "primary";
-                  return (
-                    <TableRow key={i.recordId}>
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          {b ? <Avatar name={fullName} size="md" /> : null}
-                          <Link
-                            href={`/iscrizioni/${i.recordId}`}
-                            className="font-medium hover:underline"
-                          >
-                            {fullName}
-                          </Link>
-                        </div>
-                      </TableCell>
-                      <TableCell>{a?.nome ?? "—"}</TableCell>
-                      <TableCell className="text-[13px] text-[var(--ink-2)]">
-                        {m?.nome ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {m ? formatEur(m.importo) : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {row.totale === 0 ? (
-                          <span className="text-[12px] text-[var(--muted-foreground)]">
-                            Nessuna rata
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[12px] tabular-nums w-12 shrink-0">
-                              {row.pagati}/{row.totale}
-                            </span>
-                            <Progress
-                              value={row.pagati}
-                              max={row.totale}
-                              tone={tone}
-                              className="flex-1"
-                              label={`${row.pagati} rate pagate su ${row.totale}`}
-                            />
-                          </div>
+      {cards.length === 0 && attivitaVuote.length === 0 ? (
+        <Card>
+          <CardContent className="text-center text-[var(--muted-foreground)] py-12">
+            Nessuna attività configurata.{" "}
+            <Link href="/attivita/nuova" className="underline">
+              Crea la prima attività
+            </Link>
+            .
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3.5 md:grid-cols-2">
+          {cards.map((c) => {
+            const Icon = ICON_BY_TIPO[c.attivitaTipo];
+            const tone = TONE_BY_TIPO[c.attivitaTipo];
+            return (
+              <Link
+                key={c.attivitaId}
+                href={`/iscrizioni/attivita/${c.attivitaId}`}
+                className="no-underline"
+              >
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3.5 mb-4">
+                      <div
+                        className={cn(
+                          "w-11 h-11 rounded-[10px] grid place-items-center shrink-0",
+                          tone.bg,
+                          tone.ink,
                         )}
-                      </TableCell>
-                      <TableCell>{statoBadge(row.stato)}</TableCell>
-                      <TableCell className="text-right">
-                        {row.prossimaRata ? <SegnaPagatoDialog mese={row.prossimaRata} /> : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-serif text-[18px] font-medium tracking-tight truncate">
+                            {c.attivitaNome}
+                          </h3>
+                          {c.rateInRitardo > 0 && (
+                            <Badge variant="destructive">
+                              {c.rateInRitardo} in ritardo
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-[12.5px] text-[var(--muted-foreground)] capitalize">
+                          {c.attivitaTipo}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] shrink-0" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <Mini label="Iscritti" value={String(c.iscritti)} highlight />
+                      <Mini label="Incassato" value={formatEur(c.totaleIncassato)} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+          {attivitaVuote.map((a) => {
+            const Icon = ICON_BY_TIPO[a.tipo];
+            const tone = TONE_BY_TIPO[a.tipo];
+            return (
+              <Link
+                key={a.recordId}
+                href={`/iscrizioni/attivita/${a.recordId}`}
+                className="no-underline"
+              >
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className={cn(
+                          "w-11 h-11 rounded-[10px] grid place-items-center shrink-0 opacity-60",
+                          tone.bg,
+                          tone.ink,
+                        )}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-serif text-[18px] font-medium tracking-tight truncate text-[var(--muted-foreground)]">
+                            {a.nome}
+                          </h3>
+                        </div>
+                        <div className="text-[12.5px] text-[var(--muted-foreground)] capitalize">
+                          {a.tipo} · nessun iscritto
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] shrink-0" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Mini({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="px-3 py-2.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)]">
+      <div className="text-[10.5px] text-[var(--muted-foreground)] uppercase tracking-[0.06em] mb-0.5">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "font-serif text-[20px] tabular-nums tracking-tight",
+          highlight ? "text-[var(--primary)]" : "text-[var(--ink)]",
+        )}
+      >
+        {value}
+      </div>
     </div>
   );
 }

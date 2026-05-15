@@ -13,6 +13,11 @@ export const iscrizioneSchema = z.object({
   sessioniSelteIds: z.array(z.string().min(1)).min(1, "Seleziona almeno una sessione"),
   giorniSettimana: z.array(giornoEnum).default([]),
   fasceOrarie: z.array(z.string().trim().min(1)).default([]),
+  // Se true e l'attivita ha attivita.quotaIscrizione valorizzata, viene
+  // generata una rata aggiuntiva tipo_riga="quota_iscrizione".
+  applicaQuotaIscrizione: z.coerce.boolean().default(false),
+  // Id degli sconti (regole su sconti_attivita) selezionati per questa iscrizione.
+  scontiIds: z.array(z.string().min(1)).default([]),
   note: z.string().trim().optional().or(z.literal("")),
 });
 

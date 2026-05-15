@@ -28,6 +28,8 @@ function mapAttivita(row: AttivitaRowWithRel): Attivita {
     note: row.note ?? undefined,
     giorniSettimana: (row.giorni_settimana ?? []) as GiornoSettimana[],
     fasceOrarie: (row.fasce_orarie ?? []) as FasciaOraria[],
+    quotaIscrizione:
+      row.quota_iscrizione != null ? Number(row.quota_iscrizione) : undefined,
     sessioniIds: (row.sessioni ?? []).map((s) => s.id),
     iscrizioniIds: (row.iscrizioni ?? []).map((i) => i.id),
     modalitaIds: (row.modalita_iscrizione ?? []).map((m) => m.id),
@@ -77,6 +79,7 @@ export async function createAttivita(input: {
   note?: string;
   giorniSettimana?: GiornoSettimana[];
   fasceOrarie?: FasciaOraria[];
+  quotaIscrizione?: number;
 }): Promise<Attivita> {
   if (!db) throw new Error("Supabase client non configurato");
   const { data, error } = await db
@@ -90,6 +93,7 @@ export async function createAttivita(input: {
       note: input.note,
       giorni_settimana: input.giorniSettimana ?? [],
       fasce_orarie: input.fasceOrarie ?? [],
+      quota_iscrizione: input.quotaIscrizione,
     })
     .select(REL_SELECT)
     .single();
@@ -109,6 +113,7 @@ export async function updateAttivita(
     note: string;
     giorni_settimana: GiornoSettimana[];
     fasce_orarie: FasciaOraria[];
+    quota_iscrizione: number | null;
   }>,
 ): Promise<Attivita> {
   if (!db) throw new Error("Supabase client non configurato");

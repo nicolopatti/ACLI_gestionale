@@ -28,6 +28,7 @@ export type Database = {
           id: string
           nome: string
           note: string | null
+          quota_iscrizione: number | null
           tipo: Database["public"]["Enums"]["tipo_attivita"]
         }
         Insert: {
@@ -40,6 +41,7 @@ export type Database = {
           id?: string
           nome: string
           note?: string | null
+          quota_iscrizione?: number | null
           tipo: Database["public"]["Enums"]["tipo_attivita"]
         }
         Update: {
@@ -52,6 +54,7 @@ export type Database = {
           id?: string
           nome?: string
           note?: string | null
+          quota_iscrizione?: number | null
           tipo?: Database["public"]["Enums"]["tipo_attivita"]
         }
         Relationships: []
@@ -373,6 +376,39 @@ export type Database = {
           },
         ]
       }
+      iscrizioni_sconti: {
+        Row: {
+          created_at: string
+          iscrizione_id: string
+          sconto_id: string
+        }
+        Insert: {
+          created_at?: string
+          iscrizione_id: string
+          sconto_id: string
+        }
+        Update: {
+          created_at?: string
+          iscrizione_id?: string
+          sconto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "iscrizioni_sconti_iscrizione_id_fkey"
+            columns: ["iscrizione_id"]
+            isOneToOne: false
+            referencedRelation: "iscrizioni"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "iscrizioni_sconti_sconto_id_fkey"
+            columns: ["sconto_id"]
+            isOneToOne: false
+            referencedRelation: "sconti_attivita"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       iscrizioni_sessioni: {
         Row: {
           created_at: string
@@ -415,6 +451,7 @@ export type Database = {
           id: string
           importo: number
           nome: string
+          tipo_prezzo: Database["public"]["Enums"]["tipo_prezzo"]
         }
         Insert: {
           attivita_id: string
@@ -424,6 +461,7 @@ export type Database = {
           id?: string
           importo: number
           nome: string
+          tipo_prezzo?: Database["public"]["Enums"]["tipo_prezzo"]
         }
         Update: {
           attivita_id?: string
@@ -433,6 +471,7 @@ export type Database = {
           id?: string
           importo?: number
           nome?: string
+          tipo_prezzo?: Database["public"]["Enums"]["tipo_prezzo"]
         }
         Relationships: [
           {
@@ -598,6 +637,7 @@ export type Database = {
           codice: string | null
           created_at: string
           data_pagamento: string | null
+          descrizione_riga: string | null
           id: string
           importo_dovuto: number
           importo_pagato: number | null
@@ -608,6 +648,7 @@ export type Database = {
           note: string | null
           sessione_id: string | null
           stato_pagamento: Database["public"]["Enums"]["stato_pagamento"]
+          tipo_riga: Database["public"]["Enums"]["tipo_riga_rata"]
           tipo_unita: Database["public"]["Enums"]["tipo_unita"] | null
         }
         Insert: {
@@ -615,6 +656,7 @@ export type Database = {
           codice?: string | null
           created_at?: string
           data_pagamento?: string | null
+          descrizione_riga?: string | null
           id?: string
           importo_dovuto: number
           importo_pagato?: number | null
@@ -627,6 +669,7 @@ export type Database = {
           note?: string | null
           sessione_id?: string | null
           stato_pagamento?: Database["public"]["Enums"]["stato_pagamento"]
+          tipo_riga?: Database["public"]["Enums"]["tipo_riga_rata"]
           tipo_unita?: Database["public"]["Enums"]["tipo_unita"] | null
         }
         Update: {
@@ -634,6 +677,7 @@ export type Database = {
           codice?: string | null
           created_at?: string
           data_pagamento?: string | null
+          descrizione_riga?: string | null
           id?: string
           importo_dovuto?: number
           importo_pagato?: number | null
@@ -646,6 +690,7 @@ export type Database = {
           note?: string | null
           sessione_id?: string | null
           stato_pagamento?: Database["public"]["Enums"]["stato_pagamento"]
+          tipo_riga?: Database["public"]["Enums"]["tipo_riga_rata"]
           tipo_unita?: Database["public"]["Enums"]["tipo_unita"] | null
         }
         Relationships: [
@@ -668,6 +713,50 @@ export type Database = {
             columns: ["sessione_id"]
             isOneToOne: false
             referencedRelation: "sessioni"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sconti_attivita: {
+        Row: {
+          attivita_id: string
+          attivo: boolean
+          created_at: string
+          descrizione: string | null
+          id: string
+          nome: string
+          ordering: number
+          tipo: Database["public"]["Enums"]["tipo_sconto"]
+          valore: number
+        }
+        Insert: {
+          attivita_id: string
+          attivo?: boolean
+          created_at?: string
+          descrizione?: string | null
+          id?: string
+          nome: string
+          ordering?: number
+          tipo: Database["public"]["Enums"]["tipo_sconto"]
+          valore: number
+        }
+        Update: {
+          attivita_id?: string
+          attivo?: boolean
+          created_at?: string
+          descrizione?: string | null
+          id?: string
+          nome?: string
+          ordering?: number
+          tipo?: Database["public"]["Enums"]["tipo_sconto"]
+          valore?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sconti_attivita_attivita_id_fkey"
+            columns: ["attivita_id"]
+            isOneToOne: false
+            referencedRelation: "attivita"
             referencedColumns: ["id"]
           },
         ]
@@ -800,15 +889,12 @@ export type Database = {
     }
     Functions: {
       saldi_per_conto: {
-        Args: {
-          anno_filtro?: number | null
-          telegram_user_filtro?: string | null
-        }
+        Args: { anno_filtro?: number; telegram_user_filtro?: string }
         Returns: {
           conto: string
           entrate: number
-          uscite: number
           saldo: number
+          uscite: number
         }[]
       }
       upsert_movimento_from_sheet: {
@@ -840,6 +926,9 @@ export type Database = {
       stato_pagamento: "non_pagato" | "pagato" | "parziale"
       tipo_attivita: "doposcuola" | "laboratorio" | "locomotiva"
       tipo_movimento: "Entrata" | "Uscita"
+      tipo_prezzo: "per_sessione" | "flat"
+      tipo_riga_rata: "sessione" | "pacchetto" | "quota_iscrizione" | "sconto"
+      tipo_sconto: "percentuale" | "fisso"
       tipo_unita: "mese" | "giornata" | "settimana"
     }
     CompositeTypes: {
@@ -976,6 +1065,9 @@ export const Constants = {
       stato_pagamento: ["non_pagato", "pagato", "parziale"],
       tipo_attivita: ["doposcuola", "laboratorio", "locomotiva"],
       tipo_movimento: ["Entrata", "Uscita"],
+      tipo_prezzo: ["per_sessione", "flat"],
+      tipo_riga_rata: ["sessione", "pacchetto", "quota_iscrizione", "sconto"],
+      tipo_sconto: ["percentuale", "fisso"],
       tipo_unita: ["mese", "giornata", "settimana"],
     },
   },

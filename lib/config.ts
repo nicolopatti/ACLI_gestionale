@@ -84,6 +84,31 @@ export const TIPO_ATTIVITA_TO_UNITA: Record<TipoAttivita, TipoUnita> = {
   locomotiva: "settimana",
 };
 
+// Politica di prezzo della modalita' di iscrizione.
+//  - per_sessione: prezzo unitario, viene moltiplicato per il numero di sessioni scelte.
+//  - flat: prezzo fisso del pacchetto, indipendente dal numero di sessioni scelte.
+export const TIPI_PREZZO = ["per_sessione", "flat"] as const;
+export type TipoPrezzo = (typeof TIPI_PREZZO)[number];
+
+// Tipo di riga sulla tabella rate. Per ogni iscrizione possono coesistere N righe:
+//  - sessione: rata associata a una sessione specifica (policy per_sessione).
+//  - pacchetto: prezzo fisso dell'iscrizione (policy flat, sessione_id NULL).
+//  - quota_iscrizione: quota una-tantum (sessione_id NULL).
+//  - sconto: riga negativa (importo < 0) che applica uno sconto regola.
+export const TIPI_RIGA_RATA = [
+  "sessione",
+  "pacchetto",
+  "quota_iscrizione",
+  "sconto",
+] as const;
+export type TipoRigaRata = (typeof TIPI_RIGA_RATA)[number];
+
+// Tipo di sconto configurabile su un'attivita.
+//  - percentuale: valore in %, applicato sull'imponibile (modalita + quota).
+//  - fisso: valore in € assoluto.
+export const TIPI_SCONTO = ["percentuale", "fisso"] as const;
+export type TipoSconto = (typeof TIPI_SCONTO)[number];
+
 // Le fasce orarie sono dichiarate per Attività (campo `fasce_orarie` su Airtable):
 // la griglia turni e il calendario disponibilità derivano fasce/giorni offerti
 // dall'unione delle Attività attive nel periodo. Qui resta solo il tipo

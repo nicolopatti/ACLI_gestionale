@@ -51,6 +51,7 @@ function parseAttivitaForm(formData: FormData) {
       formData.get("autoGeneraSessioniMensili") === "true",
     giorniSettimana: formData.getAll("giorniSettimana"),
     fasceOrarie: formData.getAll("fasceOrarie"),
+    quotaIscrizione: formData.get("quotaIscrizione"),
   };
 }
 
@@ -72,6 +73,7 @@ export async function createAttivitaAction(_prev: unknown, formData: FormData) {
       note: d.note || undefined,
       giorniSettimana: d.giorniSettimana,
       fasceOrarie: d.fasceOrarie,
+      quotaIscrizione: d.quotaIscrizione,
     });
     createdId = created.recordId;
 
@@ -122,6 +124,7 @@ export async function updateAttivitaAction(
       note: d.note || "",
       giorni_settimana: d.giorniSettimana,
       fasce_orarie: d.fasceOrarie,
+      quota_iscrizione: d.quotaIscrizione ?? null,
     });
   } catch (e) {
     console.error("[updateAttivitaAction]", e);

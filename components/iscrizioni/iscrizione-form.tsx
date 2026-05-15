@@ -21,6 +21,7 @@ import type {
   Bambino,
   Iscrizione,
   ModalitaIscrizione,
+  ScontoAttivita,
   Sessione,
 } from "@/lib/db/types";
 
@@ -33,7 +34,57 @@ interface Props {
   attivita: Attivita[];
   sessioniByAttivita: Record<string, Sessione[]>;
   modalitaByAttivita: Record<string, ModalitaIscrizione[]>;
+  scontiByAttivita: Record<string, ScontoAttivita[]>;
   defaultBambinoId?: string;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+interface BreakdownInput {
+  modalita: ModalitaIscrizione | undefined;
+  isFlat: boolean;
+  sessioniCount: number;
+  applicaQuota: boolean;
+  quotaIscrizioneAttivita: number | undefined;
+  scontiDisponibili: ScontoAttivita[];
+  scontiSelti: Set<string>;
+}
+
+interface Breakdown {
+  subtotale: number;
+  quota: number;
+  sconti: Array<{ nome: string; importo: number }>;
+  totale: number;
+}
+
+function computeBreakdown(input: BreakdownInput): Breakdown {
+  const { modalita, isFlat, sessioniCount, applicaQuota,
+    quotaIscrizioneAttivita, scontiDisponibili, scontiSelti } = input;
+  if (!modalita) {
+    return { subtotale: 0, quota: 0, sconti: [], totale: 0 };
+  }
+  const subtotale = isFlat
+    ? modalita.importo
+    : round2(modalita.importo * sessioniCount);
+  const quota =
+    applicaQuota && quotaIscrizioneAttivita != null ? quotaIscrizioneAttivita : 0;
+  const imponibile = subtotale + quota;
+  const sconti: Array<{ nome: string; importo: number }> = [];
+  let scontiSum = 0;
+  for (const sc of scontiDisponibili) {
+    if (!scontiSelti.has(sc.recordId)) continue;
+    const importo =
+      sc.tipo === "percentuale"
+        ? round2((imponibile * sc.valore) / 100)
+        : round2(sc.valore);
+    if (importo <= 0) continue;
+    sconti.push({ nome: sc.nome, importo });
+    scontiSum += importo;
+  }
+  const totale = round2(subtotale + quota - scontiSum);
+  return { subtotale, quota, sconti, totale };
 }
 
 export function IscrizioneForm({
@@ -42,6 +93,7 @@ export function IscrizioneForm({
   attivita,
   sessioniByAttivita,
   modalitaByAttivita,
+  scontiByAttivita,
   defaultBambinoId,
 }: Props) {
   const action = iscrizione
@@ -78,6 +130,19 @@ export function IscrizioneForm({
   const [fasce, setFasce] = useState<Set<FasciaOraria>>(
     new Set(iscrizione?.fasceOrarie ?? []),
   );
+  const [applicaQuota, setApplicaQuota] = useState<boolean>(
+    () => {
+      // In create: default = ON (se l'attivita ha quota).
+      // In edit: deduco dallo stato esistente cercando una rata
+      // quota_iscrizione tra le rate dell'iscrizione — ma le rate non sono
+      // qui. Soluzione pragmatica: in edit l'utente vede la checkbox e puo'
+      // decidere se mantenerla. Default OFF se gia' iscritto (no surprise).
+      return !iscrizione;
+    },
+  );
+  const [scontiSelti, setScontiSelti] = useState<Set<string>>(
+    new Set(iscrizione?.scontiIds ?? []),
+  );
 
   const attivitaSelezionata = attivita.find((a) => a.recordId === attivitaId);
   const sessioniDisponibili = useMemo(
@@ -91,17 +156,45 @@ export function IscrizioneForm({
       ),
     [attivitaId, modalitaByAttivita, iscrizione?.modalitaId],
   );
-  const modalitaSelezionata = modalitaDisponibili.find((m) => m.recordId === modalitaId);
+  const scontiDisponibili = useMemo(
+    () =>
+      (attivitaId ? (scontiByAttivita[attivitaId] ?? []) : []).filter(
+        (s) => s.attivo || scontiSelti.has(s.recordId),
+      ),
+    [attivitaId, scontiByAttivita, scontiSelti],
+  );
+  const modalitaSelezionata = modalitaDisponibili.find(
+    (m) => m.recordId === modalitaId,
+  );
   const isDoposcuola = attivitaSelezionata?.tipo === "doposcuola";
-  // Le fasce/giorni offerti dipendono dall'Attività selezionata (campi
-  // dichiarati su `Attivita.fasce_orarie` e `Attivita.giorni_settimana`).
+  const isFlat = modalitaSelezionata?.tipoPrezzo === "flat";
   const fasceOfferte = attivitaSelezionata?.fasceOrarie ?? [];
   const giorniOfferti = attivitaSelezionata?.giorniSettimana ?? [];
 
-  const totale = useMemo(() => {
-    if (!modalitaSelezionata) return 0;
-    return sessioniSelte.size * modalitaSelezionata.importo;
-  }, [sessioniSelte, modalitaSelezionata]);
+  // Auto-select di tutte le sessioni quando si passa a modalita "flat".
+  // Le sessioni servono per /presenze (chi viene fisicamente alle attivita)
+  // ma il loro count NON influenza il prezzo del pacchetto.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (isFlat && sessioniSelte.size === 0 && sessioniDisponibili.length > 0) {
+      setSessioniSelte(new Set(sessioniDisponibili.map((s) => s.recordId)));
+    }
+    // Volutamente: NON reagiamo al cambio di tipoPrezzo da flat -> per_sessione.
+    // L'utente puo' deselezionare manualmente le sessioni superflue.
+  }, [isFlat, sessioniDisponibili, sessioniSelte.size]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Calcolo del totale con breakdown. Niente useMemo: React Compiler
+  // ottimizza automaticamente i calcoli "puri" sui props/state.
+  const breakdown = computeBreakdown({
+    modalita: modalitaSelezionata,
+    isFlat,
+    sessioniCount: sessioniSelte.size,
+    applicaQuota,
+    quotaIscrizioneAttivita: attivitaSelezionata?.quotaIscrizione,
+    scontiDisponibili,
+    scontiSelti,
+  });
 
   const toggleSet = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
@@ -142,6 +235,7 @@ export function IscrizioneForm({
               setAttivitaId(e.target.value);
               setSessioniSelte(new Set());
               setModalitaId("");
+              setScontiSelti(new Set());
             }}
             className={SELECT_CLASS}
           >
@@ -173,7 +267,8 @@ export function IscrizioneForm({
             </option>
             {modalitaDisponibili.map((m) => (
               <option key={m.recordId} value={m.recordId}>
-                {m.nome} · {formatEur(m.importo)} per sessione
+                {m.nome} · {formatEur(m.importo)}
+                {m.tipoPrezzo === "flat" ? " (pacchetto)" : " per sessione"}
               </option>
             ))}
           </select>
@@ -200,44 +295,58 @@ export function IscrizioneForm({
             <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
               Sessioni ({sessioniSelte.size}/{sessioniDisponibili.length})
             </h2>
-            <Badge variant="outline">{attivitaSelezionata.tipo}</Badge>
+            <div className="flex items-center gap-2">
+              {isFlat && (
+                <Badge variant="secondary">prezzo flat</Badge>
+              )}
+              <Badge variant="outline">{attivitaSelezionata.tipo}</Badge>
+            </div>
           </div>
           {sessioniDisponibili.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">
               Questa attività non ha ancora sessioni configurate.
             </p>
           ) : (
-            <div className="grid gap-2 md:grid-cols-2">
-              {sessioniDisponibili.map((s) => {
-                const checked = sessioniSelte.has(s.recordId);
-                const importo = modalitaSelezionata?.importo ?? 0;
-                return (
-                  <label
-                    key={s.recordId}
-                    className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="sessioniSelteIds"
-                        value={s.recordId}
-                        checked={checked}
-                        onChange={() =>
-                          setSessioniSelte((prev) => toggleSet(prev, s.recordId))
-                        }
-                        className="h-4 w-4"
-                      />
-                      <span>
-                        <span className="font-medium">{s.etichetta}</span>
+            <>
+              {isFlat && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Modalità a prezzo fisso: scegli le sessioni a cui il bambino
+                  parteciperà (per le presenze). Il prezzo non dipende dal
+                  numero di sessioni.
+                </p>
+              )}
+              <div className="grid gap-2 md:grid-cols-2">
+                {sessioniDisponibili.map((s) => {
+                  const checked = sessioniSelte.has(s.recordId);
+                  const importoRiga = isFlat ? 0 : (modalitaSelezionata?.importo ?? 0);
+                  return (
+                    <label
+                      key={s.recordId}
+                      className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          name="sessioniSelteIds"
+                          value={s.recordId}
+                          checked={checked}
+                          onChange={() =>
+                            setSessioniSelte((prev) => toggleSet(prev, s.recordId))
+                          }
+                          className="h-4 w-4"
+                        />
+                        <span>
+                          <span className="font-medium">{s.etichetta}</span>
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {formatEur(importo)}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {isFlat ? "incluso" : formatEur(importoRiga)}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
       )}
@@ -306,16 +415,109 @@ export function IscrizioneForm({
         </section>
       )}
 
+      {attivitaSelezionata?.quotaIscrizione != null && (
+        <section className="space-y-1">
+          <label className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              name="applicaQuotaIscrizione"
+              checked={applicaQuota}
+              onChange={(e) => setApplicaQuota(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>
+              Applica quota iscrizione una-tantum
+              <span className="ml-1 font-medium">
+                ({formatEur(attivitaSelezionata.quotaIscrizione)})
+              </span>
+            </span>
+          </label>
+        </section>
+      )}
+
+      {scontiDisponibili.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+            Sconti applicabili
+          </h2>
+          <div className="grid gap-2 md:grid-cols-2">
+            {scontiDisponibili.map((sc) => {
+              const checked = scontiSelti.has(sc.recordId);
+              const label =
+                sc.tipo === "percentuale" ? `${sc.valore}%` : formatEur(sc.valore);
+              return (
+                <label
+                  key={sc.recordId}
+                  className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 py-2 text-sm cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      name="scontiIds"
+                      value={sc.recordId}
+                      checked={checked}
+                      onChange={() =>
+                        setScontiSelti((prev) => toggleSet(prev, sc.recordId))
+                      }
+                      className="h-4 w-4"
+                    />
+                    <span>
+                      <span className="font-medium">{sc.nome}</span>
+                      {sc.descrizione && (
+                        <span className="ml-2 text-xs text-[var(--muted-foreground)]">
+                          {sc.descrizione}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                  <span className="text-xs text-[var(--destructive)] font-medium">
+                    −{label}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="note">Note</Label>
         <Textarea id="note" name="note" rows={3} defaultValue={iscrizione?.note ?? ""} />
       </div>
 
-      {modalitaSelezionata && sessioniSelte.size > 0 && (
-        <p className="text-sm text-[var(--muted-foreground)]">
-          Verranno create <strong>{sessioniSelte.size}</strong> rate per un totale di{" "}
-          <strong>{formatEur(totale)}</strong>.
-        </p>
+      {modalitaSelezionata && (
+        <div className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3 text-sm space-y-1">
+          <div className="font-medium uppercase text-xs tracking-wide text-[var(--muted-foreground)] mb-2">
+            Anteprima totale
+          </div>
+          <div className="flex justify-between">
+            <span>
+              {isFlat
+                ? "Pacchetto"
+                : `Sessioni (${sessioniSelte.size} × ${formatEur(modalitaSelezionata.importo)})`}
+            </span>
+            <span className="tabular-nums">{formatEur(breakdown.subtotale)}</span>
+          </div>
+          {breakdown.quota > 0 && (
+            <div className="flex justify-between">
+              <span>Quota iscrizione</span>
+              <span className="tabular-nums">{formatEur(breakdown.quota)}</span>
+            </div>
+          )}
+          {breakdown.sconti.map((s) => (
+            <div
+              key={s.nome}
+              className="flex justify-between text-[var(--destructive)]"
+            >
+              <span>Sconto: {s.nome}</span>
+              <span className="tabular-nums">−{formatEur(s.importo)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between border-t border-[var(--border)] pt-1 mt-1 font-semibold">
+            <span>Totale</span>
+            <span className="tabular-nums">{formatEur(breakdown.totale)}</span>
+          </div>
+        </div>
       )}
 
       {state?.error ? (

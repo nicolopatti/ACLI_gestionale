@@ -6,10 +6,12 @@ import { listSessioniByAttivita } from "@/lib/db/sessioni";
 import { listIscrizioni } from "@/lib/db/iscrizioni";
 import { listBambini } from "@/lib/db/bambini";
 import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
+import { listScontiByAttivita } from "@/lib/db/sconti-attivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttivitaForm } from "@/components/attivita/attivita-form";
 import { SessioniEditor } from "@/components/attivita/sessioni-editor";
 import { ModalitaEditor } from "@/components/attivita/modalita-editor";
+import { ScontiEditor } from "@/components/attivita/sconti-editor";
 import { Badge } from "@/components/ui/badge";
 import { TIPO_ATTIVITA_TO_UNITA } from "@/lib/config";
 import { DeleteAttivitaButton } from "@/components/attivita/delete-attivita-button";
@@ -21,13 +23,15 @@ export default async function AttivitaDetailPage({
 }) {
   await requireAdminOrCoordinatore();
   const { id } = await params;
-  const [attivita, sessioni, iscrizioni, bambini, modalita] = await Promise.all([
-    getAttivita(id),
-    listSessioniByAttivita(id),
-    listIscrizioni({ attivitaId: id }),
-    listBambini(),
-    listModalitaByAttivita(id),
-  ]);
+  const [attivita, sessioni, iscrizioni, bambini, modalita, sconti] =
+    await Promise.all([
+      getAttivita(id),
+      listSessioniByAttivita(id),
+      listIscrizioni({ attivitaId: id }),
+      listBambini(),
+      listModalitaByAttivita(id),
+      listScontiByAttivita(id),
+    ]);
   if (!attivita) notFound();
   const bambinoById = new Map(bambini.map((b) => [b.recordId, b] as const));
 
@@ -58,6 +62,15 @@ export default async function AttivitaDetailPage({
         </CardHeader>
         <CardContent>
           <ModalitaEditor attivitaId={attivita.recordId} modalita={modalita} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sconti applicabili ({sconti.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScontiEditor attivitaId={attivita.recordId} sconti={sconti} />
         </CardContent>
       </Card>
 
