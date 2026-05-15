@@ -178,6 +178,7 @@ export interface CreaMovimentoInput {
 function buildInsertRow(
   input: CreaMovimentoInput,
   id: string,
+  timestamp: string,
 ): Database["public"]["Tables"]["movimenti"]["Insert"] {
   return {
     id,
@@ -185,7 +186,7 @@ function buildInsertRow(
     importo: input.importo,
     conto: input.conto,
     data_movimento: input.dataMovimento,
-    timestamp: new Date().toISOString(),
+    timestamp,
     stato: "valido",
     categoria_id: input.categoriaId,
     descrizione: input.descrizione,
@@ -216,7 +217,7 @@ export async function createMovimento(
   const id = newMovimentoId(prefix);
   const { data, error } = await db
     .from("movimenti")
-    .insert(buildInsertRow(input, id))
+    .insert(buildInsertRow(input, id, new Date().toISOString()))
     .select("*")
     .single();
   if (error) throw error;
@@ -229,7 +230,13 @@ export async function createMovimentiBatch(
 ): Promise<Movimento[]> {
   if (!db) throw new Error("Supabase client non configurato");
   if (inputs.length === 0) return [];
-  const rows = inputs.map((m) =>
+  // La colonna `timestamp` ha UNIQUE constraint (serve a n8n per
+  // `ON CONFLICT (timestamp) DO UPDATE` sul sync da Google Sheets).
+  // `new Date().toISOString()` chiamato dentro un `.map()` sincrono
+  // ritorna lo stesso ms per tutte le righe → violazione unique sul
+  // batch insert. Offset di +i ms per riga garantisce unicità.
+  const baseMs = Date.now();
+  const rows = inputs.map((m, i) =>
     buildInsertRow(
       m,
       newMovimentoId(
@@ -239,6 +246,7 @@ export async function createMovimentiBatch(
             ? "bank"
             : "app",
       ),
+      new Date(baseMs + i).toISOString(),
     ),
   );
   const { data, error } = await db.from("movimenti").insert(rows).select("*");
