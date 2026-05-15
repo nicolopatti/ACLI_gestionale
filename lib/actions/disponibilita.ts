@@ -97,7 +97,6 @@ export async function salvaDisponibilitaAction(formData: FormData) {
   revalidatePath(`/educatori/${educatoreId}`);
   revalidatePath("/educatori");
   revalidatePath("/turni");
-  revalidatePath("/dashboard");
   return { ok: true };
 }
 

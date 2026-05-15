@@ -13,7 +13,7 @@ export default async function SpeseEduPage() {
   const user = session?.user;
   if (!user) redirect("/login");
   if (user.ruolo !== "admin" && user.ruolo !== "coordinatore_educativo") {
-    redirect("/dashboard");
+    redirect("/attivita");
   }
 
   const [categorie, movimenti, voci] = await Promise.all([

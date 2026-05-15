@@ -69,6 +69,17 @@ export function etichettaRuolo(ruolo: Ruolo): string {
   return ETICHETTE_RUOLO[ruolo];
 }
 
+/**
+ * Rotta "home" per ciascun ruolo, usata come destinazione di redirect
+ * dopo login / fuori scope / fallback. Edge-safe (no import server-only),
+ * cosi' puo' essere usata sia dal proxy `auth.config.ts` sia dai page
+ * guards.
+ */
+export function homeForRuolo(ruolo: Ruolo): string {
+  if (ruolo === "coordinatore_educativo") return "/attivita";
+  return "/cassa";
+}
+
 export const STATO_PAGAMENTO = ["non_pagato", "parziale", "pagato"] as const;
 export type StatoPagamento = (typeof STATO_PAGAMENTO)[number];
 

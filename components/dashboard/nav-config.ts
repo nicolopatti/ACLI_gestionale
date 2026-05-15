@@ -8,7 +8,6 @@ import {
   FileSpreadsheet,
   GraduationCap,
   HeartHandshake,
-  LayoutDashboard,
   Receipt,
   Shield,
   UserCog,
@@ -54,11 +53,13 @@ export const NAV: Record<Area, NavSection> = {
     sub: "Doposcuola · Laboratori · Estate",
     icon: GraduationCap,
     items: [
-      { href: "/dashboard", label: "Cruscotto", icon: LayoutDashboard },
+      // "Attività" e' la home di questa sezione: prima voce, primo redirect
+      // post-login per il ruolo coordinatore_educativo (vedi
+      // `homeForRuolo` in `lib/config.ts`).
+      { href: "/attivita", label: "Attività", icon: CalendarRange },
       { href: "/bambini", label: "Bambini", icon: Baby },
       { href: "/educatori", label: "Educatori", icon: HeartHandshake },
       { href: "/turni", label: "Turni", icon: CalendarClock },
-      { href: "/attivita", label: "Attività", icon: CalendarRange },
       { href: "/iscrizioni", label: "Iscrizioni", icon: GraduationCap },
       { href: "/presenze", label: "Presenze", icon: CalendarCheck },
       { href: "/spese-edu", label: "Registra movimento", icon: Receipt },

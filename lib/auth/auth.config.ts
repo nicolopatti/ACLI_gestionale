@@ -1,5 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
-import type { Ruolo } from "@/lib/config";
+import { homeForRuolo, type Ruolo } from "@/lib/config";
 import { getPasswordVersion } from "@/lib/db/users";
 
 /**
@@ -30,7 +30,9 @@ export const authConfig = {
           if (auth?.user?.mustChangePassword) {
             return Response.redirect(new URL("/primo-accesso", nextUrl));
           }
-          return Response.redirect(new URL("/dashboard", nextUrl));
+          const ruolo = auth?.user?.ruolo as Ruolo | undefined;
+          const target = ruolo ? homeForRuolo(ruolo) : "/cassa";
+          return Response.redirect(new URL(target, nextUrl));
         }
         return true;
       }
@@ -41,12 +43,14 @@ export const authConfig = {
         return Response.redirect(new URL("/primo-accesso", nextUrl));
       }
       if (!auth?.user?.mustChangePassword && isOnPrimoAccesso) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
+        const ruolo = auth?.user?.ruolo as Ruolo | undefined;
+        const target = ruolo ? homeForRuolo(ruolo) : "/cassa";
+        return Response.redirect(new URL(target, nextUrl));
       }
       // Qui dentro l'utente puo' completare il primo accesso indipendentemente
       // dal ruolo: senza questo early-return, il gating ruoli sotto rimanda i
-      // non-admin su /dashboard o /cassa, che a loro volta richiamano il check
-      // mustChangePassword sopra e causano un loop di redirect.
+      // non-admin sulla loro home, che a sua volta richiama il check
+      // mustChangePassword sopra e causa un loop di redirect.
       if (isOnPrimoAccesso) return true;
       // Gating ruoli per area
       const ruolo = auth?.user?.ruolo;
@@ -55,9 +59,8 @@ export const authConfig = {
 
       // Route universali (accessibili a chiunque sia loggato)
       const universal = ["/profilo"];
-      // Area Educativa (incluse rotte previste dalle PR successive: turni, spese-edu)
+      // Area Educativa
       const eduRoutes = [
-        "/dashboard",
         "/bambini",
         "/educatori",
         "/attivita",
@@ -73,8 +76,8 @@ export const authConfig = {
 
       if (ruolo === "coordinatore_educativo") {
         if (matches(eduRoutes)) return true;
-        // Fuori dal proprio perimetro -> torna al cruscotto
-        return Response.redirect(new URL("/dashboard", nextUrl));
+        // Fuori dal proprio perimetro -> torna alla home edu (Attivita').
+        return Response.redirect(new URL("/attivita", nextUrl));
       }
 
       if (ruolo === "volontario_cassa") {

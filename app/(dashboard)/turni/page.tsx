@@ -149,7 +149,7 @@ export default async function TurniPage({
   const ruolo = session?.user?.ruolo;
   if (!ruolo) redirect("/login");
   if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
-    redirect("/dashboard");
+    redirect("/attivita");
   }
 
   const sp = await searchParams;

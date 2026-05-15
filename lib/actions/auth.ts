@@ -32,7 +32,9 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     await signIn("credentials", {
       email,
       password: formData.get("password"),
-      redirectTo: "/dashboard",
+      // La rotta `/` redirige alla home in base al ruolo (admin/volontario
+      // a /cassa, coordinatore a /attivita).
+      redirectTo: "/",
     });
     return undefined;
   } catch (error) {
