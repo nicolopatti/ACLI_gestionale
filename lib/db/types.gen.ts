@@ -888,7 +888,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      entrate_uscite_per_mese: {
+        Args: { anno_filtro: number; telegram_user_filtro?: string }
+        Returns: {
+          entrate: number
+          mese: number
+          netto: number
+          uscite: number
+        }[]
+      }
       saldi_per_conto: {
+        Args: { anno_filtro?: number; telegram_user_filtro?: string }
+        Returns: {
+          conto: string
+          entrate: number
+          saldo: number
+          uscite: number
+        }[]
+      }
+      saldi_per_conto_reale: {
         Args: { anno_filtro?: number; telegram_user_filtro?: string }
         Returns: {
           conto: string
