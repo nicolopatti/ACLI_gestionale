@@ -184,8 +184,9 @@ export async function primoAccessoAction(_prev: unknown, formData: FormData) {
   const user = await getUserById(recordId);
   if (!user) return { error: "Utente non trovato" };
   if (!user.mustChangePassword) {
-    // Flag già abbassato — niente da fare. Rimanderà al dashboard al prossimo redirect.
-    redirect("/dashboard");
+    // Flag già abbassato — niente da fare. La rotta `/` redirige alla home
+    // del ruolo corrente.
+    redirect("/");
   }
 
   const sameAsOld = await verifyPassword(d.passwordNuova, user.passwordHash);
@@ -207,7 +208,7 @@ export async function primoAccessoAction(_prev: unknown, formData: FormData) {
   // e allinea passwordVersion alla nuova versione DB. Tentare il logout
   // dentro a una server action via signOut() risultava in produzione in
   // un Set-Cookie non applicato dal browser, lasciando l'utente bloccato
-  // fra /dashboard e /primo-accesso.
+  // fra la home di ruolo e /primo-accesso.
   await unstable_update({
     user: { mustChangePassword: false, passwordVersion: next },
   });
@@ -218,5 +219,7 @@ export async function primoAccessoAction(_prev: unknown, formData: FormData) {
     entityType: "user",
     entityId: recordId,
   });
-  redirect("/dashboard");
+  // La rotta `/` redirige alla home del ruolo (es. admin → /cassa,
+  // coordinatore_educativo → /attivita).
+  redirect("/");
 }

@@ -19,23 +19,23 @@ export async function requireAdmin() {
   return session;
 }
 
-/** Pagina area educativa (admin + coordinatore). Altri → /dashboard. */
+/** Pagina area educativa (admin + coordinatore). Altri → /attivita. */
 export async function requireAdminOrCoordinatore() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const r = session.user.ruolo;
-  if (r !== "admin" && r !== "coordinatore_educativo") redirect("/dashboard");
+  if (r !== "admin" && r !== "coordinatore_educativo") redirect("/attivita");
   return session;
 }
 
 /**
  * Pagina cassa/finanze (admin + volontario_cassa). Coordinatore educativo
- * non vede dati finanziari → redirect a /dashboard.
+ * non vede dati finanziari → redirect alla home edu (/attivita).
  */
 export async function requireAdminOrCassa() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const r = session.user.ruolo;
-  if (r !== "admin" && r !== "volontario_cassa") redirect("/dashboard");
+  if (r !== "admin" && r !== "volontario_cassa") redirect("/attivita");
   return session;
 }
