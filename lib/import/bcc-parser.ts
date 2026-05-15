@@ -9,18 +9,21 @@ import { capDescrizione, type ParsedRow, type ParseResult } from "./types";
  * - TSV con estensione `.xls` (il browser lo apre con Excel ma è testo tab-separated).
  * - Encoding UTF-8 (eventualmente con BOM).
  * - Line endings CRLF (`\r\n`), tolleranti a LF.
- * - Header: `Data contabile\tData valuta\tImporto\tDescrizione\tNote`.
+ * - Header: `Data contabile\tData valuta\tImporto\tDescrizione` (la colonna
+ *   `Note` era presente in vecchie versioni — ora non c'e' piu', resta
+ *   opzionale).
  * - Date: `dd/mm/yyyy`.
  * - Importi: virgola decimale, eventuale separatore migliaia con punto (es. `-2.918,49`).
  * - Segno: negativo per uscite, positivo per entrate.
+ * - Righe di sommario tipo `15/05/2026\t\t2.177,37\tSaldo finale al ...`
+ *   (data valuta vuota) vengono ignorate senza warning.
  */
 
-const HEADER_KEYS = [
+const HEADER_REQUIRED = [
   "data contabile",
   "data valuta",
   "importo",
   "descrizione",
-  "note",
 ];
 
 export function parseBccTsv(content: string): ParseResult {
@@ -44,7 +47,7 @@ export function parseBccTsv(content: string): ParseResult {
   }
 
   const headerCols = lines[0].split("\t").map((c) => c.trim().toLowerCase());
-  const missing = HEADER_KEYS.filter((k) => !headerCols.includes(k));
+  const missing = HEADER_REQUIRED.filter((k) => !headerCols.includes(k));
   if (missing.length > 0) {
     throw new BusinessError(
       `Il file non sembra un export BCC: colonne mancanti (${missing.join(", ")}). Verifica di aver selezionato il conto giusto e di aver scaricato il "Resoconto transazioni" TSV.`,
@@ -55,25 +58,35 @@ export function parseBccTsv(content: string): ParseResult {
     dataValuta: headerCols.indexOf("data valuta"),
     importo: headerCols.indexOf("importo"),
     descrizione: headerCols.indexOf("descrizione"),
-    note: headerCols.indexOf("note"),
+    note: headerCols.indexOf("note"), // -1 se la colonna non c'e'
   };
+  const minColsNeeded = Math.max(
+    idx.dataContabile,
+    idx.dataValuta,
+    idx.importo,
+    idx.descrizione,
+  ) + 1;
 
   const righe: ParsedRow[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split("\t");
-    if (cols.length < HEADER_KEYS.length) {
+    if (cols.length < minColsNeeded) {
       warnings.push(`Riga ${i + 1} ignorata (colonne insufficienti)`);
       continue;
     }
+    // Righe di sommario (es. "Saldo finale al ...") hanno data_valuta vuota
+    // e non sono transazioni. Vanno skippate silenziosamente.
+    if (!cols[idx.dataValuta]?.trim()) continue;
     try {
       const dataValuta = parseDateIt(cols[idx.dataValuta]);
       const dataContabile = parseDateIt(cols[idx.dataContabile]);
       const importoRaw = cols[idx.importo].trim();
       const importoSigned = parseImportoIt(importoRaw);
+      const noteCol = idx.note >= 0 ? cols[idx.note] : undefined;
       const descrizione = capDescrizione(
         normalizeWhitespace(cols[idx.descrizione]) +
-          (cols[idx.note] && cols[idx.note].trim()
-            ? ` | ${normalizeWhitespace(cols[idx.note])}`
+          (noteCol && noteCol.trim()
+            ? ` | ${normalizeWhitespace(noteCol)}`
             : ""),
       );
 
