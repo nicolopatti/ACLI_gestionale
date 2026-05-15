@@ -23,8 +23,8 @@
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #32 mergeata, PR #33 hotfix logging) |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #43 mergeata) |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #44 mergeata) |
-| 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | 👀 in review (branch `claude/secplan-07-performance`) |
-| 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare |
+| 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #45 mergeata) |
+| 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare (aspettare che 5+6+7 siano stabili) |
 
 Totale stimato: 21-27h spalmate su 8 sessioni.
 
@@ -739,9 +739,9 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 
 ### Sessione 7 — Performance: caching esteso + RPC aggregati
 **Branch**: `claude/secplan-07-performance`
-**PR**: #45 (in review)
-**Mergeata il**: —
-**Osservazione fino al**: 48h dopo il deploy in produzione
+**PR**: #45 mergeata in produzione (`fab34e1`)
+**Mergeata il**: 2026-05-15
+**Osservazione fino al**: 2026-05-17 (48h)
 **Note**:
 - **RPC Postgres `saldi_per_conto`** applicata via MCP (`create_saldi_per_conto_rpc`):
   ```sql
