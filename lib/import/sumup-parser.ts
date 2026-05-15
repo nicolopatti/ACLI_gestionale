@@ -1,3 +1,4 @@
+import { BusinessError } from "@/lib/errors";
 import { capDescrizione, type ParsedRow, type ParseResult } from "./types";
 
 /**
@@ -26,12 +27,11 @@ export function parseSumupCsv(content: string): ParseResult {
     return { conto: "Sumup", righe: [], warnings: ["File vuoto"] };
   }
   const header = rows[0].map((c) => c.trim().toLowerCase());
-  for (const k of HEADER_KEYS) {
-    if (!header.includes(k)) {
-      throw new Error(
-        `Header SumUp non riconosciuto: manca "${k}". Trovate: ${header.join(", ")}`,
-      );
-    }
+  const missing = HEADER_KEYS.filter((k) => !header.includes(k));
+  if (missing.length > 0) {
+    throw new BusinessError(
+      `Il file non sembra un export SumUp: colonne mancanti (${missing.join(", ")}). Verifica di aver selezionato il conto giusto e di aver scaricato il "Resoconto transazioni" CSV.`,
+    );
   }
   const idx = {
     data: header.indexOf("data transazione"),

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { BusinessError } from "@/lib/errors";
 import { capDescrizione, type ParsedRow, type ParseResult } from "./types";
 
 /**
@@ -31,13 +32,23 @@ export function parseBccTsv(content: string): ParseResult {
     return { conto: "BCC", righe: [], warnings: ["File vuoto"] };
   }
 
+  // Sniff binari Excel/altro: file `.xls` riaperti e salvati con Excel
+  // diventano binari .xlsx (firma PK\x03\x04) o vecchio .xls (D0CF11E0...)
+  // — il `.text()` lato browser restituirebbe solo gibberish con header
+  // illeggibile. Diamo un messaggio chiaro invece del generico.
+  const first2 = text.slice(0, 2);
+  if (first2 === "PK" || /^\xd0\xcf/.test(first2)) {
+    throw new BusinessError(
+      "Il file sembra essere un Excel binario (xlsx/xls), non un TSV. Riscarica l'estratto conto dalla BCC senza aprirlo in Excel.",
+    );
+  }
+
   const headerCols = lines[0].split("\t").map((c) => c.trim().toLowerCase());
-  for (const k of HEADER_KEYS) {
-    if (!headerCols.includes(k)) {
-      throw new Error(
-        `Header BCC non riconosciuto: manca la colonna "${k}". Trovate: ${headerCols.join(", ")}`,
-      );
-    }
+  const missing = HEADER_KEYS.filter((k) => !headerCols.includes(k));
+  if (missing.length > 0) {
+    throw new BusinessError(
+      `Il file non sembra un export BCC: colonne mancanti (${missing.join(", ")}). Verifica di aver selezionato il conto giusto e di aver scaricato il "Resoconto transazioni" TSV.`,
+    );
   }
   const idx = {
     dataContabile: headerCols.indexOf("data contabile"),
