@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CassaFilters } from "@/components/cassa/cassa-filters";
+import { DeleteMovimentoButton } from "@/components/cassa/delete-movimento-button";
 import { formatDate, formatEur } from "@/lib/utils";
 import { MEZZI_PAGAMENTO, type MezzoPagamento } from "@/lib/config";
 import type { Movimento } from "@/lib/db/types";
@@ -175,13 +176,18 @@ export default async function CassaPage({
                 <TableHead>Categoria</TableHead>
                 <TableHead>Descrizione</TableHead>
                 {isAdmin && <TableHead>Volontario</TableHead>}
+                {isAdmin && (
+                  <TableHead className="w-[1%] whitespace-nowrap text-right">
+                    Azioni
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={isAdmin ? 7 : 6}
+                    colSpan={isAdmin ? 8 : 6}
                     className="text-center text-[var(--muted-foreground)] py-8"
                   >
                     {movimenti.length === 0
@@ -218,6 +224,14 @@ export default async function CassaPage({
                     </TableCell>
                     <TableCell className="max-w-md truncate">{m.descrizione ?? "—"}</TableCell>
                     {isAdmin && <TableCell>{m.volontario ?? "—"}</TableCell>}
+                    {isAdmin && (
+                      <TableCell className="w-[1%] whitespace-nowrap text-right">
+                        <DeleteMovimentoButton
+                          movimentoId={m.recordId}
+                          descrizione={m.descrizione}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -233,7 +247,7 @@ export default async function CassaPage({
                     <span className="text-[var(--muted-2)] mx-1.5">·</span>
                     <span className="text-[var(--danger)]">− {formatEur(periodo.uscite)}</span>
                   </TableCell>
-                  <TableCell colSpan={isAdmin ? 4 : 3} className="text-right font-mono tabular-nums font-semibold">
+                  <TableCell colSpan={isAdmin ? 5 : 3} className="text-right font-mono tabular-nums font-semibold">
                     Saldo periodo {formatEur(periodo.saldo)}
                   </TableCell>
                 </TableRow>
