@@ -23,10 +23,10 @@ const cspDirectives = [
   "object-src 'none'",
 ].join("; ");
 
-// Distribuita in Report-Only: il browser segnala le violazioni in console / via
-// report-uri ma NON le blocca. Dopo ~24h di osservazione in produzione senza
-// segnalazioni, rinominare la key in "Content-Security-Policy" per attivare
-// l'enforcing (vedi SECURITY_PLAN.md - Sessione 1).
+// Distribuita in modalita' enforcing dopo la finestra di osservazione di 24h+
+// post-PR #27 (Sessione 1 SECURITY_PLAN) senza violazioni segnalate.
+// In caso di regressione: rinominare la key sotto in
+// "Content-Security-Policy-Report-Only" per tornare ad osservativa.
 const securityHeaders = [
   {
     key: "Strict-Transport-Security",
@@ -39,7 +39,7 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=()",
   },
-  { key: "Content-Security-Policy-Report-Only", value: cspDirectives },
+  { key: "Content-Security-Policy", value: cspDirectives },
 ];
 
 const nextConfig: NextConfig = {
