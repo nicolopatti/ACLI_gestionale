@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Plus } from "lucide-react";
 import {
   createAttivitaAction,
   updateAttivitaAction,
@@ -20,10 +20,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Attivita } from "@/lib/db/types";
 
-const FASCE_SUGGERITE = ["14-16", "16-18"] as const;
-
 const SELECT_CLASS =
   "flex h-9 w-full rounded-md border border-[var(--border)] bg-transparent px-3 text-sm shadow-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+
+// Accetta H-H, H:MM-H:MM, H.MM-H.MM, H,MM-H,MM e normalizza a H-H o H:MM-H:MM
+// per restare compatibile con durataFasciaOre (lib/config.ts).
+function normalizeFascia(input: string): string | null {
+  const v = input.trim();
+  if (!v) return null;
+  const m = v.match(/^(\d{1,2})(?:[.:,](\d{1,2}))?\s*-\s*(\d{1,2})(?:[.:,](\d{1,2}))?$/);
+  if (!m) return null;
+  const h1 = parseInt(m[1], 10);
+  const h2 = parseInt(m[3], 10);
+  if (h1 > 23 || h2 > 23) return null;
+  const min1 = m[2] !== undefined ? parseInt(m[2], 10) : null;
+  const min2 = m[4] !== undefined ? parseInt(m[4], 10) : null;
+  if ((min1 !== null && min1 > 59) || (min2 !== null && min2 > 59)) return null;
+  const startMin = h1 * 60 + (min1 ?? 0);
+  const endMin = h2 * 60 + (min2 ?? 0);
+  if (endMin <= startMin) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const left = min1 === null ? `${h1}` : `${h1}:${pad(min1)}`;
+  const right = min2 === null ? `${h2}` : `${h2}:${pad(min2)}`;
+  return `${left}-${right}`;
+}
 
 interface Props {
   attivita?: Attivita;
@@ -45,12 +65,11 @@ export function AttivitaForm({ attivita }: Props) {
   const [giorni, setGiorni] = useState<Set<GiornoSettimana>>(
     () => new Set(attivita?.giorniSettimana ?? []),
   );
-  const [fasce, setFasce] = useState<Set<string>>(
-    () => new Set(attivita?.fasceOrarie ?? []),
+  const [fasce, setFasce] = useState<string[]>(
+    () => attivita?.fasceOrarie ?? [],
   );
   const [fasciaCustom, setFasciaCustom] = useState("");
-
-  const fasceVisibili = Array.from(new Set([...FASCE_SUGGERITE, ...fasce]));
+  const [fasciaError, setFasciaError] = useState<string | null>(null);
 
   function toggleGiorno(g: GiornoSettimana) {
     setGiorni((prev) => {
@@ -60,27 +79,24 @@ export function AttivitaForm({ attivita }: Props) {
       return next;
     });
   }
-  function toggleFascia(f: string) {
-    setFasce((prev) => {
-      const next = new Set(prev);
-      if (next.has(f)) next.delete(f);
-      else next.add(f);
-      return next;
-    });
-  }
   function addFasciaCustom() {
-    const v = fasciaCustom.trim();
-    if (!v) return;
-    if (!/^\d{1,2}(:\d{2})?-\d{1,2}(:\d{2})?$/.test(v)) return;
-    setFasce((prev) => new Set([...prev, v]));
+    const normalized = normalizeFascia(fasciaCustom);
+    if (!normalized) {
+      setFasciaError(
+        "Formato non valido. Usa es. 9-12, 14:30-16:30 oppure 7.45-12.00.",
+      );
+      return;
+    }
+    if (fasce.includes(normalized)) {
+      setFasciaError(`La fascia "${normalized}" è già presente.`);
+      return;
+    }
+    setFasce((prev) => [...prev, normalized]);
     setFasciaCustom("");
+    setFasciaError(null);
   }
-  function removeFasciaCustom(f: string) {
-    setFasce((prev) => {
-      const next = new Set(prev);
-      next.delete(f);
-      return next;
-    });
+  function removeFascia(f: string) {
+    setFasce((prev) => prev.filter((x) => x !== f));
   }
 
   return (
@@ -189,59 +205,69 @@ export function AttivitaForm({ attivita }: Props) {
             Fasce orarie
             {isDoposcuola && <span className="text-[var(--destructive)]"> *</span>}
           </Label>
-          <div className="flex flex-wrap gap-2">
-            {fasceVisibili.map((f) => (
-              <label
-                key={f}
-                className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm cursor-pointer hover:bg-[var(--surface-2)]"
-              >
-                <input
-                  type="checkbox"
-                  name="fasceOrarie"
-                  value={f}
-                  checked={fasce.has(f)}
-                  onChange={() => toggleFascia(f)}
-                  className="h-4 w-4"
-                />
-                {f}
-                {!FASCE_SUGGERITE.includes(f as (typeof FASCE_SUGGERITE)[number]) && (
+          {fasce.length === 0 ? (
+            <p className="text-sm italic text-[var(--muted-foreground)]">
+              Nessuna fascia configurata. Aggiungine una qui sotto.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {fasce.map((f) => (
+                <span
+                  key={f}
+                  className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-sm"
+                >
+                  <input type="hidden" name="fasceOrarie" value={f} />
+                  {f}
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      removeFasciaCustom(f);
-                    }}
-                    className="ml-1 text-[var(--muted-foreground)] hover:text-[var(--destructive)]"
+                    onClick={() => removeFascia(f)}
+                    className="text-[var(--muted-foreground)] hover:text-[var(--destructive)]"
                     aria-label={`Rimuovi fascia ${f}`}
                   >
                     <X className="h-3 w-3" />
                   </button>
-                )}
-              </label>
-            ))}
-          </div>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Input
               type="text"
-              placeholder="Fascia custom (es. 10-12)"
+              placeholder="es. 9-12, 14:30-16:30 oppure 7.45-12.00"
               value={fasciaCustom}
-              onChange={(e) => setFasciaCustom(e.target.value)}
+              onChange={(e) => {
+                setFasciaCustom(e.target.value);
+                if (fasciaError) setFasciaError(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   addFasciaCustom();
                 }
               }}
-              className="max-w-[180px]"
+              className="max-w-[240px]"
+              aria-invalid={fasciaError ? true : undefined}
             />
-            <Button type="button" variant="outline" size="sm" onClick={addFasciaCustom}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addFasciaCustom}
+              aria-label="Aggiungi fascia oraria"
+            >
+              <Plus className="h-4 w-4" />
               Aggiungi
             </Button>
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">
-            Spunta le fasce in cui l&apos;attività ha luogo. Per il pacchetto
-            14-18 spunta sia <code>14-16</code> sia <code>16-18</code>.
-          </p>
+          {fasciaError ? (
+            <p className="text-sm text-[var(--destructive)]">{fasciaError}</p>
+          ) : (
+            <p className="text-xs text-[var(--muted-foreground)]">
+              Aggiungi una fascia per ogni periodo in cui l&apos;attività ha
+              luogo (es. <code>14-16</code> e <code>16-18</code> per coprire
+              14-18).
+            </p>
+          )}
         </div>
       )}
 
