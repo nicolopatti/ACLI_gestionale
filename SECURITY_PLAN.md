@@ -17,11 +17,11 @@
 
 | # | Sessione | Rischio | Effort | Status |
 |---|----------|---------|--------|--------|
-| 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | 🌐 in osservazione produzione (PR #27 mergeata, finestra 24h prima del flip Report-Only → enforcing) |
+| 1 | HTTP security headers + CSP | 🟢 basso | 1-2h | ✅ merged enforcing (PR #27 Report-Only + PR #42 flip enforcing 15/05) |
 | 2 | File upload hardening (`/cassa/import`) + CSV formula injection | 🟢 basso | 1h | 🌐 in osservazione produzione (PR #28 mergeata) |
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #32 mergeata, PR #33 hotfix logging) |
-| 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | ⏳ da fare |
+| 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 👀 in review (branch `claude/secplan-05-jwt-session-invalidation`) |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ⏳ da fare |
 | 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ⏳ da fare |
 | 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare |
@@ -676,6 +676,39 @@ Ogni sessione, al completamento, aggiorna questa sezione:
   - ✅ Login normale (password corretta): passa senza messaggi extra.
   - ✅ 6 tentativi password errata stessa email/IP: al 6° appare "Troppi tentativi di login. Riprova tra ~15 minuti.".
   - ✅ Subito dopo il blocco, password corretta dallo stesso IP/email: bloccato (non e' una finta).
+
+### Sessione 5 — JWT maxAge + session invalidation on password change
+**Branch**: `claude/secplan-05-jwt-session-invalidation`
+**PR**: #43 (in review)
+**Mergeata il**: —
+**Osservazione fino al**: 1 settimana dal deploy in produzione
+**Note**:
+- **Migration Supabase** `add_users_password_version`: `ALTER TABLE public.users ADD COLUMN password_version integer NOT NULL DEFAULT 1;` — applicata via MCP `apply_migration` sul progetto `aikforfebngrqfzdkowo`. Generati nuovi tipi via `generate_typescript_types` e aggiornato `lib/db/types.gen.ts` di conseguenza (Row/Insert/Update di `users`).
+- **Type `User` di dominio** (`lib/db/types.ts`): aggiunto campo `passwordVersion: number` con JSDoc che spiega l'invariante (monotonicamente crescente, incrementata ad ogni cambio password).
+- **Helper data-access** (`lib/db/users.ts`):
+  - `mapUser` propaga `password_version -> passwordVersion`.
+  - Nuova `getPasswordVersion(recordId)` -> `number | null`: usata dal jwt callback per validare ogni request. Ritorna `null` se DB irraggiungibile o utente cancellato (consumer fa fail-open).
+  - Nuova `incrementPasswordVersion(recordId)` -> `number`: select-then-update non atomica (race condition trascurabile per il use case "un utente cambia la propria password"). Per atomicita' migrare a RPC `SECURITY DEFINER`.
+  - `updateUser` accetta ora anche il campo `password_version: number` nel signature `Partial<...>`.
+- **Tipi NextAuth** (`types/next-auth.d.ts`): aggiunto `passwordVersion?: number` su `User`, `Session.user` e `JWT`.
+- **Auth flow** (`lib/auth/auth.ts`): `authorize()` ritorna anche `passwordVersion: user.passwordVersion` insieme agli altri claim.
+- **Auth config edge** (`lib/auth/auth.config.ts`):
+  - `session.maxAge`: da `60 * 60 * 24 * 14` (14gg) a `60 * 60 * 24` (24h). Default proposto dal piano, accettato.
+  - Callback `jwt` ora `async`. Al login (`user` presente) copia `token.passwordVersion = user.passwordVersion`. Su `trigger === "update"` legge `session.user.passwordVersion` (firma canonica) o `session.passwordVersion` (fallback) e aggiorna il token.
+  - **Check session invalidation**: quando `trigger !== "signIn" && trigger !== "update" && typeof token.userId === "string"`, fa `getPasswordVersion(token.userId)`. Mismatch col token -> return null (logout). Token senza `passwordVersion` (pre-Sessione 5) -> return null una sola volta al primo refresh post-deploy. DB irraggiungibile (`current === null`) -> lascia passare (fail-open coerente col rate-limit).
+  - Callback `session` propaga `passwordVersion` da `token` a `session.user.passwordVersion`.
+- **Server actions cambio password** (`lib/actions/utenti.ts`):
+  - `resetPasswordAction` (admin): dopo `updateUser`, chiama `incrementPasswordVersion(recordId)`. Cosi' le sessioni dell'utente target vengono invalidate al prossimo refresh.
+  - `cambiaPasswordAction` (self-service): `incrementPasswordVersion` + `unstable_update({ user: { passwordVersion: next } })` per allineare il JWT corrente, altrimenti anche questa sessione si sloggerebbe.
+  - `primoAccessoAction`: `incrementPasswordVersion` + `unstable_update({ user: { mustChangePassword: false, passwordVersion: next } })` (combinato col fix Sessione precedente che usa unstable_update invece di signOut).
+- **Edge runtime**: il jwt callback del proxy chiama `getPasswordVersion` che usa `@supabase/supabase-js`. Compatibile con Edge runtime (verificato build verde). Overhead di ~10ms per request (RTT eu-central-1 -> fra1 co-locato). Accettabile per il volume del gestionale; se diventa lento, opzioni: (a) cache TTL breve di 5-10s su getPasswordVersion che accetta un lieve ritardo di invalidazione, (b) RPC SQL atomic per ridurre round-trip.
+- **Smoke test pianificato in preview**:
+  - [ ] Login utente A -> aprire seconda finestra incognito + login utente A -> cambiare password in finestra 1 -> nella finestra 2, refresh -> deve essere sloggato.
+  - [ ] Admin resetta password di utente B -> utente B viene sloggato al refresh successivo.
+  - [ ] Login normale -> continua a funzionare per 24h.
+  - [ ] Coordinatore_educativo appena creato: login con temp -> /primo-accesso -> cambia password -> atterra /dashboard senza re-login (verifica che l'unstable_update funzioni anche con passwordVersion).
+- **Caveat noto**: tutti gli utenti gia' loggati al momento del deploy avranno un JWT senza `passwordVersion`. Il check li sloggerà al primo refresh post-deploy: dovranno re-loggare una volta sola. Comunicato come "Caveat" nella PR.
+- **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
 
 ---
 

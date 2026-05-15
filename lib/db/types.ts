@@ -23,6 +23,15 @@ export interface User {
   ruolo: Ruolo;
   attivo: boolean;
   mustChangePassword: boolean;
+  /**
+   * Versione monotonicamente crescente del materiale di autenticazione.
+   * Incrementata ad ogni cambio password (self-service / primo accesso /
+   * reset admin). Il JWT contiene la versione corrente al login; il proxy
+   * verifica ad ogni richiesta che combaci, altrimenti forza re-login.
+   * Cosi' un cambio password invalida immediatamente tutte le sessioni
+   * esistenti dell'utente.
+   */
+  passwordVersion: number;
   telegramUserId?: string;
   createdAt?: string;
   lastLogin?: string;

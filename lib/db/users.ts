@@ -15,6 +15,7 @@ function mapUser(row: UserRow): User {
     ruolo: row.ruolo as Ruolo,
     attivo: row.attivo,
     mustChangePassword: row.must_change_password,
+    passwordVersion: row.password_version,
     telegramUserId: row.telegram_user_id ?? undefined,
     createdAt: row.created_at ?? undefined,
     lastLogin: row.last_login ?? undefined,
@@ -85,6 +86,7 @@ export async function updateUser(
     attivo: boolean;
     password_hash: string;
     must_change_password: boolean;
+    password_version: number;
     telegram_user_id: string;
     last_login: string;
   }>,
@@ -108,4 +110,44 @@ export async function recordLogin(recordId: string): Promise<void> {
     .from("users")
     .update({ last_login: new Date().toISOString() })
     .eq("id", recordId);
+}
+
+/**
+ * Restituisce la password_version corrente per uno specifico utente.
+ * Usata dal callback `jwt` per validare che il token corrisponda ancora
+ * alle credenziali attive. Ritorna `null` se l'utente non esiste o se
+ * il client non e' configurato (fail-open: il token resta valido).
+ */
+export async function getPasswordVersion(recordId: string): Promise<number | null> {
+  if (!db) return null;
+  const { data, error } = await db
+    .from("users")
+    .select("password_version")
+    .eq("id", recordId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.password_version;
+}
+
+/**
+ * Incrementa atomicamente `password_version` di un utente e ritorna il
+ * nuovo valore. Sequenza select-then-update non e' atomica ma il use case
+ * (cambio password di un singolo utente, infrequente) rende il rischio di
+ * race condition trascurabile. Per atomicita' stretta migrare a RPC.
+ */
+export async function incrementPasswordVersion(recordId: string): Promise<number> {
+  if (!db) throw new Error("Supabase client non configurato");
+  const { data: cur, error: e1 } = await db
+    .from("users")
+    .select("password_version")
+    .eq("id", recordId)
+    .single();
+  if (e1) throw e1;
+  const next = (cur?.password_version ?? 0) + 1;
+  const { error: e2 } = await db
+    .from("users")
+    .update({ password_version: next })
+    .eq("id", recordId);
+  if (e2) throw e2;
+  return next;
 }
