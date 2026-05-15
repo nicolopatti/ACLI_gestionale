@@ -10,13 +10,18 @@ import {
   listSessioniByAttivita,
 } from "@/lib/db/sessioni";
 import { listModalitaByAttivita } from "@/lib/db/modalita-iscrizione";
+import { listScontiByAttivita } from "@/lib/db/sconti-attivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IscrizioneForm } from "@/components/iscrizioni/iscrizione-form";
 import { MesiTable } from "@/components/iscrizioni/mesi-table";
 import { Badge } from "@/components/ui/badge";
 import { DeleteIscrizioneButton } from "@/components/iscrizioni/delete-iscrizione-button";
 import { formatEur } from "@/lib/utils";
-import type { ModalitaIscrizione, Sessione } from "@/lib/db/types";
+import type {
+  ModalitaIscrizione,
+  ScontoAttivita,
+  Sessione,
+} from "@/lib/db/types";
 
 export default async function IscrizioneDetailPage({
   params,
@@ -44,8 +49,8 @@ export default async function IscrizioneDetailPage({
   );
 
   // Stage 2: tutto in parallelo (getAttivita opzionale, sessioni rate, sessioni
-  // e modalita per ogni attivita del form).
-  const [attivitaCorrente, sessioniRate, sessioniLists, modalitaLists] =
+  // e modalita e sconti per ogni attivita del form).
+  const [attivitaCorrente, sessioniRate, sessioniLists, modalitaLists, scontiLists] =
     await Promise.all([
       attivitaCorrenteInList
         ? Promise.resolve(attivitaCorrenteInList)
@@ -53,6 +58,7 @@ export default async function IscrizioneDetailPage({
       listSessioni({ recordIds: sessioneIdsRate }),
       Promise.all(attivita.map((a) => listSessioniByAttivita(a.recordId))),
       Promise.all(attivita.map((a) => listModalitaByAttivita(a.recordId))),
+      Promise.all(attivita.map((a) => listScontiByAttivita(a.recordId))),
     ]);
 
   const attivitaPerForm =
@@ -62,19 +68,23 @@ export default async function IscrizioneDetailPage({
 
   const sessioniByAttivita: Record<string, Sessione[]> = {};
   const modalitaByAttivita: Record<string, ModalitaIscrizione[]> = {};
+  const scontiByAttivita: Record<string, ScontoAttivita[]> = {};
   attivita.forEach((a, i) => {
     sessioniByAttivita[a.recordId] = sessioniLists[i];
     modalitaByAttivita[a.recordId] = modalitaLists[i];
+    scontiByAttivita[a.recordId] = scontiLists[i];
   });
   // Se l'attivita corrente non era fra quelle attive, caricala on-demand per
   // popolare il form (caso edge: iscrizione su attivita ora archiviata).
   if (attivitaCorrente && !attivitaCorrenteInList) {
-    const [sess, mod] = await Promise.all([
+    const [sess, mod, sc] = await Promise.all([
       listSessioniByAttivita(attivitaCorrente.recordId),
       listModalitaByAttivita(attivitaCorrente.recordId),
+      listScontiByAttivita(attivitaCorrente.recordId),
     ]);
     sessioniByAttivita[attivitaCorrente.recordId] = sess;
     modalitaByAttivita[attivitaCorrente.recordId] = mod;
+    scontiByAttivita[attivitaCorrente.recordId] = sc;
   }
 
   const sessioniById = new Map(sessioniRate.map((s) => [s.recordId, s] as const));
@@ -103,7 +113,8 @@ export default async function IscrizioneDetailPage({
           )}
           {modalitaCorrente && (
             <span>
-              · {modalitaCorrente.nome} ({formatEur(modalitaCorrente.importo)}/sessione)
+              · {modalitaCorrente.nome} ({formatEur(modalitaCorrente.importo)}
+              {modalitaCorrente.tipoPrezzo === "flat" ? " totale" : "/sessione"})
             </span>
           )}
         </div>
@@ -154,6 +165,7 @@ export default async function IscrizioneDetailPage({
             attivita={attivitaPerForm}
             sessioniByAttivita={sessioniByAttivita}
             modalitaByAttivita={modalitaByAttivita}
+            scontiByAttivita={scontiByAttivita}
           />
         </CardContent>
       </Card>
