@@ -27,3 +27,15 @@ export async function requireAdminOrCoordinatore() {
   if (r !== "admin" && r !== "coordinatore_educativo") redirect("/dashboard");
   return session;
 }
+
+/**
+ * Pagina cassa/finanze (admin + volontario_cassa). Coordinatore educativo
+ * non vede dati finanziari → redirect a /dashboard.
+ */
+export async function requireAdminOrCassa() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const r = session.user.ruolo;
+  if (r !== "admin" && r !== "volontario_cassa") redirect("/dashboard");
+  return session;
+}

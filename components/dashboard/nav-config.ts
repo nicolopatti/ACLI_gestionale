@@ -12,6 +12,7 @@ import {
   Receipt,
   Shield,
   UserCog,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { Ruolo } from "@/lib/config";
@@ -41,6 +42,7 @@ export const NAV: Record<Area, NavSection> = {
     icon: Shield,
     items: [
       { href: "/cassa", label: "Cassa e finanze", icon: Banknote },
+      { href: "/conti", label: "Saldi conti", icon: Wallet },
       { href: "/rendiconto", label: "Rendiconto ETS", icon: FileSpreadsheet },
       { href: "/categorie", label: "Categorie", icon: BookOpenCheck },
       { href: "/utenti", label: "Utenti gestionale", icon: UserCog },
@@ -73,7 +75,7 @@ export const ROLE_ACCESS: Record<Ruolo, Partial<Record<Area, string[]>>> = {
     edu: NAV.edu.items.map((i) => i.href),
   },
   volontario_cassa: {
-    amm: ["/cassa"],
+    amm: ["/cassa", "/conti"],
   },
 };
 

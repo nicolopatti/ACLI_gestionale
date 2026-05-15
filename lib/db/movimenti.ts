@@ -151,13 +151,100 @@ async function _saldiPerConto(
 /**
  * RPC Postgres `saldi_per_conto`: aggrega entrate/uscite/saldo per conto
  * lato DB invece di scaricare 1000 movimenti e fare reduce in JS. Esclude
- * automaticamente movimenti `stato = 'errato'` e giroconti.
+ * automaticamente movimenti `stato = 'errato'` e giroconti. Semantica
+ * rendiconto finanziario: usato per "Saldo totale" e per il bilancio
+ * entrate vs uscite della pagina `/cassa` (rendiconto view).
  * Filtri opzionali: anno solare, telegram_user_id.
  */
 export const saldiPerConto = unstable_cache(_saldiPerConto, ["movimenti:saldi"], {
   revalidate: 300,
   tags: ["movimenti"],
 });
+
+async function _saldiPerContoReale(
+  opts: SaldiPerContoOpts = {},
+): Promise<Record<MezzoPagamento, ContoTotali>> {
+  const empty: ContoTotali = { entrate: 0, uscite: 0, saldo: 0 };
+  const init: Record<MezzoPagamento, ContoTotali> = {
+    Cassa: { ...empty },
+    BCC: { ...empty },
+    Sumup: { ...empty },
+  };
+  if (!db) return init;
+  const { data, error } = await db.rpc("saldi_per_conto_reale", {
+    anno_filtro: opts.anno ?? undefined,
+    telegram_user_filtro: opts.telegramUserId ?? undefined,
+  });
+  if (error) throw error;
+  for (const row of data ?? []) {
+    const k = row.conto as MezzoPagamento;
+    if (k === "Cassa" || k === "BCC" || k === "Sumup") {
+      init[k] = {
+        entrate: Number(row.entrate),
+        uscite: Number(row.uscite),
+        saldo: Number(row.saldo),
+      };
+    }
+  }
+  return init;
+}
+
+/**
+ * Saldi REALI per conto: includono i giroconti. Un giroconto Cassa->BCC
+ * abbassa effettivamente Cassa e alza effettivamente BCC, e il saldo di
+ * ogni conto deve riflettere questa realta'. Usato dalla pagina `/conti`
+ * (stato cassa e c/c bancari). Da non confondere con la sorella
+ * `saldiPerConto` (esclude giroconti, semantica rendiconto).
+ */
+export const saldiPerContoReale = unstable_cache(
+  _saldiPerContoReale,
+  ["movimenti:saldi-reali"],
+  { revalidate: 300, tags: ["movimenti"] },
+);
+
+export interface MeseEntrateUscite {
+  mese: number;
+  entrate: number;
+  uscite: number;
+  netto: number;
+}
+
+async function _entrateUscitePerMese(
+  anno: number,
+  telegramUserId?: string,
+): Promise<MeseEntrateUscite[]> {
+  if (!db) {
+    return Array.from({ length: 12 }, (_, i) => ({
+      mese: i + 1,
+      entrate: 0,
+      uscite: 0,
+      netto: 0,
+    }));
+  }
+  const { data, error } = await db.rpc("entrate_uscite_per_mese", {
+    anno_filtro: anno,
+    telegram_user_filtro: telegramUserId ?? undefined,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    mese: row.mese,
+    entrate: Number(row.entrate),
+    uscite: Number(row.uscite),
+    netto: Number(row.netto),
+  }));
+}
+
+/**
+ * Aggregato entrate/uscite per ciascun mese dell'anno specificato.
+ * Semantica rendiconto: esclude giroconti e movimenti errati. Ritorna
+ * sempre 12 elementi (gen-dic, zero per i mesi senza movimenti) per
+ * disegnare il chart `/cassa` senza buchi sull'asse X.
+ */
+export const entrateUscitePerMese = unstable_cache(
+  _entrateUscitePerMese,
+  ["movimenti:per-mese"],
+  { revalidate: 300, tags: ["movimenti"] },
+);
 
 export interface CreaMovimentoInput {
   tipo: "Entrata" | "Uscita";

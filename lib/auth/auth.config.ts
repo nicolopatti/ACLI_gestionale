@@ -78,7 +78,7 @@ export const authConfig = {
       }
 
       if (ruolo === "volontario_cassa") {
-        if (path.startsWith("/cassa")) return true;
+        if (path.startsWith("/cassa") || path.startsWith("/conti")) return true;
         return Response.redirect(new URL("/cassa", nextUrl));
       }
 
