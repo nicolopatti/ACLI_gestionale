@@ -25,6 +25,7 @@ function parseModalitaForm(formData: FormData) {
     attivitaId: formData.get("attivitaId"),
     nome: formData.get("nome"),
     importo: formData.get("importo"),
+    tipoPrezzo: formData.get("tipoPrezzo") ?? undefined,
     descrizione: formData.get("descrizione"),
     attivo:
       formData.get("attivo") === "on" ||
@@ -44,6 +45,7 @@ export async function createModalitaAction(_prev: unknown, formData: FormData) {
     attivitaId: d.attivitaId,
     nome: d.nome,
     importo: d.importo,
+    tipoPrezzo: d.tipoPrezzo,
     descrizione: d.descrizione || undefined,
     attivo: d.attivo,
   });
@@ -69,6 +71,7 @@ export async function updateModalitaAction(
   await updateModalita(recordId, {
     nome: d.nome,
     importo: d.importo,
+    tipo_prezzo: d.tipoPrezzo,
     descrizione: d.descrizione || "",
     attivo: d.attivo,
   });
