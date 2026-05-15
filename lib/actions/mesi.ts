@@ -8,6 +8,7 @@ import {
   getRataPaymentContext,
   updateMese,
 } from "@/lib/db/mesi";
+import { getIscrizione } from "@/lib/db/iscrizioni";
 import { listCategorie } from "@/lib/db/categorie";
 import { createMovimento, deleteMovimento } from "@/lib/db/movimenti";
 import { logAudit } from "@/lib/db/audit-log";
@@ -17,6 +18,20 @@ async function requireAdmin() {
   const session = await auth();
   if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
   return session;
+}
+
+async function revalidateRatePaths(meseId: string) {
+  // Una mutation su una rata tocca tre viste: la lista globale, il dettaglio
+  // dell'iscrizione, la lista iscrizioni per attivita, e /cassa (perche'
+  // viene creato/cancellato un movimento collegato).
+  const rata = await getMese(meseId);
+  if (rata) {
+    revalidatePath(`/iscrizioni/${rata.iscrizioneId}`);
+    const iscr = await getIscrizione(rata.iscrizioneId);
+    if (iscr) revalidatePath(`/iscrizioni/attivita/${iscr.attivitaId}`);
+  }
+  revalidatePath("/iscrizioni");
+  revalidatePath("/cassa");
 }
 
 export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
@@ -80,8 +95,7 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
       },
     });
 
-    revalidatePath("/iscrizioni");
-    revalidatePath("/cassa");
+    await revalidateRatePaths(d.meseId);
     return { ok: true };
   } catch (err) {
     console.error("[segnaPagatoAction]", err);
@@ -112,6 +126,5 @@ export async function annullaPagamentoAction(meseId: string) {
     entityId: meseId,
     diff: { movimentoEliminatoId: rata?.movimentoCollegatoId ?? null },
   });
-  revalidatePath("/iscrizioni");
-  revalidatePath("/cassa");
+  await revalidateRatePaths(meseId);
 }

@@ -1,4 +1,5 @@
 import { SegnaPagatoDialog } from "./segna-pagato-dialog";
+import { AnnullaPagamentoButton } from "./annulla-pagamento-button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -82,7 +83,9 @@ export function MesiTable({ mesi, sessioniById }: Props) {
               <TableCell>{formatDate(m.dataPagamento)}</TableCell>
               <TableCell>{m.mezzoPagamento ?? "—"}</TableCell>
               <TableCell className="text-right">
-                {!isSconto && m.statoPagamento !== "pagato" && (
+                {isSconto ? null : m.statoPagamento === "pagato" ? (
+                  <AnnullaPagamentoButton meseId={m.recordId} />
+                ) : (
                   <SegnaPagatoDialog mese={m} />
                 )}
               </TableCell>
