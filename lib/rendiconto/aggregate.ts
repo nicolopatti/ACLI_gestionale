@@ -61,6 +61,7 @@ export function resolveVoceMovimento(
   categorie: Categoria[],
 ): VoceRendiconto | undefined {
   if (m.isGiroconto) return undefined;
+  if (m.isSaldoInizialeConto) return undefined;
   const voceById = new Map(voci.map((v) => [v.recordId, v] as const));
   const categoriaById = new Map(
     categorie.map((c) => [c.recordId, c] as const),
@@ -83,6 +84,10 @@ export function resolveVoceMovimento(
  *
  * Regole:
  * - I movimenti con `is_giroconto=true` sono esclusi (trasferimenti interni).
+ * - I movimenti con `is_saldo_iniziale_conto=true` sono esclusi (apertura
+ *   periodo della liquidita', non transazione del periodo).
+ * - I movimenti con `is_saldo_iniziale_rendiconto=true` SONO inclusi
+ *   (rappresentano entrate/uscite preesistenti non tracciate sui conti).
  * - La voce è quella esplicita (`voce_rendiconto_id`); altrimenti deriva
  *   dalla categoria (`voce_rendiconto_default_id`).
  * - Movimenti senza voce risolvibile finiscono in `nonClassificati`.
@@ -119,6 +124,10 @@ export function aggregaRendiconto(
   for (const m of movimenti) {
     if (m.isGiroconto) {
       giroconti.push(m);
+      continue;
+    }
+    if (m.isSaldoInizialeConto) {
+      // Apertura periodo della liquidita': fuori scope rendiconto.
       continue;
     }
     const voce = resolveVoce(m);

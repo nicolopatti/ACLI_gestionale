@@ -247,6 +247,21 @@ export interface Movimento {
   origine?: OrigineMovimento;
   fingerprintBank?: string;
   isGiroconto: boolean;
+  /**
+   * Movimento tecnico di "apertura periodo" per la liquidita' di un conto.
+   * Concorre solo ai saldi reali (`saldi_per_conto_reale`); escluso dal
+   * rendiconto finanziario (`saldi_per_conto`, `entrate_uscite_per_mese`)
+   * e dal rendiconto ETS (`aggregaRendiconto`). Mutualmente esclusivo con
+   * `isGiroconto` e `isSaldoInizialeRendiconto` (vincolato a livello DB).
+   */
+  isSaldoInizialeConto: boolean;
+  /**
+   * Movimento tecnico di "apertura periodo" per il rendiconto: rappresenta
+   * entrate/uscite preesistenti non tracciate sui conti. Concorre al
+   * rendiconto (finanziario + ETS) ma e' escluso dai saldi reali.
+   * Mutualmente esclusivo con `isGiroconto` e `isSaldoInizialeConto`.
+   */
+  isSaldoInizialeRendiconto: boolean;
 }
 
 export type OrigineMovimento =

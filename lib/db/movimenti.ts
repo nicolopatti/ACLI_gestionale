@@ -30,6 +30,8 @@ function mapMovimento(row: MovimentoRow): Movimento {
     origine: (row.origine as OrigineMovimento | null) ?? undefined,
     fingerprintBank: row.fingerprint_bank ?? undefined,
     isGiroconto: row.is_giroconto,
+    isSaldoInizialeConto: row.is_saldo_iniziale_conto,
+    isSaldoInizialeRendiconto: row.is_saldo_iniziale_rendiconto,
   };
 }
 
@@ -260,6 +262,8 @@ export interface CreaMovimentoInput {
   origine?: OrigineMovimento;
   fingerprintBank?: string;
   isGiroconto?: boolean;
+  isSaldoInizialeConto?: boolean;
+  isSaldoInizialeRendiconto?: boolean;
 }
 
 function buildInsertRow(
@@ -284,6 +288,8 @@ function buildInsertRow(
     origine: input.origine ?? "app",
     fingerprint_bank: input.fingerprintBank,
     is_giroconto: input.isGiroconto ?? false,
+    is_saldo_iniziale_conto: input.isSaldoInizialeConto ?? false,
+    is_saldo_iniziale_rendiconto: input.isSaldoInizialeRendiconto ?? false,
   };
 }
 
