@@ -142,22 +142,24 @@ export default async function CassaPage({
     emptyContoTotali(),
   );
 
-  // Anni disponibili = anni con almeno un movimento (no-giroconto) + anno
-  // corrente sempre presente come fallback (utente puo' voler vedere il
-  // chart vuoto per pianificare).
+  // Anni disponibili = anni con almeno un movimento (no-giroconto, no apertura
+  // periodo conto) + anno corrente sempre presente come fallback (utente puo'
+  // voler vedere il chart vuoto per pianificare).
   const anniSet = new Set<number>([annoCorrente]);
   for (const m of movimenti) {
     if (m.isGiroconto) continue;
+    if (m.isSaldoInizialeConto) continue;
     if (!m.dataMovimento) continue;
     const y = Number.parseInt(m.dataMovimento.slice(0, 4), 10);
     if (Number.isFinite(y)) anniSet.add(y);
   }
   const anniDisponibili = Array.from(anniSet).sort((a, b) => b - a);
 
-  // Lista movimenti filtrata per la tabella. Esclude i giroconti (vista
-  // rendiconto), poi applica i filtri dell'utente.
+  // Lista movimenti filtrata per la tabella. Esclude i giroconti e l'apertura
+  // periodo conto (entrambi fuori vista rendiconto). I saldi iniziali
+  // rendiconto restano visibili: concorrono al rendiconto e ai totali.
   const filtered = movimenti
-    .filter((m) => !m.isGiroconto)
+    .filter((m) => !m.isGiroconto && !m.isSaldoInizialeConto)
     .filter((m) => {
       if (tipoSel && m.tipo !== tipoSel) return false;
       if (contoSel && m.conto !== contoSel) return false;

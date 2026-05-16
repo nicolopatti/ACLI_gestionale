@@ -496,6 +496,8 @@ export type Database = {
           importo: number
           importo_segnato: number | null
           is_giroconto: boolean
+          is_saldo_iniziale_conto: boolean
+          is_saldo_iniziale_rendiconto: boolean
           note: string | null
           origine: string | null
           stato: Database["public"]["Enums"]["stato_movimento"] | null
@@ -518,6 +520,8 @@ export type Database = {
           importo: number
           importo_segnato?: number | null
           is_giroconto?: boolean
+          is_saldo_iniziale_conto?: boolean
+          is_saldo_iniziale_rendiconto?: boolean
           note?: string | null
           origine?: string | null
           stato?: Database["public"]["Enums"]["stato_movimento"] | null
@@ -540,6 +544,8 @@ export type Database = {
           importo?: number
           importo_segnato?: number | null
           is_giroconto?: boolean
+          is_saldo_iniziale_conto?: boolean
+          is_saldo_iniziale_rendiconto?: boolean
           note?: string | null
           origine?: string | null
           stato?: Database["public"]["Enums"]["stato_movimento"] | null

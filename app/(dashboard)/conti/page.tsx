@@ -32,6 +32,9 @@ export default async function ContiPage() {
     Sumup: [],
   };
   for (const m of movimenti) {
+    // I saldi iniziali (conto o rendiconto) sono setup contabile, non operazioni
+    // recenti del conto: il loro effetto e' gia' riflesso nel saldo in alto.
+    if (m.isSaldoInizialeConto || m.isSaldoInizialeRendiconto) continue;
     movimentiByConto[m.conto]?.push(m);
   }
 
