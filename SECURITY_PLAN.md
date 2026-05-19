@@ -22,8 +22,8 @@
 | 3 | Defense-in-depth auth checks + error message hardening | 🟢 basso | 2h | 🌐 in osservazione produzione (PR #29 mergeata) |
 | 4 | Rate limiting su `/login` | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #32 mergeata, PR #33 hotfix logging) |
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #43 mergeata) |
-| 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #44 mergeata) |
-| 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | 🌐 in osservazione produzione (PR #45 mergeata) |
+| 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ✅ merged (PR #44, finestra 48h chiusa 2026-05-19) |
+| 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ✅ merged (PR #45, finestra 48h chiusa 2026-05-19) |
 | 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare (aspettare che 5+6+7 siano stabili) |
 
 Totale stimato: 21-27h spalmate su 8 sessioni.
@@ -715,6 +715,7 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 **PR**: #44 mergeata in produzione (`70e5b9d`)
 **Mergeata il**: 2026-05-15
 **Osservazione fino al**: 2026-05-17 (48h)
+**Chiusura osservazione**: 2026-05-19 ✅ — smoke test SQL eseguiti via MCP Supabase: query 1 (`select at, user_email, action, entity_type, entity_id, ip from audit_log order by at desc limit 20`) ritorna 20 entries valide, ultime del 16/05 con `movimento.set_categoria` (2) + `movimento.soft_delete` (18), tutti i campi popolati. Query 2 (`select diff from audit_log where action like 'user.password%'`) ritorna `[]` (nessun cambio password dal deploy 15/05); verifica anti-leak fatta via code review su `lib/actions/utenti.ts`: le 3 password action (`resetPasswordAction:129`, `cambiaPasswordAction:163`, `primoAccessoAction:215`) non passano mai hash/cleartext nel `diff` (solo `{targetEmail}` per il reset admin, niente diff per le due self-service).
 **Note**:
 - **Migration Supabase** `create_audit_log`: nuova tabella `public.audit_log` con `id uuid PK`, `at timestamptz DEFAULT now()`, `user_id uuid REFERENCES users ON DELETE SET NULL`, `user_email text`, `action text NOT NULL`, `entity_type text`, `entity_id text`, `diff jsonb`, `ip text`, `user_agent text`. Tre indici: `(at DESC)`, `(user_id)`, `(entity_type, entity_id)`. RLS abilitata senza policy (service-role key bypassa, anon e' bloccato).
 - **Helper `lib/db/audit-log.ts`**: `logAudit(entry)` fire-and-forget. Legge `headers()` per IP (`x-forwarded-for` primo elemento) e User-Agent. Catch interno: errori sono swallowati con `console.error` per non rompere mai la business action sottostante. Type-safe via `Json` cast su `diff`.
@@ -742,6 +743,7 @@ Ogni sessione, al completamento, aggiorna questa sezione:
 **PR**: #45 mergeata in produzione (`fab34e1`)
 **Mergeata il**: 2026-05-15
 **Osservazione fino al**: 2026-05-17 (48h)
+**Chiusura osservazione**: 2026-05-19 ✅ — smoke test UI eseguiti dall'utente: `/cassa` KPI per conto coerenti col pre-merge, `/dashboard` "Saldo totale" coerente con `/cassa`, movimento creato da `/spese-edu` propaga a `/cassa` senza ritardo (cache tag `movimenti` invalidata correttamente via `revalidateTag("movimenti","max")`).
 **Note**:
 - **RPC Postgres `saldi_per_conto`** applicata via MCP (`create_saldi_per_conto_rpc`):
   ```sql
