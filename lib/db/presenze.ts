@@ -69,86 +69,37 @@ export type PresenzaInput = {
   note?: string;
 };
 
-function isAssenteImplicita(p: PresenzaInput): boolean {
-  return p.presente === undefined && !p.oraIngresso && !p.oraUscita;
-}
-
-function presenzaColumns(p: PresenzaInput) {
-  return {
-    bambino_id: p.bambinoId,
-    data: p.data,
-    presente: p.presente ?? null,
-    ora_ingresso: p.oraIngresso ?? null,
-    ora_uscita: p.oraUscita ?? null,
-    sessione_id: p.sessioneId ?? null,
-    registrato_da: p.registratoDaId ?? null,
-    note: p.note ?? null,
-  };
-}
-
 /**
- * Upsert di una singola presenza (per data + bambino).
+ * Upsert atomico di una singola presenza (chiave naturale: bambino_id + data).
+ * Delegato alla RPC `set_presenza` (SECURITY DEFINER), che usa il vincolo
+ * UNIQUE(bambino_id, data) + ON CONFLICT per evitare race su chiamate
+ * concorrenti. Caso "assente implicita" (nessun valore valorizzato): la RPC
+ * cancella la riga esistente, se presente.
  */
 export async function setPresenza(input: PresenzaInput): Promise<void> {
   if (!db) throw new Error("Supabase client non configurato");
-  const { data: existing } = await db
-    .from("presenze")
-    .select("id")
-    .eq("data", input.data)
-    .eq("bambino_id", input.bambinoId)
-    .maybeSingle();
-
-  if (isAssenteImplicita(input)) {
-    if (existing) {
-      await db.from("presenze").delete().eq("id", existing.id);
-    }
-    return;
-  }
-
-  if (existing) {
-    const { error } = await db
-      .from("presenze")
-      .update(presenzaColumns(input))
-      .eq("id", existing.id);
-    if (error) throw error;
-  } else {
-    const { error } = await db.from("presenze").insert(presenzaColumns(input));
-    if (error) throw error;
-  }
+  const { error } = await db.rpc("set_presenza", {
+    p_bambino_id: input.bambinoId,
+    p_data: input.data,
+    p_presente: input.presente ?? null,
+    p_ora_ingresso: input.oraIngresso ?? null,
+    p_ora_uscita: input.oraUscita ?? null,
+    p_sessione_id: input.sessioneId ?? null,
+    p_registrato_da: input.registratoDaId ?? null,
+    p_note: input.note ?? null,
+  });
+  if (error) throw error;
 }
 
+/**
+ * Batch di setPresenza. Atomico per singola riga (via RPC), non per l'insieme:
+ * un crash a meta' lascia le prime N salvate. Caller che hanno bisogno di
+ * tutto-o-niente devono dividere il payload o aggiungere retry idempotente.
+ */
 export async function upsertPresenze(input: PresenzaInput[]): Promise<void> {
   if (!db || input.length === 0) return;
-  const dataKey = input[0].data;
-  const giorno = await listPresenzeByData(dataKey);
-  const existingByBambino = new Map(giorno.map((p) => [p.bambinoId, p]));
-
-  const toCreate: ReturnType<typeof presenzaColumns>[] = [];
-  const toUpdate: Array<{ id: string; cols: ReturnType<typeof presenzaColumns> }> = [];
-  const toDelete: string[] = [];
-
   for (const item of input) {
-    const existing = existingByBambino.get(item.bambinoId);
-    if (isAssenteImplicita(item)) {
-      if (existing) toDelete.push(existing.recordId);
-      continue;
-    }
-    const cols = presenzaColumns(item);
-    if (existing) toUpdate.push({ id: existing.recordId, cols });
-    else toCreate.push(cols);
-  }
-
-  if (toCreate.length > 0) {
-    const { error } = await db.from("presenze").insert(toCreate);
-    if (error) throw error;
-  }
-  for (const u of toUpdate) {
-    const { error } = await db.from("presenze").update(u.cols).eq("id", u.id);
-    if (error) throw error;
-  }
-  if (toDelete.length > 0) {
-    const { error } = await db.from("presenze").delete().in("id", toDelete);
-    if (error) throw error;
+    await setPresenza(item);
   }
 }
 
