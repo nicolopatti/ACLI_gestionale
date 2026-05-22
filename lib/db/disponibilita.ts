@@ -105,8 +105,14 @@ export type TurnoCellaRow = {
 
 /**
  * Sostituisce i record di Disponibilita per una cella (data, fascia) con
- * la lista di educatori passata. Crea i record nuovi e cancella quelli
- * degli educatori rimossi.
+ * la lista di educatori passata. Diff atomico via RPC (SECURITY DEFINER):
+ * cancella gli educatori non piu' presenti e inserisce quelli nuovi in una
+ * singola transazione. Idempotente sull'UNIQUE(educatore_id, data, fascia)
+ * tramite ON CONFLICT DO NOTHING — due tab che salvano insieme stessa cella
+ * finiscono nello stesso stato finale, non in duplicati.
+ *
+ * NB: non altera ora_ingresso/ora_uscita/note degli educatori gia' presenti:
+ * coerente con TurnoCellaRow che non passa quei campi.
  */
 export async function replaceTurnoCella(
   data: string,
@@ -114,37 +120,13 @@ export async function replaceTurnoCella(
   rows: TurnoCellaRow[],
 ): Promise<void> {
   if (!db) throw new Error("Supabase client non configurato");
-  const existing = await listDisponibilitaByDataEFascia(data, fascia);
-
-  const wantedEdu = new Set(rows.map((r) => r.educatoreId));
-  const existingByEdu = new Map(existing.map((d) => [d.educatoreId, d] as const));
-
-  const toCreate: Array<Database["public"]["Tables"]["disponibilita"]["Insert"]> = [];
-  const toDeleteIds: string[] = [];
-
-  for (const r of rows) {
-    if (existingByEdu.has(r.educatoreId)) continue;
-    toCreate.push({
-      educatore_id: r.educatoreId,
-      data,
-      fascia_oraria: fascia,
-    });
-  }
-  for (const ex of existing) {
-    if (!wantedEdu.has(ex.educatoreId)) toDeleteIds.push(ex.recordId);
-  }
-
-  if (toCreate.length > 0) {
-    const { error } = await db.from("disponibilita").insert(toCreate);
-    if (error) throw error;
-  }
-  if (toDeleteIds.length > 0) {
-    const { error } = await db
-      .from("disponibilita")
-      .delete()
-      .in("id", toDeleteIds);
-    if (error) throw error;
-  }
+  const educatori = Array.from(new Set(rows.map((r) => r.educatoreId)));
+  const { error } = await db.rpc("replace_turno_cella", {
+    p_data: data,
+    p_fascia: fascia,
+    p_educatori: educatori,
+  });
+  if (error) throw error;
 }
 
 /**

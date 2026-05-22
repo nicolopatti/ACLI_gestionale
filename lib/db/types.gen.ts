@@ -1,5 +1,13 @@
-// Tipi generati automaticamente da Supabase. NON modificare a mano.
+// Tipi generati automaticamente da Supabase.
 // Per rigenerare: `pnpm db:types` (o `supabase gen types typescript --project-id <ref>`).
+//
+// NOTA: il generator non marca come nullabili i parametri delle RPC custom anche
+// quando la funzione PL/pgSQL li accetta NULL. Dopo ogni rigenerazione bisogna
+// risistemare manualmente le `Args` dei seguenti RPC perche' i caller passano
+// null in modo legittimo:
+//   - set_presenza: tutti i parametri tranne p_bambino_id/p_data sono nullable.
+//     Anche Returns e' nullable (il ramo DELETE puo' tornare NULL se non c'era
+//     niente da cancellare).
 
 export type Json =
   | string
@@ -903,6 +911,10 @@ export type Database = {
           uscite: number
         }[]
       }
+      replace_turno_cella: {
+        Args: { p_data: string; p_educatori: string[]; p_fascia: string }
+        Returns: undefined
+      }
       saldi_per_conto: {
         Args: { anno_filtro?: number; telegram_user_filtro?: string }
         Returns: {
@@ -920,6 +932,23 @@ export type Database = {
           saldo: number
           uscite: number
         }[]
+      }
+      set_presenza: {
+        Args: {
+          p_bambino_id: string
+          p_data: string
+          p_note: string | null
+          p_ora_ingresso: string | null
+          p_ora_uscita: string | null
+          p_presente: boolean | null
+          p_registrato_da: string | null
+          p_sessione_id: string | null
+        }
+        Returns: string | null
+      }
+      sync_iscrizione_sessioni: {
+        Args: { p_iscrizione_id: string; p_sessione_ids: string[] }
+        Returns: undefined
       }
       upsert_movimento_from_sheet: {
         Args: {

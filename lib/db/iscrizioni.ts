@@ -113,22 +113,16 @@ async function syncSessioniScelte(
   sessioniSelteIds: string[],
 ): Promise<void> {
   if (!db) return;
-  // Replace strategy: cancello tutte le righe di join per quella iscrizione,
-  // poi inserisco le nuove. Veloce per N piccolo (tipicamente <50).
-  const { error: delErr } = await db
-    .from("iscrizioni_sessioni")
-    .delete()
-    .eq("iscrizione_id", iscrizioneId);
-  if (delErr) throw delErr;
-  if (sessioniSelteIds.length === 0) return;
+  // Delete+insert atomici via RPC (SECURITY DEFINER): nessuna finestra di
+  // stato vuoto visibile da altre query concorrenti. La PK composta
+  // (iscrizione_id, sessione_id) sulla join table protegge anche da duplicati
+  // nell'array di input.
   const uniq = Array.from(new Set(sessioniSelteIds));
-  const { error: insErr } = await db.from("iscrizioni_sessioni").insert(
-    uniq.map((sessione_id) => ({
-      iscrizione_id: iscrizioneId,
-      sessione_id,
-    })),
-  );
-  if (insErr) throw insErr;
+  const { error } = await db.rpc("sync_iscrizione_sessioni", {
+    p_iscrizione_id: iscrizioneId,
+    p_sessione_ids: uniq,
+  });
+  if (error) throw error;
 }
 
 /**

@@ -24,7 +24,7 @@
 | 5 | JWT maxAge + session invalidation on password change | 🟡 medio | 3-4h | 🌐 in osservazione produzione (PR #43 mergeata) |
 | 6 | Audit log applicativo per operazioni sensibili | 🟡 medio | 3-4h | ✅ merged (PR #44, finestra 48h chiusa 2026-05-19) |
 | 7 | Performance: `unstable_cache` esteso + RPC aggregati | 🟡 medio | 3h | ✅ merged (PR #45, finestra 48h chiusa 2026-05-19) |
-| 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | ⏳ da fare (aspettare che 5+6+7 siano stabili) |
+| 8 | DB transactions per race conditions (presenze/iscrizioni/disponibilita) | 🔴 alto | 5-6h | 👀 in review (branch `claude/intelligent-shannon-SKzsH`, 3 RPC SECURITY DEFINER + UNIQUE su presenze, test PL/pgSQL verdi) |
 
 Totale stimato: 21-27h spalmate su 8 sessioni.
 
@@ -773,6 +773,46 @@ Ogni sessione, al completamento, aggiorna questa sezione:
   - [ ] Crea un movimento da `/spese-edu` -> aspetta un attimo -> `/cassa` mostra il saldo aggiornato (cache invalidata).
   - [ ] Cancella un movimento (`movimento.soft_delete`) -> `/cassa` mostra il saldo aggiornato.
 - **Rollback**: `git revert <merge-commit>` ripristina il codice JS. La RPC `saldi_per_conto` resta in DB inutilizzata (nessuna azione distruttiva necessaria).
+- **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
+
+### Sessione 8 — DB transactions per race conditions
+**Branch**: `claude/intelligent-shannon-SKzsH`
+**PR**: da aprire
+**Mergeata il**: —
+**Osservazione fino al**: 1 settimana dopo il deploy in produzione (tocca codice live su 3 entita': presenze, iscrizioni, turni)
+**Note**:
+- **Migration unica** `secplan_08_db_transactions` (+ hotfix `secplan_08_fix_set_presenza_time_cast` per cast `time` mancato al primo apply):
+  - `ALTER TABLE public.presenze ADD CONSTRAINT presenze_bambino_data_key UNIQUE (bambino_id, data)`. Verifica pre-flight: 0 duplicati sulla chiave, applicato senza errori. Le altre due tabelle interessate hanno gia' il vincolo: `disponibilita` UNIQUE `(educatore_id, data, fascia_oraria)` (storico cutover Supabase) e `iscrizioni_sessioni` PK composta `(iscrizione_id, sessione_id)`.
+  - **RPC `set_presenza(p_bambino_id uuid, p_data date, p_presente boolean, p_ora_ingresso text, p_ora_uscita text, p_sessione_id uuid, p_registrato_da uuid, p_note text) RETURNS uuid`**: atomic upsert con `ON CONFLICT (bambino_id, data) DO UPDATE`. Caso "assente implicita" (presente IS NULL AND ora_ingresso IS NULL AND ora_uscita IS NULL): `DELETE` invece di `INSERT`. Cast esplicito `text::time` per `ora_ingresso`/`ora_uscita` (la colonna PG e' `time without time zone`).
+  - **RPC `sync_iscrizione_sessioni(p_iscrizione_id uuid, p_sessione_ids uuid[]) RETURNS void`**: `DELETE` + `INSERT ... ON CONFLICT DO NOTHING` in una singola transazione PL/pgSQL. Gestisce NULL e array vuoto come no-op insert (dopo aver cancellato).
+  - **RPC `replace_turno_cella(p_data date, p_fascia text, p_educatori uuid[]) RETURNS void`**: diff atomico via `DELETE ... WHERE educatore_id != ALL(p_educatori)` + `INSERT ... ON CONFLICT DO NOTHING`. Array vuoto/NULL svuota completamente la cella. Non altera `ora_ingresso`/`ora_uscita`/`note` degli educatori gia' presenti (coerente con `TurnoCellaRow` che non passa quei campi).
+  - Tutte e tre le RPC sono `SECURITY DEFINER` con `SET search_path = public` (best practice anti schema-hijacking). Eseguite via `service_role` lato server (no GRANT a `anon` perche' non sono chiamate da contesti pubblici).
+- **Deviazione consapevole dal piano in SECURITY_PLAN**: il piano suggeriva chiave naturale `(bambino_id, data_presenza, fascia_oraria)` per `presenze`. Lo schema reale ha `data` (non `data_presenza`) e nessuna `fascia_oraria` sulle presenze (la fascia eventuale arriva via `sessione_id` FK opzionale). Il wrapper TS `setPresenza` lookup-ava gia' per `(bambino_id, data)` quindi la chiave naturale e' quella. Aggiungere `fascia_oraria` avrebbe richiesto refactor di business logic fuori scope.
+- **TypeScript**:
+  - Tipi rigenerati via MCP `generate_typescript_types` (`lib/db/types.gen.ts`). Il generator Supabase non marca come nullable i parametri RPC anche quando PL/pgSQL li accetta NULL — fixate a mano le `Args` di `set_presenza` con `string | null` / `boolean | null` (e `Returns: string | null` per il ramo DELETE su no-rows). Annotato nel commento di testa del file per le prossime rigenerazioni.
+  - `lib/db/presenze.ts:setPresenza` → chiama `db.rpc("set_presenza", ...)`. `lib/db/presenze.ts:upsertPresenze` → loop su `setPresenza` (bonus: rimuove anche dal batch il vecchio pattern lookup-then-insert non atomico per singola riga; il batch resta non-atomico nel suo insieme, documentato).
+  - `lib/db/iscrizioni.ts:syncSessioniScelte` → chiama `db.rpc("sync_iscrizione_sessioni", ...)`.
+  - `lib/db/disponibilita.ts:replaceTurnoCella` → chiama `db.rpc("replace_turno_cella", ...)`. `replaceDisponibilita` (educatore × mese) lasciato invariato perche' fuori scope del piano e con UNIQUE constraint a livello DB l'unico residuo e' un eventuale errore di insert su race (gestibile lato caller).
+- **Test PL/pgSQL `DO $$ ... $$` in `BEGIN ... ROLLBACK`** (verificato post-rollback: zero side effect, 4 righe `iscrizioni_sessioni` originali ripristinate):
+  - set_presenza 1a: insert nuovo → uuid valido.
+  - set_presenza 1b: upsert idempotente (stessa chiave, ore aggiornate) → 1 riga, ora_ingresso='09:30', note='update'.
+  - set_presenza 1c: assente implicita (tutti NULL) → DELETE, 0 righe rimaste.
+  - set_presenza 1d: DELETE su no-rows → RPC ritorna NULL, no crash.
+  - sync_iscrizione_sessioni 2a: array con duplicati → 1 riga (ON CONFLICT DO NOTHING dedup).
+  - sync_iscrizione_sessioni 2b: array vuoto → 0 righe.
+  - sync_iscrizione_sessioni 2c: NULL array → no-op insert (resta 0 righe dopo il delete iniziale).
+  - replace_turno_cella 3a: insert nuovo → 1 riga.
+  - replace_turno_cella 3b: stessa chiamata idempotente → ancora 1 riga.
+  - replace_turno_cella 3c: array vuoto → 0 righe (cella svuotata).
+- **Smoke test pianificato in preview/produzione**:
+  - [ ] `/presenze` toggle presenza 1-click → atomico, no duplicati anche su tap multipli rapidi.
+  - [ ] `/iscrizioni/[id]` edit modalita_id o sessioni_scelte → wipe-and-recreate funziona, nessuna finestra di stato vuoto visibile a query concorrenti.
+  - [ ] `/turni` apri stessa cella in 2 tab e salva con set diversi → ultimo salvataggio vince in modo coerente, nessun duplicato `(educatore, data, fascia)`.
+  - [ ] Tutti i flussi single-user esistenti (presenze storiche, iscrizione singola, turno singolo) funzionano identici al pre-deploy.
+- **Rollback**:
+  - `git revert <merge-commit>` ripristina il codice TS originale (lookup-then-insert per tutti e tre).
+  - Le 3 RPC restano in DB inutilizzate (nessuna azione distruttiva necessaria).
+  - **Attenzione**: il `UNIQUE (bambino_id, data)` su `presenze` resta. Il codice TS originale non ne dipende ma vi e' comunque compatibile (i suoi 3 path - select+update / select+insert / delete-via-found-id - non producono duplicati). Per un rollback completo del vincolo: `ALTER TABLE public.presenze DROP CONSTRAINT presenze_bambino_data_key;`.
 - **Build verde**: `pnpm typecheck && pnpm lint && pnpm build` puliti, 31 rotte invariate.
 
 ---
