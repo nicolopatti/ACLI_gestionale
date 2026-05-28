@@ -33,11 +33,16 @@ import type {
   Sessione,
 } from "@/lib/db/types";
 
-async function requireAdmin() {
+// Iscrizioni (CRUD + gestione rate): admin + coordinatore_educativo. L'account
+// operativo dell'associazione e' un coordinatore e gestisce le iscrizioni
+// end-to-end (pagamenti inclusi, vedi mesi.ts). Coerente con /spese-edu.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin")
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
     throw new BusinessError("Non autorizzato");
-  return session;
+  }
+  return session!;
 }
 
 function parseIscrizioneForm(formData: FormData) {
@@ -152,7 +157,13 @@ function costruisciRate(
 }
 
 export async function createIscrizioneAction(_prev: unknown, formData: FormData) {
-  const admin = await requireAdmin();
+  let actor;
+  try {
+    actor = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[createIscrizioneAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
 
   const parsed = iscrizioneSchema.safeParse(parseIscrizioneForm(formData));
   if (!parsed.success) {
@@ -226,8 +237,8 @@ export async function createIscrizioneAction(_prev: unknown, formData: FormData)
     if (rate.length > 0) await createMesi(rate);
 
     await logAudit({
-      userId: admin.user?.recordId,
-      userEmail: admin.user?.email,
+      userId: actor.user?.recordId,
+      userEmail: actor.user?.email,
       action: "iscrizione.create",
       entityType: "iscrizione",
       entityId: iscrId,
@@ -258,7 +269,13 @@ export async function updateIscrizioneAction(
   _prev: unknown,
   formData: FormData,
 ) {
-  const admin = await requireAdmin();
+  let actor;
+  try {
+    actor = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[updateIscrizioneAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = iscrizioneSchema.safeParse(parseIscrizioneForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -485,8 +502,8 @@ export async function updateIscrizioneAction(
     }
 
     await logAudit({
-      userId: admin.user?.recordId,
-      userEmail: admin.user?.email,
+      userId: actor.user?.recordId,
+      userEmail: actor.user?.email,
       action: "iscrizione.update",
       entityType: "iscrizione",
       entityId: recordId,
@@ -516,7 +533,7 @@ export async function updateIscrizioneAction(
 export async function getDeleteIscrizioneImpactAction(
   recordId: string,
 ): Promise<{ rate: number }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const rate = await listMesiByIscrizione(recordId);
   return { rate: rate.length };
 }
@@ -525,7 +542,13 @@ export async function deleteIscrizioneAction(
   recordId: string,
   options?: { redirectTo?: string },
 ) {
-  const admin = await requireAdmin();
+  let actor;
+  try {
+    actor = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[deleteIscrizioneAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   // Recupera attivitaId prima della cancellazione per poter rivalidare la
   // lista per-attivita (la chiamata da `/iscrizioni/attivita/[id]` resta
   // altrimenti su una vista stale).
@@ -537,8 +560,8 @@ export async function deleteIscrizioneAction(
     await deleteMesiByIscrizione(recordId);
     await deleteIscrizione(recordId);
     await logAudit({
-      userId: admin.user?.recordId,
-      userEmail: admin.user?.email,
+      userId: actor.user?.recordId,
+      userEmail: actor.user?.email,
       action: "iscrizione.delete",
       entityType: "iscrizione",
       entityId: recordId,
