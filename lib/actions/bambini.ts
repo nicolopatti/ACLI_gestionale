@@ -21,7 +21,9 @@ import {
 import {
   deleteMesiByIscrizione,
   listMesiByIscrizione,
+  listMovimentiIdsByIscrizioni,
 } from "@/lib/db/mesi";
+import { deleteMovimentiByIds } from "@/lib/db/movimenti";
 import {
   deletePresenzeByBambino,
   listPresenzeByBambino,
@@ -178,7 +180,13 @@ export async function updateBambinoAction(
  */
 export async function getDeleteBambinoImpactAction(
   recordId: string,
-): Promise<{ iscrizioni: number; rate: number; presenze: number; contatti: number }> {
+): Promise<{
+  iscrizioni: number;
+  rate: number;
+  movimenti: number;
+  presenze: number;
+  contatti: number;
+}> {
   await requireAdmin();
   const [iscrizioni, presenze, contatti] = await Promise.all([
     listIscrizioni({ bambinoId: recordId }),
@@ -191,9 +199,13 @@ export async function getDeleteBambinoImpactAction(
     const r = await listMesiByIscrizione(i.recordId);
     rate += r.length;
   }
+  const movimentiIds = await listMovimentiIdsByIscrizioni(
+    iscrizioni.map((i) => i.recordId),
+  );
   return {
     iscrizioni: iscrizioni.length,
     rate,
+    movimenti: movimentiIds.length,
     presenze: presenze.length,
     contatti: contatti.length,
   };
@@ -207,10 +219,15 @@ export async function deleteBambinoAction(recordId: string) {
     // restano (Airtable non ha transazioni). L'ordine sopra minimizza il danno
     // perché cancella prima le foglie.
     const iscrizioni = await listIscrizioni({ bambinoId: recordId });
+    const iscrizioneIds = iscrizioni.map((i) => i.recordId);
+    // Prima i movimenti di cassa generati dai pagamenti delle rate, altrimenti
+    // restano entrate orfane in contabilità (/cassa, /conti, /rendiconto).
+    const movimentiIds = await listMovimentiIdsByIscrizioni(iscrizioneIds);
+    await deleteMovimentiByIds(movimentiIds);
     for (const i of iscrizioni) {
       await deleteMesiByIscrizione(i.recordId);
     }
-    await deleteIscrizioniByIds(iscrizioni.map((i) => i.recordId));
+    await deleteIscrizioniByIds(iscrizioneIds);
     await deletePresenzeByBambino(recordId);
     await deleteContattiByBambino(recordId);
     await deleteBambinoAt(recordId);
@@ -219,5 +236,8 @@ export async function deleteBambinoAction(recordId: string) {
     return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
   }
   revalidatePath("/bambini");
+  revalidatePath("/cassa");
+  revalidatePath("/conti");
+  revalidatePath("/rendiconto");
   redirect("/bambini");
 }

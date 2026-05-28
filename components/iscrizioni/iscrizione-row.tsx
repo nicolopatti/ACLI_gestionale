@@ -201,7 +201,10 @@ export function IscrizioneRow({
                 const impact = await getDeleteIscrizioneImpactAction(
                   iscrizione.recordId,
                 );
-                return [{ label: "Rate (MesiIscrizione)", count: impact.rate }];
+                return [
+                  { label: "Rate (MesiIscrizione)", count: impact.rate },
+                  { label: "Movimenti di cassa", count: impact.movimenti },
+                ];
               }}
               onConfirm={async () => {
                 await deleteIscrizioneAction(iscrizione.recordId, {

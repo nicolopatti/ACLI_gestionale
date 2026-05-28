@@ -366,6 +366,24 @@ export async function deleteMovimento(id: string): Promise<void> {
   revalidateTag("movimenti", "max");
 }
 
+/**
+ * Cancella in blocco i movimenti con gli id dati. Usato quando si elimina
+ * un'iscrizione / bambino / attivita per rimuovere anche le entrate generate
+ * dai pagamenti delle rate (rate.movimento_id), altrimenti restano in
+ * contabilita' come entrate "fantasma" orfane.
+ */
+export async function deleteMovimentiByIds(ids: string[]): Promise<number> {
+  if (!db || ids.length === 0) return 0;
+  const { data, error } = await db
+    .from("movimenti")
+    .delete()
+    .in("id", ids)
+    .select("id");
+  if (error) throw error;
+  revalidateTag("movimenti", "max");
+  return (data ?? []).length;
+}
+
 export async function setCategoriaMovimento(
   movimentoId: string,
   categoriaId: string | null,

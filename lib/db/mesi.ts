@@ -254,6 +254,27 @@ export async function hasAnyRataPagataForSessione(
   return (data ?? []).length > 0;
 }
 
+/**
+ * IDs dei movimenti di cassa collegati alle rate pagate delle iscrizioni date
+ * (rate.movimento_id non nullo). Serve a rimuovere le entrate generate dai
+ * pagamenti quando si elimina un'iscrizione / un bambino / un'attivita,
+ * evitando movimenti "fantasma" orfani in contabilita'.
+ */
+export async function listMovimentiIdsByIscrizioni(
+  iscrizioneIds: string[],
+): Promise<string[]> {
+  if (!db || iscrizioneIds.length === 0) return [];
+  const { data, error } = await db
+    .from("rate")
+    .select("movimento_id")
+    .in("iscrizione_id", iscrizioneIds)
+    .not("movimento_id", "is", null);
+  if (error) throw error;
+  return (data ?? [])
+    .map((r) => r.movimento_id)
+    .filter((id): id is string => !!id);
+}
+
 export async function deleteMesiByIscrizione(
   iscrizioneId: string,
 ): Promise<number> {

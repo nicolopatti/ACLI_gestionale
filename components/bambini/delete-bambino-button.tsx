@@ -21,6 +21,7 @@ export function DeleteBambinoButton({ bambinoId }: { bambinoId: string }) {
         return [
           { label: "Iscrizioni", count: i.iscrizioni },
           { label: "Rate (MesiIscrizione)", count: i.rate },
+          { label: "Movimenti di cassa", count: i.movimenti },
           { label: "Presenze", count: i.presenze },
           { label: "Contatti aggiuntivi", count: i.contatti },
         ];
