@@ -12,12 +12,19 @@ import { getIscrizione } from "@/lib/db/iscrizioni";
 import { listCategorie } from "@/lib/db/categorie";
 import { createMovimento, deleteMovimento } from "@/lib/db/movimenti";
 import { logAudit } from "@/lib/db/audit-log";
-import { BusinessError } from "@/lib/errors";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
+// Pagamenti rate: admin + coordinatore_educativo. L'account operativo
+// dell'associazione e' un coordinatore e registra gli incassi delle iscrizioni;
+// coerente con creaMovimentoAction (/spese-edu), che gia' apre la cassa al
+// coordinatore.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
-  return session;
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
+  return session!;
 }
 
 async function revalidateRatePaths(meseId: string) {
@@ -35,7 +42,13 @@ async function revalidateRatePaths(meseId: string) {
 }
 
 export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
-  const admin = await requireAdmin();
+  let actor;
+  try {
+    actor = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[segnaPagatoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = segnaPagatoSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -57,7 +70,7 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
       ctx.rata.chiavePeriodo ? ` (${ctx.rata.chiavePeriodo})` : ""
     }`;
 
-    const volontario = admin.user?.name ?? undefined;
+    const volontario = actor.user?.name ?? undefined;
 
     const movimento = await createMovimento({
       tipo: "Entrata",
@@ -82,8 +95,8 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
     });
 
     await logAudit({
-      userId: admin.user?.recordId,
-      userEmail: admin.user?.email,
+      userId: actor.user?.recordId,
+      userEmail: actor.user?.email,
       action: "rata.segna_pagato",
       entityType: "rata",
       entityId: d.meseId,
@@ -104,27 +117,39 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
 }
 
 export async function annullaPagamentoAction(meseId: string) {
-  const admin = await requireAdmin();
-  const rata = await getMese(meseId);
-  if (rata?.movimentoCollegatoId) {
-    try {
-      await deleteMovimento(rata.movimentoCollegatoId);
-    } catch (err) {
-      console.error("[annullaPagamentoAction] delete movimento", err);
-    }
+  let actor;
+  try {
+    actor = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[annullaPagamentoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
   }
-  await updateMese(meseId, {
-    importo_pagato: 0,
-    stato_pagamento: "non_pagato",
-    movimento_collegato: [],
-  });
-  await logAudit({
-    userId: admin.user?.recordId,
-    userEmail: admin.user?.email,
-    action: "rata.annulla_pagamento",
-    entityType: "rata",
-    entityId: meseId,
-    diff: { movimentoEliminatoId: rata?.movimentoCollegatoId ?? null },
-  });
-  await revalidateRatePaths(meseId);
+  try {
+    const rata = await getMese(meseId);
+    if (rata?.movimentoCollegatoId) {
+      try {
+        await deleteMovimento(rata.movimentoCollegatoId);
+      } catch (err) {
+        console.error("[annullaPagamentoAction] delete movimento", err);
+      }
+    }
+    await updateMese(meseId, {
+      importo_pagato: 0,
+      stato_pagamento: "non_pagato",
+      movimento_collegato: [],
+    });
+    await logAudit({
+      userId: actor.user?.recordId,
+      userEmail: actor.user?.email,
+      action: "rata.annulla_pagamento",
+      entityType: "rata",
+      entityId: meseId,
+      diff: { movimentoEliminatoId: rata?.movimentoCollegatoId ?? null },
+    });
+    await revalidateRatePaths(meseId);
+    return { ok: true };
+  } catch (e) {
+    console.error("[annullaPagamentoAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
+  }
 }
