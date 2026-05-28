@@ -18,7 +18,9 @@ import {
   hasAnyRataPagata,
   hasRataPagataForSessione,
   listMesiByIscrizione,
+  listMovimentiIdsByIscrizioni,
 } from "@/lib/db/mesi";
+import { deleteMovimentiByIds } from "@/lib/db/movimenti";
 import { getAttivita } from "@/lib/db/attivita";
 import { listSessioni } from "@/lib/db/sessioni";
 import { getModalita } from "@/lib/db/modalita-iscrizione";
@@ -532,10 +534,13 @@ export async function updateIscrizioneAction(
  */
 export async function getDeleteIscrizioneImpactAction(
   recordId: string,
-): Promise<{ rate: number }> {
+): Promise<{ rate: number; movimenti: number }> {
   await requireEduOrAdmin();
-  const rate = await listMesiByIscrizione(recordId);
-  return { rate: rate.length };
+  const [rate, movimentiIds] = await Promise.all([
+    listMesiByIscrizione(recordId),
+    listMovimentiIdsByIscrizioni([recordId]),
+  ]);
+  return { rate: rate.length, movimenti: movimentiIds.length };
 }
 
 export async function deleteIscrizioneAction(
@@ -555,8 +560,12 @@ export async function deleteIscrizioneAction(
   const iscr = await getIscrizione(recordId);
   const attivitaId = iscr?.attivitaId;
   try {
-    // Cascade: prima cancella tutte le rate, poi l'iscrizione, così la
-    // tabella Rate non resta con record orfani che falsificano report e saldi.
+    // Cascade: prima i movimenti di cassa generati dai pagamenti delle rate
+    // (rate.movimento_id), poi le rate, poi l'iscrizione. Senza il primo step
+    // le entrate dei pagamenti resterebbero orfane in contabilità (/cassa,
+    // /conti, /rendiconto).
+    const movimentiIds = await listMovimentiIdsByIscrizioni([recordId]);
+    const movimentiEliminati = await deleteMovimentiByIds(movimentiIds);
     await deleteMesiByIscrizione(recordId);
     await deleteIscrizione(recordId);
     await logAudit({
@@ -565,6 +574,7 @@ export async function deleteIscrizioneAction(
       action: "iscrizione.delete",
       entityType: "iscrizione",
       entityId: recordId,
+      diff: { movimentiEliminati },
     });
   } catch (e) {
     console.error("[deleteIscrizioneAction]", e);
@@ -572,6 +582,9 @@ export async function deleteIscrizioneAction(
   }
   revalidatePath("/iscrizioni");
   if (attivitaId) revalidatePath(`/iscrizioni/attivita/${attivitaId}`);
+  revalidatePath("/cassa");
+  revalidatePath("/conti");
+  revalidatePath("/rendiconto");
   const target = options?.redirectTo ?? "/iscrizioni";
   redirect(target);
 }

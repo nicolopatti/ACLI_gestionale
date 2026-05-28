@@ -22,7 +22,9 @@ import {
 import {
   deleteMesiByIscrizione,
   listMesiByIscrizione,
+  listMovimentiIdsByIscrizioni,
 } from "@/lib/db/mesi";
+import { deleteMovimentiByIds } from "@/lib/db/movimenti";
 import {
   deleteModalitaByIds,
   listModalitaByAttivita,
@@ -145,6 +147,7 @@ export async function getDeleteAttivitaImpactAction(
   sessioni: number;
   iscrizioni: number;
   rate: number;
+  movimenti: number;
 }> {
   await requireAdmin();
   const [modalita, sessioni, iscrizioni] = await Promise.all([
@@ -157,11 +160,15 @@ export async function getDeleteAttivitaImpactAction(
     const r = await listMesiByIscrizione(i.recordId);
     rate += r.length;
   }
+  const movimentiIds = await listMovimentiIdsByIscrizioni(
+    iscrizioni.map((i) => i.recordId),
+  );
   return {
     modalita: modalita.length,
     sessioni: sessioni.length,
     iscrizioni: iscrizioni.length,
     rate,
+    movimenti: movimentiIds.length,
   };
 }
 
@@ -176,10 +183,15 @@ export async function deleteAttivitaAction(recordId: string) {
       listSessioniByAttivita(recordId),
       listModalitaByAttivita(recordId),
     ]);
+    const iscrizioneIds = iscrizioni.map((i) => i.recordId);
+    // Prima i movimenti di cassa generati dai pagamenti delle rate, altrimenti
+    // restano entrate orfane in contabilità (/cassa, /conti, /rendiconto).
+    const movimentiIds = await listMovimentiIdsByIscrizioni(iscrizioneIds);
+    await deleteMovimentiByIds(movimentiIds);
     for (const i of iscrizioni) {
       await deleteMesiByIscrizione(i.recordId);
     }
-    await deleteIscrizioniByIds(iscrizioni.map((i) => i.recordId));
+    await deleteIscrizioniByIds(iscrizioneIds);
     await deleteSessioniByIds(sessioni.map((s) => s.recordId));
     await deleteModalitaByIds(modalita.map((m) => m.recordId));
     await deleteAttivita(recordId);
@@ -188,5 +200,8 @@ export async function deleteAttivitaAction(recordId: string) {
     return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
   }
   revalidatePath("/attivita");
+  revalidatePath("/cassa");
+  revalidatePath("/conti");
+  revalidatePath("/rendiconto");
   redirect("/attivita");
 }

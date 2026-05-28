@@ -23,6 +23,7 @@ export function DeleteAttivitaButton({ attivitaId }: { attivitaId: string }) {
           { label: "Sessioni", count: i.sessioni },
           { label: "Iscrizioni", count: i.iscrizioni },
           { label: "Rate (MesiIscrizione)", count: i.rate },
+          { label: "Movimenti di cassa", count: i.movimenti },
         ];
       }}
       onConfirm={async () => {
