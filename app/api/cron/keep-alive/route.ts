@@ -9,9 +9,13 @@ export const dynamic = "force-dynamic";
  * Supabase mette in pausa i progetti Free dopo 7 giorni senza attivita' sul
  * database. In periodi morti (nessuno usa la webapp, nessun movimento da
  * Telegram) il DB vede 0 query e viene sospeso. Questo endpoint esegue una
- * query banale (`select id limit 1`) che conta come attivita': uno scheduler
- * Vercel Cron lo chiama una volta al giorno (vedi `crons` in vercel.json),
- * ben dentro la finestra di 7 giorni.
+ * query banale (`select id limit 1`) che conta come attivita'. L'endpoint e'
+ * chiamato da DUE scheduler indipendenti per ridondanza (il cron Hobby di
+ * Vercel e' best-effort e puo' saltare giorni — successo gia' osservato):
+ *   1. Vercel Cron, una volta al giorno (vedi `crons` in vercel.json);
+ *   2. GitHub Actions, ogni 6h (vedi `.github/workflows/keep-alive.yml`).
+ * Con piu' ping/giorno da sistemi diversi la finestra di 7 giorni non viene
+ * mai raggiunta anche se uno dei due scheduler salta qualche esecuzione.
  *
  * Auth: quando `CRON_SECRET` e' configurata su Vercel, le invocazioni cron
  * arrivano con header `Authorization: Bearer <CRON_SECRET>` e qui lo
@@ -51,7 +55,13 @@ export async function GET(req: Request): Promise<NextResponse> {
     );
   }
 
-  return NextResponse.json({ ok: true, at: new Date().toISOString() });
+  // Log anche sul percorso di successo: senza questo l'endpoint e' muto sui
+  // 200 e nei log runtime di Vercel non si vede se/quando il cron ha girato
+  // (lo si puo' dedurre solo dai log Supabase, retention 24h). Una riga per
+  // ogni esecuzione rende auditabile la storia del keep-alive.
+  const at = new Date().toISOString();
+  console.log(`[cron/keep-alive] ok at ${at}`);
+  return NextResponse.json({ ok: true, at });
 }
 
 /**

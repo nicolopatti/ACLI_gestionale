@@ -1,0 +1,56 @@
+# Keep-alive ridondante per il progetto Supabase (tier Free).
+#
+# Supabase mette in pausa i progetti Free dopo 7 giorni senza attivita' sul DB.
+# Esiste gia' un Vercel Cron giornaliero (vercel.json -> /api/cron/keep-alive),
+# ma il cron del piano Hobby e' best-effort e puo' saltare giorni: e' gia'
+# successo (mail di avviso Supabase del 2026-06-05 nonostante il keep-alive).
+#
+# Questo workflow e' uno scheduler INDIPENDENTE che pinga lo stesso endpoint
+# ogni 6 ore. Con due sistemi diversi che lo chiamano la finestra di 7 giorni
+# non viene mai raggiunta anche se uno dei due salta qualche esecuzione.
+#
+# Se il ping non risponde 200 il job fallisce -> GitHub manda una mail al
+# proprietario del repo: alerting gratuito se il keep-alive si rompe.
+#
+# Auth: se su Vercel e' configurata la env `CRON_SECRET`, l'endpoint richiede
+# `Authorization: Bearer <CRON_SECRET>`. In tal caso aggiungere lo STESSO
+# valore come secret del repo (Settings -> Secrets and variables -> Actions ->
+# New repository secret -> CRON_SECRET). Se su Vercel non e' configurata,
+# l'endpoint e' aperto e il secret GitHub puo' restare vuoto: il ping funziona
+# comunque (l'header con bearer vuoto viene ignorato).
+
+name: keep-alive
+
+on:
+  schedule:
+    # Ogni 6 ore (00:00, 06:00, 12:00, 18:00 UTC) -> 4 ping/giorno.
+    - cron: "0 */6 * * *"
+  # Permette di lanciarlo a mano dalla tab Actions per un test immediato.
+  workflow_dispatch:
+
+# Evita che esecuzioni schedulate sovrapposte si accavallino.
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping keep-alive endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          url="https://acli-gestionale.vercel.app/api/cron/keep-alive"
+          code=$(curl --silent --show-error --max-time 30 \
+            --output /tmp/keep-alive-body \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "$url")
+          echo "HTTP $code"
+          echo "Body: $(cat /tmp/keep-alive-body)"
+          if [ "$code" != "200" ]; then
+            echo "::error::Keep-alive ha risposto $code invece di 200"
+            exit 1
+          fi
