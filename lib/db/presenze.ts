@@ -33,9 +33,12 @@ export async function listPresenzeByData(data: string): Promise<Presenza[]> {
 
 export async function listPresenzeByMese(meseAnno: string): Promise<Presenza[]> {
   if (!db) return [];
-  // meseAnno = "YYYY-MM" -> range [YYYY-MM-01, YYYY-MM-31]
+  // meseAnno = "YYYY-MM" -> range [YYYY-MM-01, YYYY-MM-<ultimo>]
+  // Postgres rifiuta date inesistenti (es. 2026-06-31) con 22008.
+  const [y, m] = meseAnno.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
   const start = `${meseAnno}-01`;
-  const end = `${meseAnno}-31`;
+  const end = `${meseAnno}-${String(lastDay).padStart(2, "0")}`;
   const { data, error } = await db
     .from("presenze")
     .select("*")

@@ -37,11 +37,15 @@ export async function listDisponibilitaByMese(
   meseAnno: string,
 ): Promise<Disponibilita[]> {
   if (!db) return [];
+  // Postgres rifiuta date inesistenti (es. 2026-06-31) con 22008.
+  const [y, m] = meseAnno.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = `${meseAnno}-${String(lastDay).padStart(2, "0")}`;
   const { data, error } = await db
     .from("disponibilita")
     .select("*")
     .gte("data", `${meseAnno}-01`)
-    .lte("data", `${meseAnno}-31`)
+    .lte("data", end)
     .order("data");
   if (error) throw error;
   return (data ?? []).map(mapDisponibilita);
@@ -52,12 +56,15 @@ export async function listDisponibilitaByEducatoreEMese(
   meseAnno: string,
 ): Promise<Disponibilita[]> {
   if (!db) return [];
+  const [y, m] = meseAnno.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = `${meseAnno}-${String(lastDay).padStart(2, "0")}`;
   const { data, error } = await db
     .from("disponibilita")
     .select("*")
     .eq("educatore_id", educatoreId)
     .gte("data", `${meseAnno}-01`)
-    .lte("data", `${meseAnno}-31`)
+    .lte("data", end)
     .order("data");
   if (error) throw error;
   return (data ?? []).map(mapDisponibilita);
