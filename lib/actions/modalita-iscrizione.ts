@@ -15,9 +15,14 @@ import {
 import { deleteMesiByIscrizione } from "@/lib/db/mesi";
 import { BusinessError } from "@/lib/errors";
 
-async function requireAdmin() {
+// Modalita' di iscrizione (CRUD), sotto-risorsa di /attivita/[id]: admin +
+// coordinatore_educativo, coerente con attivita.ts.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
 }
 
 function parseModalitaForm(formData: FormData) {
@@ -35,7 +40,7 @@ function parseModalitaForm(formData: FormData) {
 }
 
 export async function createModalitaAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const parsed = modalitaIscrizioneSchema.safeParse(parseModalitaForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -59,7 +64,7 @@ export async function updateModalitaAction(
   _prev: unknown,
   formData: FormData,
 ) {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const parsed = modalitaIscrizioneSchema.safeParse({
     ...parseModalitaForm(formData),
     attivitaId,
@@ -86,13 +91,13 @@ export async function updateModalitaAction(
 export async function getDeleteModalitaImpactAction(
   recordId: string,
 ): Promise<{ iscrizioni: number }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const iscr = await listIscrizioniByModalita(recordId);
   return { iscrizioni: iscr.length };
 }
 
 export async function deleteModalitaAction(recordId: string, attivitaId: string) {
-  await requireAdmin();
+  await requireEduOrAdmin();
   // Cascade: ogni iscrizione che usa questa modalità perderebbe il prezzo,
   // quindi la cancello (con le sue rate sotto). Per non lasciare iscrizioni
   // "stub" senza modalità definita.

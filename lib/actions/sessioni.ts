@@ -12,9 +12,14 @@ import { listAllMesi } from "@/lib/db/mesi";
 import { deriveChiaveEtichetta } from "@/lib/sessioni-utils";
 import { BusinessError } from "@/lib/errors";
 
-async function requireAdmin() {
+// Sessioni (CRUD), sotto-risorsa di /attivita/[id]: admin +
+// coordinatore_educativo, coerente con attivita.ts.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
 }
 
 function parseSessioneForm(formData: FormData) {
@@ -27,7 +32,7 @@ function parseSessioneForm(formData: FormData) {
 }
 
 export async function createSessioneAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const parsed = sessioneSchema.safeParse(parseSessioneForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -57,7 +62,7 @@ export async function createSessioneAction(_prev: unknown, formData: FormData) {
 export async function getDeleteSessioneImpactAction(
   sessioneId: string,
 ): Promise<{ rateNonPagate: number; bloccatoDaPagate: boolean }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const blocked = await hasAnyRataPagataForSessione(sessioneId);
   if (blocked) return { rateNonPagate: 0, bloccatoDaPagate: true };
   const all = await listAllMesi();
@@ -71,7 +76,7 @@ export async function deleteSessioneAction(
   sessioneId: string,
   attivitaId: string,
 ): Promise<{ ok: true } | { error: string }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   if (await hasAnyRataPagataForSessione(sessioneId)) {
     return {
       error:
