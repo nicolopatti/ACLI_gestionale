@@ -13,11 +13,6 @@ import {
 import { dowToGiorno, type FasciaOraria, type GiornoSettimana } from "@/lib/config";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
-}
-
 async function requireEduOrAdmin() {
   const session = await auth();
   const ruolo = session?.user?.ruolo;
@@ -31,7 +26,12 @@ async function requireEduOrAdmin() {
  * lista di slot, poi sincronizza la tabella `Disponibilita` per quel mese.
  */
 export async function salvaDisponibilitaAction(formData: FormData) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[salvaDisponibilitaAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const educatoreId = String(formData.get("educatoreId") ?? "");
   const meseAnno = String(formData.get("meseAnno") ?? "");
 

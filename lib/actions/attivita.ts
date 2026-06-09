@@ -32,9 +32,16 @@ import {
 import { primoEUltimoGiornoDelMese } from "@/lib/sessioni-utils";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
+// Attivita' + sessioni/modalita'/sconti (CRUD): admin + coordinatore_educativo.
+// Le pagine /attivita* sono gia' aperte al coordinatore
+// (requireAdminOrCoordinatore). Guard dentro try/catch per non far crashare la
+// Server Action su ruolo non autorizzato. Coerente con iscrizioni.ts.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
 }
 
 function parseAttivitaForm(formData: FormData) {
@@ -58,7 +65,12 @@ function parseAttivitaForm(formData: FormData) {
 }
 
 export async function createAttivitaAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[createAttivitaAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = attivitaSchema.safeParse(parseAttivitaForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -110,7 +122,12 @@ export async function updateAttivitaAction(
   _prev: unknown,
   formData: FormData,
 ) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[updateAttivitaAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = attivitaSchema.safeParse(parseAttivitaForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -149,7 +166,7 @@ export async function getDeleteAttivitaImpactAction(
   rate: number;
   movimenti: number;
 }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const [modalita, sessioni, iscrizioni] = await Promise.all([
     listModalitaByAttivita(recordId),
     listSessioniByAttivita(recordId),
@@ -173,7 +190,12 @@ export async function getDeleteAttivitaImpactAction(
 }
 
 export async function deleteAttivitaAction(recordId: string) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[deleteAttivitaAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   try {
     // Cascade dal basso verso l'alto: rate → iscrizioni → sessioni/modalità →
     // attività. Le rate vanno per ogni iscrizione perché il loro link punta lì,

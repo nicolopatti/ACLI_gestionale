@@ -13,11 +13,16 @@ import {
 import { logAudit } from "@/lib/db/audit-log";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
+// Sconti attivita' (CRUD), sotto-risorsa di /attivita/[id]: admin +
+// coordinatore_educativo, coerente con attivita.ts. Ritorna la session cosi'
+// l'audit log registra chi (admin o coordinatore) ha fatto l'operazione.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin")
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
     throw new BusinessError("Non autorizzato");
-  return session;
+  }
+  return session!;
 }
 
 function parseScontoForm(formData: FormData) {
@@ -41,7 +46,13 @@ function parseScontoForm(formData: FormData) {
 }
 
 export async function createScontoAction(_prev: unknown, formData: FormData) {
-  const admin = await requireAdmin();
+  let admin;
+  try {
+    admin = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[createScontoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = scontoAttivitaSchema.safeParse(parseScontoForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -85,7 +96,13 @@ export async function updateScontoAction(
   _prev: unknown,
   formData: FormData,
 ) {
-  const admin = await requireAdmin();
+  let admin;
+  try {
+    admin = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[updateScontoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = scontoAttivitaSchema.safeParse({
     ...parseScontoForm(formData),
     attivitaId,
@@ -122,13 +139,19 @@ export async function updateScontoAction(
 export async function getDeleteScontoImpactAction(
   recordId: string,
 ): Promise<{ iscrizioni: number }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const iscrizioni = await countIscrizioniByScontoId(recordId);
   return { iscrizioni };
 }
 
 export async function deleteScontoAction(recordId: string, attivitaId: string) {
-  const admin = await requireAdmin();
+  let admin;
+  try {
+    admin = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[deleteScontoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   try {
     const sconto = await getSconto(recordId);
     await deleteSconto(recordId);

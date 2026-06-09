@@ -33,6 +33,12 @@ interface ContattoRow {
 const SELECT_CLASS =
   "flex h-9 w-full rounded-md border border-[var(--border)] bg-transparent px-3 text-sm shadow-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 
+// Grado scolastico del bambino. Lista chiusa per uniformare i dati (prima era
+// testo libero). Un eventuale valore storico fuori lista viene comunque
+// preservato nel select (vedi sotto), cosi' modificare una scheda vecchia non
+// lo cancella.
+const SCUOLA_OPZIONI = ["Infanzia", "Primaria", "Secondaria"];
+
 function emptyContatto(): ContattoRow {
   return { ruolo: "altro", nome: "", cognome: "", telefono: "", note: "" };
 }
@@ -133,7 +139,22 @@ export function BambinoForm({ bambino, bambini, contatti }: Props) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="scuola">Scuola</Label>
-            <Input id="scuola" name="scuola" defaultValue={bambino?.scuola ?? ""} />
+            <select
+              id="scuola"
+              name="scuola"
+              defaultValue={bambino?.scuola ?? ""}
+              className={SELECT_CLASS}
+            >
+              <option value="">— Seleziona —</option>
+              {SCUOLA_OPZIONI.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+              {bambino?.scuola && !SCUOLA_OPZIONI.includes(bambino.scuola) && (
+                <option value={bambino.scuola}>{bambino.scuola}</option>
+              )}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="classe">Classe</Label>

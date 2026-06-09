@@ -13,11 +13,18 @@ import {
   deleteDisponibilitaByEducatore,
   listDisponibilitaByEducatore,
 } from "@/lib/db/disponibilita";
-import { BusinessError } from "@/lib/errors";
+import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
+// Anagrafica educatori (CRUD): admin + coordinatore_educativo. Le pagine
+// /educatori* sono gia' aperte al coordinatore (requireAdminOrCoordinatore).
+// Guard dentro try/catch per evitare il crash della Server Action su ruolo
+// non autorizzato. Coerente con iscrizioni.ts / presenze.ts.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
 }
 
 function parseEducatoreForm(formData: FormData) {
@@ -35,22 +42,34 @@ function parseEducatoreForm(formData: FormData) {
 }
 
 export async function createEducatoreAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[createEducatoreAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = educatoreSchema.safeParse(parseEducatoreForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  const created = await createEducatore({
-    nome: d.nome,
-    cognome: d.cognome,
-    email: d.email || undefined,
-    telefono: d.telefono || undefined,
-    note: d.note || undefined,
-    attivo: d.attivo,
-  });
+  let createdId: string;
+  try {
+    const created = await createEducatore({
+      nome: d.nome,
+      cognome: d.cognome,
+      email: d.email || undefined,
+      telefono: d.telefono || undefined,
+      note: d.note || undefined,
+      attivo: d.attivo,
+    });
+    createdId = created.recordId;
+  } catch (e) {
+    console.error("[createEducatoreAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
+  }
   revalidatePath("/educatori");
-  redirect(`/educatori/${created.recordId}`);
+  redirect(`/educatori/${createdId}`);
 }
 
 export async function updateEducatoreAction(
@@ -58,20 +77,30 @@ export async function updateEducatoreAction(
   _prev: unknown,
   formData: FormData,
 ) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[updateEducatoreAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = educatoreSchema.safeParse(parseEducatoreForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
   }
   const d = parsed.data;
-  await updateEducatore(recordId, {
-    nome: d.nome,
-    cognome: d.cognome,
-    email: d.email || undefined,
-    telefono: d.telefono || undefined,
-    note: d.note || undefined,
-    attivo: d.attivo,
-  });
+  try {
+    await updateEducatore(recordId, {
+      nome: d.nome,
+      cognome: d.cognome,
+      email: d.email || undefined,
+      telefono: d.telefono || undefined,
+      note: d.note || undefined,
+      attivo: d.attivo,
+    });
+  } catch (e) {
+    console.error("[updateEducatoreAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
+  }
   revalidatePath("/educatori");
   revalidatePath(`/educatori/${recordId}`);
   return { ok: true };
@@ -85,15 +114,25 @@ export async function updateEducatoreAction(
 export async function getDeleteEducatoreImpactAction(
   recordId: string,
 ): Promise<{ disponibilita: number }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const dispo = await listDisponibilitaByEducatore(recordId);
   return { disponibilita: dispo.length };
 }
 
 export async function deleteEducatoreAction(recordId: string) {
-  await requireAdmin();
-  await deleteDisponibilitaByEducatore(recordId);
-  await deleteEducatore(recordId);
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[deleteEducatoreAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
+  try {
+    await deleteDisponibilitaByEducatore(recordId);
+    await deleteEducatore(recordId);
+  } catch (e) {
+    console.error("[deleteEducatoreAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'eliminazione") };
+  }
   revalidatePath("/educatori");
   revalidatePath("/turni");
   redirect("/educatori");

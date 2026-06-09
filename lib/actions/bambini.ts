@@ -30,9 +30,18 @@ import {
 } from "@/lib/db/presenze";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
+// Anagrafica bambini (CRUD): admin + coordinatore_educativo. Le pagine
+// /bambini* sono gia' aperte al coordinatore (requireAdminOrCoordinatore),
+// che e' l'account operativo dell'associazione e gestisce l'anagrafica
+// end-to-end. Coerente con iscrizioni.ts / presenze.ts. Il guard va invocato
+// dentro try/catch: cosi' un ruolo non autorizzato riceve un errore leggibile
+// invece di far crashare la Server Action ("this page couldn't load").
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
 }
 
 /**
@@ -83,7 +92,12 @@ function parseBambinoForm(formData: FormData) {
 }
 
 export async function createBambinoAction(_prev: unknown, formData: FormData) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[createBambinoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = bambinoSchema.safeParse(parseBambinoForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -133,7 +147,12 @@ export async function updateBambinoAction(
   _prev: unknown,
   formData: FormData,
 ) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[updateBambinoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   const parsed = bambinoSchema.safeParse(parseBambinoForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
@@ -187,7 +206,7 @@ export async function getDeleteBambinoImpactAction(
   presenze: number;
   contatti: number;
 }> {
-  await requireAdmin();
+  await requireEduOrAdmin();
   const [iscrizioni, presenze, contatti] = await Promise.all([
     listIscrizioni({ bambinoId: recordId }),
     listPresenzeByBambino(recordId),
@@ -212,7 +231,12 @@ export async function getDeleteBambinoImpactAction(
 }
 
 export async function deleteBambinoAction(recordId: string) {
-  await requireAdmin();
+  try {
+    await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[deleteBambinoAction]", e);
+    return { error: userErrorMessage(e, "Non autorizzato") };
+  }
   try {
     // Cascade order: prima i nipoti (rate), poi i figli (iscrizioni/presenze/
     // contatti), infine il bambino. Se uno step fallisce, gli step già fatti

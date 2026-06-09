@@ -6,10 +6,16 @@ import { setPresenza, upsertPresenze } from "@/lib/db/presenze";
 import { oraSchema, presenzeBatchSchema } from "@/lib/validations/presenza";
 import { BusinessError, userErrorMessage } from "@/lib/errors";
 
-async function requireAdmin() {
+// Presenze (toggle + batch): admin + coordinatore_educativo. La pagina
+// /presenze e' gia' aperta al coordinatore (requireAdminOrCoordinatore), che
+// e' l'account operativo che registra le presenze. Coerente con iscrizioni.ts.
+async function requireEduOrAdmin() {
   const session = await auth();
-  if (session?.user?.ruolo !== "admin") throw new BusinessError("Non autorizzato");
-  return session;
+  const ruolo = session?.user?.ruolo;
+  if (ruolo !== "admin" && ruolo !== "coordinatore_educativo") {
+    throw new BusinessError("Non autorizzato");
+  }
+  return session!;
 }
 
 /**
@@ -26,7 +32,7 @@ export async function setPresenzaAction(input: {
 }): Promise<{ ok?: boolean; error?: string }> {
   let session;
   try {
-    session = await requireAdmin();
+    session = await requireEduOrAdmin();
   } catch (e) {
     console.error("[setPresenzaAction]", e);
     return { error: userErrorMessage(e, "Errore durante l'operazione") };
@@ -62,7 +68,13 @@ export async function setPresenzaAction(input: {
 }
 
 export async function salvaPresenzeAction(formData: FormData) {
-  const session = await requireAdmin();
+  let session;
+  try {
+    session = await requireEduOrAdmin();
+  } catch (e) {
+    console.error("[salvaPresenzeAction]", e);
+    return { error: userErrorMessage(e, "Errore durante l'operazione") };
+  }
   const data = String(formData.get("data") ?? "");
   const attivitaId = String(formData.get("attivitaId") ?? "");
 
@@ -99,7 +111,12 @@ export async function salvaPresenzeAction(formData: FormData) {
     oraUscita: r.oraUscita || undefined,
     registratoDaId: session.user?.recordId,
   }));
-  await upsertPresenze(input);
+  try {
+    await upsertPresenze(input);
+  } catch (e) {
+    console.error("[salvaPresenzeAction]", e);
+    return { error: userErrorMessage(e, "Errore durante il salvataggio") };
+  }
   revalidatePath("/presenze");
   return { ok: true };
 }
