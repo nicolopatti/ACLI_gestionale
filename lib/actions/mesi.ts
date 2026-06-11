@@ -59,31 +59,46 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
     const ctx = await getRataPaymentContext(d.meseId);
     if (!ctx) return { error: "Rata non trovata" };
 
-    // Categoria "Quote iscrizione" (default per pagamenti da iscrizione).
-    const categorie = await listCategorie();
-    const categoriaQuote = categorie.find(
-      (c) =>
-        c.tipo === "Entrata" && c.nome.toLowerCase() === "quote iscrizione",
-    );
+    // Anti doppio conteggio: i pagamenti via BCC o SumUp arrivano gia' in
+    // contabilita' quando si importa l'estratto conto (/cassa/import), quindi
+    // NON creiamo qui un movimento per loro. Solo i contanti (Cassa), che non
+    // transitano da nessun estratto conto, vengono registrati subito come
+    // Entrata. La rata resta comunque marcata "pagato" in ogni caso (serve per
+    // morosita'/avanzamento), semplicemente senza movimento collegato per
+    // BCC/SumUp.
+    const isContanti = d.mezzoPagamento === "Cassa";
+    let movimentoId: string | undefined;
+    let movimentoRecordId: string | undefined;
 
-    const descrizione = `${ctx.attivitaNome} - ${ctx.bambinoNome} ${ctx.bambinoCognome}${
-      ctx.rata.chiavePeriodo ? ` (${ctx.rata.chiavePeriodo})` : ""
-    }`;
+    if (isContanti) {
+      // Categoria "Quote iscrizione" (default per pagamenti da iscrizione).
+      const categorie = await listCategorie();
+      const categoriaQuote = categorie.find(
+        (c) =>
+          c.tipo === "Entrata" && c.nome.toLowerCase() === "quote iscrizione",
+      );
 
-    const volontario = actor.user?.name ?? undefined;
+      const descrizione = `${ctx.attivitaNome} - ${ctx.bambinoNome} ${ctx.bambinoCognome}${
+        ctx.rata.chiavePeriodo ? ` (${ctx.rata.chiavePeriodo})` : ""
+      }`;
 
-    const movimento = await createMovimento({
-      tipo: "Entrata",
-      importo: d.importoPagato,
-      conto: d.mezzoPagamento,
-      dataMovimento: d.dataPagamento,
-      categoriaId: categoriaQuote?.recordId,
-      voceRendicontoId: categoriaQuote?.voceRendicontoDefaultId,
-      descrizione,
-      volontario,
-      note: d.note || undefined,
-      origine: "rata",
-    });
+      const volontario = actor.user?.name ?? undefined;
+
+      const movimento = await createMovimento({
+        tipo: "Entrata",
+        importo: d.importoPagato,
+        conto: d.mezzoPagamento,
+        dataMovimento: d.dataPagamento,
+        categoriaId: categoriaQuote?.recordId,
+        voceRendicontoId: categoriaQuote?.voceRendicontoDefaultId,
+        descrizione,
+        volontario,
+        note: d.note || undefined,
+        origine: "rata",
+      });
+      movimentoId = movimento.id;
+      movimentoRecordId = movimento.recordId;
+    }
 
     await updateMese(d.meseId, {
       importo_pagato: d.importoPagato,
@@ -91,7 +106,7 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
       mezzo_pagamento: d.mezzoPagamento,
       stato_pagamento: "pagato",
       note: d.note || "",
-      movimento_collegato: [movimento.id],
+      movimento_collegato: movimentoId ? [movimentoId] : [],
     });
 
     await logAudit({
@@ -104,7 +119,8 @@ export async function segnaPagatoAction(_prev: unknown, formData: FormData) {
         importoPagato: d.importoPagato,
         dataPagamento: d.dataPagamento,
         mezzoPagamento: d.mezzoPagamento,
-        movimentoId: movimento.recordId,
+        movimentoId: movimentoRecordId ?? null,
+        movimentoCreato: isContanti,
       },
     });
 

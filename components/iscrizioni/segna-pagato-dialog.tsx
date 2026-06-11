@@ -27,6 +27,7 @@ function periodoLabel(m: MeseIscrizione): string {
 
 export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
   const [open, setOpen] = useState(false);
+  const [mezzo, setMezzo] = useState<string>("Cassa");
   const fb = useActionFeedback({
     successToast: "Pagamento registrato",
     onSuccess: () => {
@@ -86,7 +87,8 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
               id="mezzoPagamento"
               name="mezzoPagamento"
               required
-              defaultValue="Cassa"
+              value={mezzo}
+              onChange={(e) => setMezzo(e.target.value)}
               className="flex h-9 w-full rounded-md border border-[var(--border)] bg-transparent px-3 text-sm"
             >
               {MEZZI_PAGAMENTO.map((m) => (
@@ -95,6 +97,19 @@ export function SegnaPagatoDialog({ mese }: { mese: MeseIscrizione }) {
                 </option>
               ))}
             </select>
+            <p className="text-xs text-[var(--ink-2)]">
+              {mezzo === "Cassa" ? (
+                <>
+                  Pagamento in contanti: verrà registrato subito in contabilità
+                  come entrata.
+                </>
+              ) : (
+                <>
+                  Nessun movimento in contabilità: l&apos;incasso verrà rilevato
+                  caricando l&apos;estratto conto, per evitare doppi conteggi.
+                </>
+              )}
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="note">Note</Label>
