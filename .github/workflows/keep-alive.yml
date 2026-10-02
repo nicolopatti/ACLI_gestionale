@@ -18,6 +18,12 @@
 # New repository secret -> CRON_SECRET). Se su Vercel non e' configurata,
 # l'endpoint e' aperto e il secret GitHub puo' restare vuoto: il ping funziona
 # comunque (l'header con bearer vuoto viene ignorato).
+#
+# Auto-disable GitHub: i workflow schedulati vengono disattivati dopo 60 giorni
+# senza attivita' sul repo (mail "will be disabled soon" ricevuta il
+# 2026-10-02). Lo step "Self keep-alive" richiama l'API `enable` sul workflow
+# stesso: resetta il contatore di inattivita' senza commit finti (stesso
+# meccanismo di liskin/gh-workflow-keepalive). Richiede `actions: write`.
 
 name: keep-alive
 
@@ -32,6 +38,9 @@ on:
 concurrency:
   group: keep-alive
   cancel-in-progress: false
+
+permissions:
+  actions: write
 
 jobs:
   ping:
@@ -54,3 +63,12 @@ jobs:
             echo "::error::Keep-alive ha risposto $code invece di 200"
             exit 1
           fi
+
+      - name: Self keep-alive (evita la disattivazione dopo 60gg)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PUT \
+            "repos/${{ github.repository }}/actions/workflows/keep-alive.yml/enable"
+          echo "Workflow riabilitato: contatore inattivita' azzerato"
